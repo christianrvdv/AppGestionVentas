@@ -1,0 +1,106 @@
+###> symfony/framework-bundle ###
+/.env.local
+/.env.local.php
+/.env.*.local
+/config/secrets/prod/prod.decrypt.private.php
+/public/bundles/
+/var/
+/vendor/
+###< symfony/framework-bundle ###
+
+###> phpunit/phpunit ###
+/phpunit.xml
+/.phpunit.cache/
+###< phpunit/phpunit ###
+
+###> symfony/asset-mapper ###
+/public/assets/
+/assets/vendor/
+###< symfony/asset-mapper ###
+
+###> doctrine/doctrine-bundle ###
+# Migraciones generadas localmente que aún no se quieren commitear
+# Descomenta si en algún momento quieres ignorarlas temporalmente
+# /migrations/*.php
+###< doctrine/doctrine-bundle ###
+
+###> php ###
+.php-cs-fixer.cache
+.php-cs-fixer.php
+.phpunit.result.cache
+.phpactor.json
+###< php ###
+
+###> composer ###
+/composer.phar
+###< composer ###
+
+###> symfony/phpunit-bridge ###
+.phpunit.result.cache
+/symfony.lock
+###< symfony/phpunit-bridge ###
+
+###> IDE / Editores ###
+# PhpStorm / IntelliJ
+/.idea/
+*.iml
+*.ipr
+*.iws
+# VS Code
+/.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json.example
+# Sublime
+*.sublime-project
+*.sublime-workspace
+# NetBeans
+/nbproject/
+# Vim
+*.swp
+*.swo
+*~
+###< IDE / Editores ###
+
+###> Sistema Operativo ###
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+# Linux
+*~
+.directory
+###< Sistema Operativo ###
+
+###> Herramientas de agente / local ###
+# OpenCode y otros agentes: estado local, no contexto compartido
+/.omo/
+/.opencode/
+# Historial local de algunas herramientas
+.history/
+###< Herramientas de agente / local ###
+
+###> Logs y temporales ###
+*.log
+/tmp/
+/var/log/
+###< Logs y temporales ###
+
+###> Entorno y secretos locales ###
+# Archivos de entorno locales (no versionar credenciales reales)
+.env
+.env.local
+.env.*.local
+.env.local.php
+.env.dev
+.env.test
+# Secretos de Symfony
+/config/secrets/*/*.decrypt.private.php
+###< Entorno y secretos locales ###
