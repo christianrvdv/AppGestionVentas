@@ -12,45 +12,26 @@ use InvalidArgumentException;
  * Usa bcmath exclusivamente. Nunca float.
  * Redondeo ROUND_HALF_UP a la escala configurada (por defecto 2 decimales).
  *
- * DECISIÓN: No se usa moneyphp/money ni brick/money.
- * RAZONES (ADR-0001):
- *   1. Dependencia extra para una necesidad simple: solo aritmética decimal
- *      con escala fija, sin intercambio de divisas, sin parsing de locale,
- *      sin formateo complejo.
- *   2. moneyphp/money requiere PHP 8.1+ pero su Money\Currency usa códigos
- *      ISO 4217 estrictos; nuestro baseCurrency es configurable por tenant
- *      (p.ej. "ARS", "USD", "COP") y no queremos validar contra lista ISO.
- *   3. brick/money es excelente pero añade ~50 clases al vendor; para un
- *      dominio que solo necesita add/sub/mul/div/compare/zero/isZero, el
- *      ratio valor/complejidad no justifica la dependencia.
- *   4. Mantener el control total del redondeo (ROUND_HALF_UP, escala
- *      configurable por tenant vía SettingsService) es más simple con
- *      bcmath directo que configurar un Context en librerías externas.
- *   5. Si en el futuro se necesita multi-moneda real (conversión, FX),
- *      se puede migrar a brick/money sin romper la interfaz pública de
- *      esta clase (los métodos seguirían devolviendo Money).
+ * DECISIÓN: No se usa moneyphp/money ni brick/money (ADR-0001).
  *
  * @immutable
  *
- * @method static Money of(string $amount, string $currency) Crea instancia validando formato.
- * @method static Money zero(string $currency) Crea cero en la moneda dada.
- *
  * EJEMPLOS MENTALMENTE VERIFICABLES:
- *   Money::of('100.00', 'ARS')->add(Money::of('50.00', 'ARS'))->format() === '150.00'
- *   Money::of('100.00', 'ARS')->sub(Money::of('30.00', 'ARS'))->format() === '70.00'
- *   Money::of('100.00', 'ARS')->mul('1.21')->format() === '121.00'   (IVA 21%)
- *   Money::of('121.00', 'ARS')->div('1.21')->format() === '100.00'
+ *   Money::of('100.00', 'ARS')->add(Money::of('50.00', 'ARS'))->getAmount() === '150.00'
+ *   Money::of('100.00', 'ARS')->sub(Money::of('30.00', 'ARS'))->getAmount() === '70.00'
+ *   Money::of('100.00', 'ARS')->mul('1.21')->getAmount() === '121.00'
+ *   Money::of('121.00', 'ARS')->div('1.21')->getAmount() === '100.00'
  *   Money::of('100.00', 'ARS')->compare(Money::of('99.99', 'ARS')) === 1
  *   Money::of('0.00', 'ARS')->isZero() === true
  *   Money::of('-10.00', 'ARS')->isNegative() === true
  *   Money::of('10.00', 'ARS')->isPositive() === true
- *   Money::of('-10.00', 'ARS')->abs()->format() === '10.00'
- *   Money::of('10.00', 'ARS')->negate()->format() === '-10.00'
+ *   Money::of('-10.00', 'ARS')->abs()->getAmount() === '10.00'
+ *   Money::of('10.00', 'ARS')->negate()->getAmount() === '-10.00'
  *   Money::of('0.01', 'ARS')->div('2')->getAmount() === '0.01'     (HALF_UP: 0.005 → 0.01)
- *   Money::of('2.345', 'ARS')->getAmount() === '2.35'               (HALF_UP)
- *   Money::of('0.99', 'ARS', 0)->getAmount() === '1'                (HALF_UP escala 0)
- *   Money::of('.50', 'ARS')->getAmount() === '0.50'                 (formato .50 válido)
- *   Money::of('-.50', 'ARS')->getAmount() === '-0.50'               (formato -.50 válido)
+ *   Money::of('2.345', 'ARS')->getAmount() === '2.35'              (HALF_UP)
+ *   Money::of('0.99', 'ARS', 0)->getAmount() === '1'               (HALF_UP escala 0)
+ *   Money::of('.50', 'ARS')->getAmount() === '0.50'
+ *   Money::of('-.50', 'ARS')->getAmount() === '-0.50'
  *   Money::of('10.00', 'ARS')->equals(Money::of('10.00', 'ARS')) === true
  *   Money::of('10.00', 'ARS')->equals(Money::of('10.01', 'ARS')) === false
  */
@@ -65,28 +46,15 @@ final class Money
     /** @var int Escala (decimales) usada para redondeo */
     private int $scale;
 
-    /**
-     * Constructor privado. Usar of() o zero().
-     *
-     * @param string $amount   Cantidad ya normalizada a $scale decimales
-     * @param string $currency Código de moneda (3 letras, no validado contra ISO)
-     * @param int    $scale    Decimales (por defecto 2)
-     */
     private function __construct(string $amount, string $currency, int $scale = 2)
     {
-        $this->amount   = $amount;
+        $this->amount = $amount;
         $this->currency = strtoupper($currency);
-        $this->scale    = $scale;
+        $this->scale = $scale;
     }
 
     /**
-     * Crea Money desde string, normalizando a la escala dada.
-     *
-     * @param string $amount   Ej: '100', '100.5', '100.50', '.50', '-10.5'
-     * @param string $currency Código de moneda (ej. 'ARS', 'USD')
-     * @param int    $scale    Decimales (por defecto 2)
-     *
-     * @throws InvalidArgumentException Si $amount no es numérico válido
+     * Crea Money desde string, normalizando a la escala dada con HALF_UP.
      */
     public static function of(string $amount, string $currency, int $scale = 2): self
     {
@@ -102,11 +70,6 @@ final class Money
         return new self(self::padScale('0', $scale), strtoupper($currency), $scale);
     }
 
-    /**
-     * Normaliza un string numérico a la escala dada con ROUND_HALF_UP.
-     *
-     * @throws InvalidArgumentException Si no es numérico válido
-     */
     private static function normalizeAmount(string $amount, int $scale): string
     {
         if (!self::isValidNumericString($amount)) {
@@ -116,7 +79,6 @@ final class Money
             ));
         }
 
-        // bcmath no acepta notación científica ni strings vacíos
         $clean = ltrim($amount, '+');
         if ($clean === '' || $clean === '.' || $clean === '-') {
             throw new InvalidArgumentException(sprintf(
@@ -125,34 +87,33 @@ final class Money
             ));
         }
 
-        // Redondeo a $scale con ROUND_HALF_UP real
         return self::roundHalfUp($clean, $scale);
     }
 
     /**
-     * Valida que el string sea numérico (entero o decimal, opcional signo).
-     * No acepta notación científica.
-     * Acepta formatos como: '100', '100.5', '100.50', '.50', '-.50', '-10.5'
+     * Valida formato numérico (entero o decimal, signo opcional).
+     * Acepta: '100', '100.5', '100.50', '.50', '-.50', '-10.5'.
+     * Rechaza: notación científica, comas, espacios.
      */
     private static function isValidNumericString(string $s): bool
     {
-        // Regex: opcional signo, (dígitos con opcional decimal) O (punto decimal con dígitos)
         return (bool)preg_match('/^[+-]?(\d+(\.\d+)?|\.\d+)$/', $s);
     }
 
     /**
-     * Redondea un string numérico a la escala dada usando ROUND_HALF_UP.
+     * Redondea HALF_UP a la escala objetivo.
      *
-     * @param string $amount Número en string (ej. '2.345', '0.01', '-10.5')
-     * @param int    $scale  Decimales objetivo
-     * @return string Número redondeado con exactamente $scale decimales
+     * Estrategia: sumar 0.5 * 10^-scale y truncar.
+     *   scale=2: '2.345' + '0.005' = '2.350' → truncar a 2 → '2.35'
+     *   scale=2: '2.344' + '0.005' = '2.349' → truncar a 2 → '2.34'
+     *   scale=0: '0.99'  + '0.5'   = '1.49'  → truncar a 0 → '1'
+     *   scale=2: '0.01' / 2 = '0.005000' + '0.005' = '0.010000' → '0.01'
      */
     private static function roundHalfUp(string $amount, int $scale): string
     {
         $sign = str_starts_with($amount, '-') ? -1 : 1;
         $abs = ltrim($amount, '+-');
 
-        // Sumar 0.5 * 10^-scale antes de truncar
         $half = $scale === 0 ? '0.5' : '0.' . str_repeat('0', $scale) . '5';
         $adjusted = bcadd($abs, $half, $scale + 1);
         $truncated = bcadd($adjusted, '0', $scale);
@@ -161,8 +122,8 @@ final class Money
     }
 
     /**
-     * Asegura que el string tenga exactamente $scale decimales (padding con ceros).
-     * Asume que el input ya viene redondeado con roundHalfUp.
+     * Padding con ceros hasta la escala dada. Trunca si tiene más.
+     * NO redondea; usar roundHalfUp antes.
      */
     private static function padScale(string $amount, int $scale): string
     {
@@ -179,26 +140,23 @@ final class Money
         return $amount . '.' . str_repeat('0', $scale);
     }
 
-    /** Devuelve la cantidad como string normalizado (ej. '100.00'). */
     public function getAmount(): string
     {
         return $this->amount;
     }
 
-    /** Devuelve el código de moneda (ej. 'ARS'). */
     public function getCurrency(): string
     {
         return $this->currency;
     }
 
-    /** Devuelve la escala (decimales). */
     public function getScale(): int
     {
         return $this->scale;
     }
 
     // ============================================================
-    // OPERACIONES ARITMÉTICAS (devuelven nueva instancia)
+    // OPERACIONES ARITMÉTICAS
     // ============================================================
 
     public function add(Money $other): self
@@ -222,22 +180,20 @@ final class Money
     }
 
     /**
-     * Multiplica por un factor (string para evitar float).
-     * Ej: mul('1.21') para aplicar IVA 21%.
+     * Multiplica por un factor. Aplica HALF_UP al resultado.
      */
     public function mul(string $factor): self
     {
         if (!self::isValidNumericString($factor)) {
             throw new InvalidArgumentException(sprintf('Factor "%s" inválido.', $factor));
         }
-        // Escala interna mayor para preservar precisión intermedia
+        // Escala interna +4 para preservar precisión intermedia, luego HALF_UP a escala final.
         $result = bcmul($this->amount, $factor, $this->scale + 4);
-        return new self(self::padScale($result, $this->scale), $this->currency, $this->scale);
+        return new self(self::roundHalfUp($result, $this->scale), $this->currency, $this->scale);
     }
 
     /**
-     * Divide por un divisor (string).
-     * Ej: div('1.21') para quitar IVA 21%.
+     * Divide por un divisor. Aplica HALF_UP al resultado.
      */
     public function div(string $divisor): self
     {
@@ -247,8 +203,9 @@ final class Money
         if (bccomp($divisor, '0', $this->scale) === 0) {
             throw new InvalidArgumentException('División por cero.');
         }
+        // Escala interna +4 para preservar precisión intermedia, luego HALF_UP a escala final.
         $result = bcdiv($this->amount, $divisor, $this->scale + 4);
-        return new self(self::padScale($result, $this->scale), $this->currency, $this->scale);
+        return new self(self::roundHalfUp($result, $this->scale), $this->currency, $this->scale);
     }
 
     // ============================================================
@@ -256,7 +213,6 @@ final class Money
     // ============================================================
 
     /**
-     * Compara con otro Money.
      * @return int -1 si $this < $other, 0 si igual, 1 si $this > $other
      */
     public function compare(Money $other): int
@@ -265,9 +221,6 @@ final class Money
         return bccomp($this->amount, $other->amount, $this->scale);
     }
 
-    /**
-     * Verifica igualdad monetaria (misma moneda, escala y cantidad).
-     */
     public function equals(Money $other): bool
     {
         return $this->compare($other) === 0;
@@ -316,12 +269,6 @@ final class Money
     // FORMATO Y SALIDA
     // ============================================================
 
-    /**
-     * Formato para presentación: '1.234,56 ARS' (separador de miles configurable).
-     *
-     * @param string $thousandsSep Separador de miles (por defecto '.')
-     * @param string $decimalSep   Separador decimal (por defecto ',')
-     */
     public function format(string $thousandsSep = '.', string $decimalSep = ','): string
     {
         [$intPart, $decPart] = explode('.', $this->amount);
@@ -331,7 +278,6 @@ final class Money
             $intPart = substr($intPart, 1);
         }
 
-        // Agrupa de a 3 desde la derecha
         $formattedInt = '';
         $len = strlen($intPart);
         for ($i = 0; $i < $len; ++$i) {
@@ -344,15 +290,10 @@ final class Money
         return $sign . $formattedInt . $decimalSep . $decPart . ' ' . $this->currency;
     }
 
-    /** Representación corta: '100.00 ARS' (sin separador de miles). */
     public function __toString(): string
     {
         return $this->amount . ' ' . $this->currency;
     }
-
-    // ============================================================
-    // VALIDACIONES INTERNAS
-    // ============================================================
 
     private function assertSameCurrency(Money $other): void
     {
