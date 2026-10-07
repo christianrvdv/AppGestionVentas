@@ -12,6 +12,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'sale_line')]
 #[ORM\Index(name: 'idx_saleline_tenant_sale', columns: ['tenant_id', 'sale_id'])]
 #[ORM\Index(name: 'idx_saleline_tenant_item', columns: ['tenant_id', 'investment_item_id'])]
+#[ORM\Index(name: 'idx_saleline_tenant_created', columns: ['tenant_id', 'created_at'])]
 #[ORM\HasLifecycleCallbacks]
 class SaleLine
 {
@@ -39,47 +40,69 @@ class SaleLine
     private string $unitPrice;
 
     #[ORM\Column(name: 'total_line', type: Types::DECIMAL, precision: 12, scale: 2)]
-    private string $totalLine;
+    private string $totalLine = '0.00';
 
-    /**
-     * Snapshot of real_unit_cost at time of sale - immutable after creation.
-     * Stored because InvestmentItem.real_unit_cost may change (e.g., expense reallocation)
-     * but the sale's cost basis must remain fixed for accurate profit calculation.
-     */
+    #[ORM\Column(name: 'usd_rate_snapshot', type: Types::DECIMAL, precision: 12, scale: 4, nullable: true)]
+    private ?string $usdRateSnapshot = null;
+
     #[ORM\Column(name: 'real_unit_cost_snapshot', type: Types::DECIMAL, precision: 12, scale: 2)]
     private string $realUnitCostSnapshot;
 
-    /**
-     * Cost recovered on this line = quantity * real_unit_cost_snapshot.
-     * Stored as snapshot to preserve historical accuracy even if underlying data changes.
-     */
-    #[ORM\Column(name: 'cost_recovered', type: Types::DECIMAL, precision: 12, scale: 2)]
-    private string $costRecovered;
+    #[ORM\Column(name: 'current_cost_snapshot', type: Types::DECIMAL, precision: 12, scale: 2)]
+    private string $currentCostSnapshot = '0.00';
 
-    /**
-     * Profit on this line = total_line - cost_recovered.
-     * Stored as snapshot for consistent reporting and audit trail.
-     */
-    #[ORM\Column(name: 'profit_line', type: Types::DECIMAL, precision: 12, scale: 2)]
-    private string $profitLine;
+    #[ORM\Column(name: 'cost_recovered', type: Types::DECIMAL, precision: 12, scale: 2)]
+    private string $costRecovered = '0.00';
+
+    #[ORM\Column(name: 'gross_profit_line', type: Types::DECIMAL, precision: 12, scale: 2)]
+    private string $grossProfitLine = '0.00';
+
+    #[ORM\Column(name: 'recognized_profit_line', type: Types::DECIMAL, precision: 12, scale: 2)]
+    private string $recognizedProfitLine = '0.00';
 
     #[ORM\Column(name: 'created_at', type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $createdAt;
 
+    #[ORM\Column(name: 'updated_at', type: Types::DATETIME_IMMUTABLE)]
+    private \DateTimeImmutable $updatedAt;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
-        $this->unitPrice = '0.00';
-        $this->totalLine = '0.00';
-        $this->realUnitCostSnapshot = '0.00';
-        $this->costRecovered = '0.00';
-        $this->profitLine = '0.00';
+        $this->updatedAt = new \DateTimeImmutable();
     }
 
     #[ORM\PrePersist]
     public function onPrePersist(): void
     {
         $this->createdAt = new \DateTimeImmutable();
+        $this->updatedAt = new \DateTimeImmutable();
+        $this->recalculateDerived();
+    }
+
+    #[ORM\PreUpdate]
+    public function onPreUpdate(): void
+    {
+        $this->updatedAt = new \DateTimeImmutable();
+        $this->recalculateDerived();
+    }
+
+    /**
+     * Recalcula los derivados para que NUNCA queden inconsistentes.
+     * recognizedProfitLine NO se toca aquí: lo asigna SaleService
+     * según el recovery_mode y la posición en la cadena de recuperación.
+     */
+    private function recalculateDerived(): void
+    {
+        if ($this->quantity <= 0) {
+            throw new \LogicException('SaleLine.quantity debe ser > 0.');
+        }
+
+        $qty = (string)$this->quantity;
+
+        $this->totalLine = bcmul($this->unitPrice, $qty, 2);
+        $this->costRecovered = bcmul($this->realUnitCostSnapshot, $qty, 2);
+        $this->grossProfitLine = bcsub($this->totalLine, $this->costRecovered, 2);
     }
 
     public function getId(): int
@@ -92,9 +115,9 @@ class SaleLine
         return $this->tenant;
     }
 
-    public function setTenant(Tenant $tenant): self
+    public function setTenant(Tenant $t): self
     {
-        $this->tenant = $tenant;
+        $this->tenant = $t;
         return $this;
     }
 
@@ -103,9 +126,9 @@ class SaleLine
         return $this->sale;
     }
 
-    public function setSale(Sale $sale): self
+    public function setSale(Sale $s): self
     {
-        $this->sale = $sale;
+        $this->sale = $s;
         return $this;
     }
 
@@ -114,9 +137,9 @@ class SaleLine
         return $this->investmentItem;
     }
 
-    public function setInvestmentItem(InvestmentItem $investmentItem): self
+    public function setInvestmentItem(InvestmentItem $i): self
     {
-        $this->investmentItem = $investmentItem;
+        $this->investmentItem = $i;
         return $this;
     }
 
@@ -125,9 +148,9 @@ class SaleLine
         return $this->quantity;
     }
 
-    public function setQuantity(int $quantity): self
+    public function setQuantity(int $q): self
     {
-        $this->quantity = $quantity;
+        $this->quantity = $q;
         return $this;
     }
 
@@ -136,9 +159,9 @@ class SaleLine
         return $this->unitPrice;
     }
 
-    public function setUnitPrice(string $unitPrice): self
+    public function setUnitPrice(string $p): self
     {
-        $this->unitPrice = $unitPrice;
+        $this->unitPrice = $p;
         return $this;
     }
 
@@ -147,9 +170,20 @@ class SaleLine
         return $this->totalLine;
     }
 
-    public function setTotalLine(string $totalLine): self
+    public function setTotalLine(string $v): self
     {
-        $this->totalLine = $totalLine;
+        $this->totalLine = $v;
+        return $this;
+    }
+
+    public function getUsdRateSnapshot(): ?string
+    {
+        return $this->usdRateSnapshot;
+    }
+
+    public function setUsdRateSnapshot(?string $v): self
+    {
+        $this->usdRateSnapshot = $v;
         return $this;
     }
 
@@ -158,9 +192,20 @@ class SaleLine
         return $this->realUnitCostSnapshot;
     }
 
-    public function setRealUnitCostSnapshot(string $realUnitCostSnapshot): self
+    public function setRealUnitCostSnapshot(string $v): self
     {
-        $this->realUnitCostSnapshot = $realUnitCostSnapshot;
+        $this->realUnitCostSnapshot = $v;
+        return $this;
+    }
+
+    public function getCurrentCostSnapshot(): string
+    {
+        return $this->currentCostSnapshot;
+    }
+
+    public function setCurrentCostSnapshot(string $v): self
+    {
+        $this->currentCostSnapshot = $v;
         return $this;
     }
 
@@ -169,25 +214,41 @@ class SaleLine
         return $this->costRecovered;
     }
 
-    public function setCostRecovered(string $costRecovered): self
+    public function setCostRecovered(string $v): self
     {
-        $this->costRecovered = $costRecovered;
+        $this->costRecovered = $v;
         return $this;
     }
 
-    public function getProfitLine(): string
+    public function getGrossProfitLine(): string
     {
-        return $this->profitLine;
+        return $this->grossProfitLine;
     }
 
-    public function setProfitLine(string $profitLine): self
+    public function setGrossProfitLine(string $v): self
     {
-        $this->profitLine = $profitLine;
+        $this->grossProfitLine = $v;
+        return $this;
+    }
+
+    public function getRecognizedProfitLine(): string
+    {
+        return $this->recognizedProfitLine;
+    }
+
+    public function setRecognizedProfitLine(string $v): self
+    {
+        $this->recognizedProfitLine = $v;
         return $this;
     }
 
     public function getCreatedAt(): \DateTimeImmutable
     {
         return $this->createdAt;
+    }
+
+    public function getUpdatedAt(): \DateTimeImmutable
+    {
+        return $this->updatedAt;
     }
 }

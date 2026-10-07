@@ -45,15 +45,31 @@ class InvestmentExpense
     #[ORM\Column(type: Types::DECIMAL, precision: 12, scale: 2)]
     private string $amount;
 
+    /**
+     * Si true, este gasto se prorratea entre ítems vía ExpenseAllocation.
+     * Si false, es gasto general de la inversión: afecta total_expenses
+     * y por ende la inversión total, pero NO el costo real unitario de
+     * ningún ítem. Sirve para modelar gastos no atribuibles.
+     */
+    #[ORM\Column(name: 'is_allocated', type: Types::BOOLEAN)]
+    private bool $isAllocated = true;
+
+    #[ORM\Column(name: 'usd_rate_snapshot', type: Types::DECIMAL, precision: 12, scale: 4, nullable: true)]
+    private ?string $usdRateSnapshot = null;
+
+    #[ORM\Column(name: 'amount_usd', type: Types::DECIMAL, precision: 12, scale: 4, nullable: true)]
+    private ?string $amountUsd = null;
+
     #[ORM\Column(name: 'expense_date', type: Types::DATE_IMMUTABLE)]
     private \DateTimeImmutable $expenseDate;
 
     #[ORM\Column(name: 'created_at', type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $createdAt;
 
-    /**
-     * @var Collection<int, ExpenseAllocation>
-     */
+    #[ORM\Column(name: 'updated_at', type: Types::DATETIME_IMMUTABLE)]
+    private \DateTimeImmutable $updatedAt;
+
+    /** @var Collection<int, ExpenseAllocation> */
     #[ORM\OneToMany(mappedBy: 'investmentExpense', targetEntity: ExpenseAllocation::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
     private Collection $allocations;
 
@@ -61,13 +77,35 @@ class InvestmentExpense
     {
         $this->allocations = new ArrayCollection();
         $this->createdAt = new \DateTimeImmutable();
-        $this->amount = '0.00';
+        $this->updatedAt = new \DateTimeImmutable();
+        $this->expenseDate = new \DateTimeImmutable();
     }
 
     #[ORM\PrePersist]
     public function onPrePersist(): void
     {
         $this->createdAt = new \DateTimeImmutable();
+        $this->updatedAt = new \DateTimeImmutable();
+        $this->assertAllocationConsistency();
+    }
+
+    #[ORM\PreUpdate]
+    public function onPreUpdate(): void
+    {
+        $this->updatedAt = new \DateTimeImmutable();
+        $this->assertAllocationConsistency();
+    }
+
+    /**
+     * Invariante: un gasto NO prorrateable no puede tener allocations;
+     * un gasto prorrateable debe tener al menos una (validación laxa,
+     * la fuerte la hace el servicio al confirmar la inversión).
+     */
+    private function assertAllocationConsistency(): void
+    {
+        if (!$this->isAllocated && !$this->allocations->isEmpty()) {
+            throw new \LogicException('Un gasto no prorrateable no puede tener allocations.');
+        }
     }
 
     public function getId(): int
@@ -80,9 +118,9 @@ class InvestmentExpense
         return $this->tenant;
     }
 
-    public function setTenant(Tenant $tenant): self
+    public function setTenant(Tenant $t): self
     {
-        $this->tenant = $tenant;
+        $this->tenant = $t;
         return $this;
     }
 
@@ -91,9 +129,9 @@ class InvestmentExpense
         return $this->investment;
     }
 
-    public function setInvestment(Investment $investment): self
+    public function setInvestment(Investment $i): self
     {
-        $this->investment = $investment;
+        $this->investment = $i;
         return $this;
     }
 
@@ -102,9 +140,9 @@ class InvestmentExpense
         return $this->category;
     }
 
-    public function setCategory(string $category): self
+    public function setCategory(string $c): self
     {
-        $this->category = $category;
+        $this->category = $c;
         return $this;
     }
 
@@ -113,9 +151,9 @@ class InvestmentExpense
         return $this->description;
     }
 
-    public function setDescription(?string $description): self
+    public function setDescription(?string $d): self
     {
-        $this->description = $description;
+        $this->description = $d;
         return $this;
     }
 
@@ -124,9 +162,42 @@ class InvestmentExpense
         return $this->amount;
     }
 
-    public function setAmount(string $amount): self
+    public function setAmount(string $a): self
     {
-        $this->amount = $amount;
+        $this->amount = $a;
+        return $this;
+    }
+
+    public function isAllocated(): bool
+    {
+        return $this->isAllocated;
+    }
+
+    public function setIsAllocated(bool $v): self
+    {
+        $this->isAllocated = $v;
+        return $this;
+    }
+
+    public function getUsdRateSnapshot(): ?string
+    {
+        return $this->usdRateSnapshot;
+    }
+
+    public function setUsdRateSnapshot(?string $v): self
+    {
+        $this->usdRateSnapshot = $v;
+        return $this;
+    }
+
+    public function getAmountUsd(): ?string
+    {
+        return $this->amountUsd;
+    }
+
+    public function setAmountUsd(?string $v): self
+    {
+        $this->amountUsd = $v;
         return $this;
     }
 
@@ -135,9 +206,9 @@ class InvestmentExpense
         return $this->expenseDate;
     }
 
-    public function setExpenseDate(\DateTimeImmutable $expenseDate): self
+    public function setExpenseDate(\DateTimeImmutable $d): self
     {
-        $this->expenseDate = $expenseDate;
+        $this->expenseDate = $d;
         return $this;
     }
 
@@ -146,26 +217,29 @@ class InvestmentExpense
         return $this->createdAt;
     }
 
-    /**
-     * @return Collection<int, ExpenseAllocation>
-     */
+    public function getUpdatedAt(): \DateTimeImmutable
+    {
+        return $this->updatedAt;
+    }
+
+    /** @return Collection<int, ExpenseAllocation> */
     public function getAllocations(): Collection
     {
         return $this->allocations;
     }
 
-    public function addAllocation(ExpenseAllocation $allocation): self
+    public function addAllocation(ExpenseAllocation $a): self
     {
-        if (!$this->allocations->contains($allocation)) {
-            $this->allocations->add($allocation);
-            $allocation->setInvestmentExpense($this);
+        if (!$this->allocations->contains($a)) {
+            $this->allocations->add($a);
+            $a->setInvestmentExpense($this);
         }
         return $this;
     }
 
-    public function removeAllocation(ExpenseAllocation $allocation): self
+    public function removeAllocation(ExpenseAllocation $a): self
     {
-        $this->allocations->removeElement($allocation);
+        $this->allocations->removeElement($a);
         return $this;
     }
 }

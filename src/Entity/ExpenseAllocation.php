@@ -11,6 +11,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity(repositoryClass: ExpenseAllocationRepository::class)]
 #[ORM\Table(name: 'expense_allocation')]
 #[ORM\UniqueConstraint(name: 'uniq_allocation_expense_item', columns: ['investment_expense_id', 'investment_item_id'])]
+#[ORM\HasLifecycleCallbacks]
 class ExpenseAllocation
 {
     #[ORM\Id]
@@ -30,11 +31,44 @@ class ExpenseAllocation
     #[ORM\JoinColumn(name: 'investment_item_id', referencedColumnName: 'id', nullable: false, onDelete: 'RESTRICT')]
     private InvestmentItem $investmentItem;
 
+    /**
+     * Monto asignado de este gasto al ítem. Sin default:
+     * un 0 accidental rompería el cálculo del costo real.
+     */
     #[ORM\Column(name: 'allocated_amount', type: Types::DECIMAL, precision: 12, scale: 2)]
     private string $allocatedAmount;
 
+    /**
+     * Porcentaje asignado. Sin default: debe ser calculado
+     * explícitamente por ExpenseAllocationService.
+     */
     #[ORM\Column(name: 'allocation_pct', type: Types::DECIMAL, precision: 5, scale: 2)]
     private string $allocationPct;
+
+    #[ORM\Column(name: 'created_at', type: Types::DATETIME_IMMUTABLE)]
+    private \DateTimeImmutable $createdAt;
+
+    #[ORM\Column(name: 'updated_at', type: Types::DATETIME_IMMUTABLE)]
+    private \DateTimeImmutable $updatedAt;
+
+    public function __construct()
+    {
+        $this->createdAt = new \DateTimeImmutable();
+        $this->updatedAt = new \DateTimeImmutable();
+    }
+
+    #[ORM\PrePersist]
+    public function onPrePersist(): void
+    {
+        $this->createdAt = new \DateTimeImmutable();
+        $this->updatedAt = new \DateTimeImmutable();
+    }
+
+    #[ORM\PreUpdate]
+    public function onPreUpdate(): void
+    {
+        $this->updatedAt = new \DateTimeImmutable();
+    }
 
     public function getId(): int
     {
@@ -94,5 +128,15 @@ class ExpenseAllocation
     {
         $this->allocationPct = $allocationPct;
         return $this;
+    }
+
+    public function getCreatedAt(): \DateTimeImmutable
+    {
+        return $this->createdAt;
+    }
+
+    public function getUpdatedAt(): \DateTimeImmutable
+    {
+        return $this->updatedAt;
     }
 }

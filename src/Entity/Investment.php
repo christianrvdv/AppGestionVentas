@@ -15,6 +15,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\UniqueConstraint(name: 'uniq_investment_tenant_code', columns: ['tenant_id', 'code'])]
 #[ORM\Index(name: 'idx_investment_tenant_date', columns: ['tenant_id', 'investment_date'])]
 #[ORM\Index(name: 'idx_investment_tenant_status', columns: ['tenant_id', 'status'])]
+#[ORM\Index(name: 'idx_investment_tenant_confirmed', columns: ['tenant_id', 'confirmed_at'])]
 #[ORM\HasLifecycleCallbacks]
 class Investment
 {
@@ -22,9 +23,14 @@ class Investment
     public const STATUS_PARTIAL = 'PARTIAL';
     public const STATUS_RECOVERED = 'RECOVERED';
     public const STATUS_CLOSED = 'CLOSED';
+    public const STATUS_CANCELLED = 'CANCELLED';
 
     public const RECOVERY_PER_PRODUCT = 'PER_PRODUCT';
     public const RECOVERY_INVESTMENT_FIRST = 'INVESTMENT_FIRST';
+
+    public const ALLOCATION_METHOD_VALUE = 'VALUE';
+    public const ALLOCATION_METHOD_QUANTITY = 'QUANTITY';
+    public const ALLOCATION_METHOD_EQUAL = 'EQUAL';
 
     #[ORM\Id]
     #[ORM\GeneratedValue(strategy: 'IDENTITY')]
@@ -39,35 +45,71 @@ class Investment
     #[ORM\JoinColumn(name: 'created_by', referencedColumnName: 'id', nullable: false, onDelete: 'RESTRICT')]
     private AppUser $createdBy;
 
+    /**
+     * Código visible por el usuario.
+     * Formato: {PREFIJO_TENANT}-{YYYYMM}-{SECUENCIA_4}.
+     * Ejemplo: "MZ-202601-0007". Único por tenant.
+     * La generación corresponde a InvestmentCodeGeneratorService.
+     */
     #[ORM\Column(type: Types::STRING, length: 30)]
     private string $code;
 
     #[ORM\Column(name: 'investment_date', type: Types::DATE_IMMUTABLE)]
     private \DateTimeImmutable $investmentDate;
 
+    #[ORM\Column(name: 'confirmed_at', type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $confirmedAt = null;
+
+    #[ORM\Column(name: 'closed_at', type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $closedAt = null;
+
+    #[ORM\Column(name: 'cancelled_at', type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $cancelledAt = null;
+
+    #[ORM\Column(name: 'cancelled_reason', type: Types::STRING, length: 255, nullable: true)]
+    private ?string $cancelledReason = null;
+
     #[ORM\Column(type: Types::STRING, length: 255, nullable: true)]
     private ?string $description = null;
 
     #[ORM\Column(name: 'base_currency', type: Types::STRING, length: 3)]
-    private string $baseCurrency = 'CUP';
+    private string $baseCurrency;
 
     #[ORM\Column(name: 'usd_rate_snapshot', type: Types::DECIMAL, precision: 12, scale: 4, nullable: true)]
     private ?string $usdRateSnapshot = null;
 
+    #[ORM\Column(name: 'current_usd_rate', type: Types::DECIMAL, precision: 12, scale: 4, nullable: true)]
+    private ?string $currentUsdRate = null;
+
+    /**
+     * Snapshot estructural. Fuente autoritativa del costo de la inversión.
+     * investment_summary.total_investment es una copia denormalizada para
+     * reportes y NO debe escribirse fuera de InvestmentSummaryService.
+     */
     #[ORM\Column(name: 'total_merchandise_cost', type: Types::DECIMAL, precision: 12, scale: 2)]
     private string $totalMerchandiseCost = '0.00';
 
     #[ORM\Column(name: 'total_expenses', type: Types::DECIMAL, precision: 12, scale: 2)]
     private string $totalExpenses = '0.00';
 
+    /**
+     * Snapshot histórico a la tasa de la inversión.
+     * NO se revalúa. La versión revaluada vive en investment_summary.total_investment_current.
+     */
     #[ORM\Column(name: 'total_investment', type: Types::DECIMAL, precision: 12, scale: 2)]
     private string $totalInvestment = '0.00';
 
+    #[ORM\Column(name: 'allocation_method', type: Types::STRING, length: 20)]
+    private string $allocationMethod = self::ALLOCATION_METHOD_VALUE;
+
     #[ORM\Column(name: 'recovery_mode', type: Types::STRING, length: 20)]
-    private string $recoveryMode;
+    private string $recoveryMode = self::RECOVERY_PER_PRODUCT;
 
     #[ORM\Column(type: Types::STRING, length: 20)]
-    private string $status;
+    private string $status = self::STATUS_OPEN;
+
+    #[ORM\Column(name: 'last_revalued_at', type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $lastRevaluedAt = null;
 
     #[ORM\Column(name: 'created_at', type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $createdAt;
@@ -75,21 +117,15 @@ class Investment
     #[ORM\Column(name: 'updated_at', type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $updatedAt;
 
-    /**
-     * @var Collection<int, InvestmentItem>
-     */
+    /** @var Collection<int, InvestmentItem> */
     #[ORM\OneToMany(mappedBy: 'investment', targetEntity: InvestmentItem::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
     private Collection $items;
 
-    /**
-     * @var Collection<int, InvestmentExpense>
-     */
+    /** @var Collection<int, InvestmentExpense> */
     #[ORM\OneToMany(mappedBy: 'investment', targetEntity: InvestmentExpense::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
     private Collection $expenses;
 
-    /**
-     * @var Collection<int, Sale>
-     */
+    /** @var Collection<int, Sale> */
     #[ORM\OneToMany(mappedBy: 'investment', targetEntity: Sale::class)]
     private Collection $sales;
 
@@ -100,8 +136,6 @@ class Investment
         $this->sales = new ArrayCollection();
         $this->createdAt = new \DateTimeImmutable();
         $this->updatedAt = new \DateTimeImmutable();
-        $this->status = self::STATUS_OPEN;
-        $this->recoveryMode = self::RECOVERY_PER_PRODUCT;
     }
 
     #[ORM\PrePersist]
@@ -109,12 +143,28 @@ class Investment
     {
         $this->createdAt = new \DateTimeImmutable();
         $this->updatedAt = new \DateTimeImmutable();
+        $this->assertStatusConsistency();
     }
 
     #[ORM\PreUpdate]
     public function onPreUpdate(): void
     {
         $this->updatedAt = new \DateTimeImmutable();
+        $this->assertStatusConsistency();
+    }
+
+    /**
+     * Invariante: CANCELLED requiere cancelledAt; CLOSED requiere closedAt.
+     * Las demás combinaciones son válidas.
+     */
+    private function assertStatusConsistency(): void
+    {
+        if ($this->status === self::STATUS_CANCELLED && $this->cancelledAt === null) {
+            throw new \LogicException('Investment en estado CANCELLED requiere cancelledAt.');
+        }
+        if ($this->status === self::STATUS_CLOSED && $this->closedAt === null) {
+            throw new \LogicException('Investment en estado CLOSED requiere closedAt.');
+        }
     }
 
     public function getId(): int
@@ -166,6 +216,65 @@ class Investment
         return $this;
     }
 
+    public function getConfirmedAt(): ?\DateTimeImmutable
+    {
+        return $this->confirmedAt;
+    }
+
+    public function setConfirmedAt(?\DateTimeImmutable $confirmedAt): self
+    {
+        $this->confirmedAt = $confirmedAt;
+        return $this;
+    }
+
+    public function isConfirmed(): bool
+    {
+        return $this->confirmedAt !== null;
+    }
+
+    public function getClosedAt(): ?\DateTimeImmutable
+    {
+        return $this->closedAt;
+    }
+
+    public function setClosedAt(?\DateTimeImmutable $closedAt): self
+    {
+        $this->closedAt = $closedAt;
+        return $this;
+    }
+
+    public function isClosed(): bool
+    {
+        return $this->closedAt !== null;
+    }
+
+    public function getCancelledAt(): ?\DateTimeImmutable
+    {
+        return $this->cancelledAt;
+    }
+
+    public function setCancelledAt(?\DateTimeImmutable $cancelledAt): self
+    {
+        $this->cancelledAt = $cancelledAt;
+        return $this;
+    }
+
+    public function getCancelledReason(): ?string
+    {
+        return $this->cancelledReason;
+    }
+
+    public function setCancelledReason(?string $cancelledReason): self
+    {
+        $this->cancelledReason = $cancelledReason;
+        return $this;
+    }
+
+    public function isCancelled(): bool
+    {
+        return $this->cancelledAt !== null;
+    }
+
     public function getDescription(): ?string
     {
         return $this->description;
@@ -199,14 +308,25 @@ class Investment
         return $this;
     }
 
+    public function getCurrentUsdRate(): ?string
+    {
+        return $this->currentUsdRate;
+    }
+
+    public function setCurrentUsdRate(?string $currentUsdRate): self
+    {
+        $this->currentUsdRate = $currentUsdRate;
+        return $this;
+    }
+
     public function getTotalMerchandiseCost(): string
     {
         return $this->totalMerchandiseCost;
     }
 
-    public function setTotalMerchandiseCost(string $totalMerchandiseCost): self
+    public function setTotalMerchandiseCost(string $v): self
     {
-        $this->totalMerchandiseCost = $totalMerchandiseCost;
+        $this->totalMerchandiseCost = $v;
         return $this;
     }
 
@@ -215,9 +335,9 @@ class Investment
         return $this->totalExpenses;
     }
 
-    public function setTotalExpenses(string $totalExpenses): self
+    public function setTotalExpenses(string $v): self
     {
-        $this->totalExpenses = $totalExpenses;
+        $this->totalExpenses = $v;
         return $this;
     }
 
@@ -226,9 +346,20 @@ class Investment
         return $this->totalInvestment;
     }
 
-    public function setTotalInvestment(string $totalInvestment): self
+    public function setTotalInvestment(string $v): self
     {
-        $this->totalInvestment = $totalInvestment;
+        $this->totalInvestment = $v;
+        return $this;
+    }
+
+    public function getAllocationMethod(): string
+    {
+        return $this->allocationMethod;
+    }
+
+    public function setAllocationMethod(string $m): self
+    {
+        $this->allocationMethod = $m;
         return $this;
     }
 
@@ -237,9 +368,9 @@ class Investment
         return $this->recoveryMode;
     }
 
-    public function setRecoveryMode(string $recoveryMode): self
+    public function setRecoveryMode(string $m): self
     {
-        $this->recoveryMode = $recoveryMode;
+        $this->recoveryMode = $m;
         return $this;
     }
 
@@ -248,9 +379,20 @@ class Investment
         return $this->status;
     }
 
-    public function setStatus(string $status): self
+    public function setStatus(string $s): self
     {
-        $this->status = $status;
+        $this->status = $s;
+        return $this;
+    }
+
+    public function getLastRevaluedAt(): ?\DateTimeImmutable
+    {
+        return $this->lastRevaluedAt;
+    }
+
+    public function setLastRevaluedAt(?\DateTimeImmutable $v): self
+    {
+        $this->lastRevaluedAt = $v;
         return $this;
     }
 
@@ -264,9 +406,7 @@ class Investment
         return $this->updatedAt;
     }
 
-    /**
-     * @return Collection<int, InvestmentItem>
-     */
+    /** @return Collection<int, InvestmentItem> */
     public function getItems(): Collection
     {
         return $this->items;
@@ -287,49 +427,45 @@ class Investment
         return $this;
     }
 
-    /**
-     * @return Collection<int, InvestmentExpense>
-     */
+    /** @return Collection<int, InvestmentExpense> */
     public function getExpenses(): Collection
     {
         return $this->expenses;
     }
 
-    public function addExpense(InvestmentExpense $expense): self
+    public function addExpense(InvestmentExpense $e): self
     {
-        if (!$this->expenses->contains($expense)) {
-            $this->expenses->add($expense);
-            $expense->setInvestment($this);
+        if (!$this->expenses->contains($e)) {
+            $this->expenses->add($e);
+            $e->setInvestment($this);
         }
         return $this;
     }
 
-    public function removeExpense(InvestmentExpense $expense): self
+    public function removeExpense(InvestmentExpense $e): self
     {
-        $this->expenses->removeElement($expense);
+        $this->expenses->removeElement($e);
         return $this;
     }
 
-    /**
-     * @return Collection<int, Sale>
-     */
+    /** @return Collection<int, Sale> */
     public function getSales(): Collection
     {
         return $this->sales;
     }
 
-    public function addSale(Sale $sale): self
+    public function addSale(Sale $s): self
     {
-        if (!$this->sales->contains($sale)) {
-            $this->sales->add($sale);
-            $sale->setInvestment($this);
+        if (!$this->sales->contains($s)) {
+            $this->sales->add($s);
+            $s->setInvestment($this);
         }
         return $this;
     }
 
-    public function removeSale(Sale $sale): self
+    public function removeSale(Sale $s): self
     {
-        $this->sales->removeElement($sale);
+        $this->sales->removeElement($s);
         return $this;
     }
 }

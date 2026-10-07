@@ -13,18 +13,29 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'idx_movement_tenant_item', columns: ['tenant_id', 'investment_item_id'])]
 #[ORM\Index(name: 'idx_movement_tenant_date', columns: ['tenant_id', 'movement_date'])]
 #[ORM\Index(name: 'idx_movement_tenant_type', columns: ['tenant_id', 'movement_type'])]
+#[ORM\Index(name: 'idx_movement_reference', columns: ['tenant_id', 'reference_type', 'reference_id', 'movement_type'])]
+#[ORM\UniqueConstraint(name: 'uniq_movement_idempotency', columns: ['idempotency_key'])]
 #[ORM\HasLifecycleCallbacks]
 class InventoryMovement
 {
     public const TYPE_PURCHASE = 'PURCHASE';
     public const TYPE_SALE = 'SALE';
     public const TYPE_LOSS = 'LOSS';
-    public const TYPE_RETURN = 'RETURN';
+    public const TYPE_CUSTOMER_RETURN = 'CUSTOMER_RETURN';
+    public const TYPE_PURCHASE_RETURN = 'PURCHASE_RETURN';
     public const TYPE_ADJUSTMENT = 'ADJUSTMENT';
 
     public const REF_SALE_LINE = 'SALE_LINE';
+    public const REF_INVESTMENT_ITEM = 'INVESTMENT_ITEM';
+    public const REF_INVESTMENT = 'INVESTMENT';
     public const REF_MANUAL = 'MANUAL';
     public const REF_IMPORT = 'IMPORT';
+
+    public const REASON_DAMAGE = 'DAMAGE';
+    public const REASON_THEFT = 'THEFT';
+    public const REASON_EXPIRY = 'EXPIRY';
+    public const REASON_COUNT_DIFF = 'COUNT_DIFF';
+    public const REASON_OTHER = 'OTHER';
 
     #[ORM\Id]
     #[ORM\GeneratedValue(strategy: 'IDENTITY')]
@@ -43,30 +54,29 @@ class InventoryMovement
     private string $movementType;
 
     /**
-     * Can be negative (outflows: SALE, LOSS) or positive (inflows: PURCHASE, RETURN, positive ADJUSTMENT).
-     * The sign convention: positive = stock increase, negative = stock decrease.
+     * Clasificación de la causa. Solo aplica a LOSS y ADJUSTMENT.
+     * Null en SALE, PURCHASE, returns.
      */
+    #[ORM\Column(name: 'reason_code', type: Types::STRING, length: 30, nullable: true)]
+    private ?string $reasonCode = null;
+
     #[ORM\Column(name: 'quantity_delta', type: Types::INTEGER)]
     private int $quantityDelta;
 
-    /**
-     * Snapshot of unit cost at time of movement.
-     * Nullable because not all movement types have an associated cost (e.g., LOSS, ADJUSTMENT).
-     */
     #[ORM\Column(name: 'unit_cost_snapshot', type: Types::DECIMAL, precision: 12, scale: 2, nullable: true)]
     private ?string $unitCostSnapshot = null;
 
-    /**
-     * Polymorphic reference to the source document.
-     * NOT an ORM relationship because it can reference different entity types
-     * (SaleLine, manual entry, import batch, etc.).
-     * The combination of reference_type + reference_id identifies the source.
-     */
+    #[ORM\Column(name: 'current_unit_cost_snapshot', type: Types::DECIMAL, precision: 12, scale: 2, nullable: true)]
+    private ?string $currentUnitCostSnapshot = null;
+
     #[ORM\Column(name: 'reference_type', type: Types::STRING, length: 30, nullable: true)]
     private ?string $referenceType = null;
 
     #[ORM\Column(name: 'reference_id', type: Types::INTEGER, nullable: true)]
     private ?int $referenceId = null;
+
+    #[ORM\Column(name: 'idempotency_key', type: Types::STRING, length: 120)]
+    private string $idempotencyKey;
 
     #[ORM\Column(name: 'movement_date', type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $movementDate;
@@ -80,12 +90,25 @@ class InventoryMovement
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
+        $this->movementDate = new \DateTimeImmutable();
+        $this->idempotencyKey = self::generateManualKey();
     }
 
     #[ORM\PrePersist]
     public function onPrePersist(): void
     {
         $this->createdAt = new \DateTimeImmutable();
+        if ($this->quantityDelta === 0) {
+            throw new \LogicException('InventoryMovement.quantityDelta no puede ser 0.');
+        }
+        if ($this->movementType === self::TYPE_LOSS && $this->quantityDelta > 0) {
+            throw new \LogicException('Un movimiento LOSS debe tener quantityDelta negativo.');
+        }
+    }
+
+    public static function generateManualKey(): string
+    {
+        return 'manual:' . bin2hex(random_bytes(16));
     }
 
     public function getId(): int
@@ -98,9 +121,9 @@ class InventoryMovement
         return $this->tenant;
     }
 
-    public function setTenant(Tenant $tenant): self
+    public function setTenant(Tenant $t): self
     {
-        $this->tenant = $tenant;
+        $this->tenant = $t;
         return $this;
     }
 
@@ -109,9 +132,9 @@ class InventoryMovement
         return $this->investmentItem;
     }
 
-    public function setInvestmentItem(InvestmentItem $investmentItem): self
+    public function setInvestmentItem(InvestmentItem $i): self
     {
-        $this->investmentItem = $investmentItem;
+        $this->investmentItem = $i;
         return $this;
     }
 
@@ -120,9 +143,20 @@ class InventoryMovement
         return $this->movementType;
     }
 
-    public function setMovementType(string $movementType): self
+    public function setMovementType(string $t): self
     {
-        $this->movementType = $movementType;
+        $this->movementType = $t;
+        return $this;
+    }
+
+    public function getReasonCode(): ?string
+    {
+        return $this->reasonCode;
+    }
+
+    public function setReasonCode(?string $r): self
+    {
+        $this->reasonCode = $r;
         return $this;
     }
 
@@ -131,9 +165,9 @@ class InventoryMovement
         return $this->quantityDelta;
     }
 
-    public function setQuantityDelta(int $quantityDelta): self
+    public function setQuantityDelta(int $q): self
     {
-        $this->quantityDelta = $quantityDelta;
+        $this->quantityDelta = $q;
         return $this;
     }
 
@@ -142,9 +176,20 @@ class InventoryMovement
         return $this->unitCostSnapshot;
     }
 
-    public function setUnitCostSnapshot(?string $unitCostSnapshot): self
+    public function setUnitCostSnapshot(?string $v): self
     {
-        $this->unitCostSnapshot = $unitCostSnapshot;
+        $this->unitCostSnapshot = $v;
+        return $this;
+    }
+
+    public function getCurrentUnitCostSnapshot(): ?string
+    {
+        return $this->currentUnitCostSnapshot;
+    }
+
+    public function setCurrentUnitCostSnapshot(?string $v): self
+    {
+        $this->currentUnitCostSnapshot = $v;
         return $this;
     }
 
@@ -153,9 +198,9 @@ class InventoryMovement
         return $this->referenceType;
     }
 
-    public function setReferenceType(?string $referenceType): self
+    public function setReferenceType(?string $v): self
     {
-        $this->referenceType = $referenceType;
+        $this->referenceType = $v;
         return $this;
     }
 
@@ -164,9 +209,20 @@ class InventoryMovement
         return $this->referenceId;
     }
 
-    public function setReferenceId(?int $referenceId): self
+    public function setReferenceId(?int $v): self
     {
-        $this->referenceId = $referenceId;
+        $this->referenceId = $v;
+        return $this;
+    }
+
+    public function getIdempotencyKey(): string
+    {
+        return $this->idempotencyKey;
+    }
+
+    public function setIdempotencyKey(string $v): self
+    {
+        $this->idempotencyKey = $v;
         return $this;
     }
 
@@ -175,9 +231,9 @@ class InventoryMovement
         return $this->movementDate;
     }
 
-    public function setMovementDate(\DateTimeImmutable $movementDate): self
+    public function setMovementDate(\DateTimeImmutable $d): self
     {
-        $this->movementDate = $movementDate;
+        $this->movementDate = $d;
         return $this;
     }
 
@@ -186,9 +242,9 @@ class InventoryMovement
         return $this->notes;
     }
 
-    public function setNotes(?string $notes): self
+    public function setNotes(?string $n): self
     {
-        $this->notes = $notes;
+        $this->notes = $n;
         return $this;
     }
 
@@ -196,9 +252,4 @@ class InventoryMovement
     {
         return $this->createdAt;
     }
-
-    /**
-     * This is an append-only ledger: movements are never edited or deleted.
-     * Corrections are made via new ADJUSTMENT movements.
-     */
 }

@@ -35,41 +35,37 @@ class Tenant
     #[ORM\Column(name: 'updated_at', type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $updatedAt;
 
-    /**
-     * @var Collection<int, AppUser>
-     */
+    /** @var Collection<int, AppUser> */
     #[ORM\OneToMany(mappedBy: 'tenant', targetEntity: AppUser::class)]
     private Collection $users;
 
-    /**
-     * @var Collection<int, AppSetting>
-     */
+    /** @var Collection<int, AppSetting> */
     #[ORM\OneToMany(mappedBy: 'tenant', targetEntity: AppSetting::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
     private Collection $settings;
 
-    /**
-     * @var Collection<int, UsdRate>
-     */
+    /** @var Collection<int, UsdRate> */
     #[ORM\OneToMany(mappedBy: 'tenant', targetEntity: UsdRate::class)]
     private Collection $usdRates;
 
-    /**
-     * @var Collection<int, Product>
-     */
+    /** @var Collection<int, Product> */
     #[ORM\OneToMany(mappedBy: 'tenant', targetEntity: Product::class)]
     private Collection $products;
 
-    /**
-     * @var Collection<int, Investment>
-     */
+    /** @var Collection<int, Investment> */
     #[ORM\OneToMany(mappedBy: 'tenant', targetEntity: Investment::class)]
     private Collection $investments;
 
-    /**
-     * @var Collection<int, Sale>
-     */
+    /** @var Collection<int, Sale> */
     #[ORM\OneToMany(mappedBy: 'tenant', targetEntity: Sale::class)]
     private Collection $sales;
+
+    /** @var Collection<int, Customer> */
+    #[ORM\OneToMany(mappedBy: 'tenant', targetEntity: Customer::class)]
+    private Collection $customers;
+
+    /** @var Collection<int, Payment> */
+    #[ORM\OneToMany(mappedBy: 'tenant', targetEntity: Payment::class)]
+    private Collection $payments;
 
     public function __construct()
     {
@@ -79,6 +75,8 @@ class Tenant
         $this->products = new ArrayCollection();
         $this->investments = new ArrayCollection();
         $this->sales = new ArrayCollection();
+        $this->customers = new ArrayCollection();
+        $this->payments = new ArrayCollection();
         $this->createdAt = new \DateTimeImmutable();
         $this->updatedAt = new \DateTimeImmutable();
     }
@@ -144,9 +142,7 @@ class Tenant
         return $this->updatedAt;
     }
 
-    /**
-     * @return Collection<int, AppUser>
-     */
+    /** @return Collection<int, AppUser> */
     public function getUsers(): Collection
     {
         return $this->users;
@@ -167,9 +163,7 @@ class Tenant
         return $this;
     }
 
-    /**
-     * @return Collection<int, AppSetting>
-     */
+    /** @return Collection<int, AppSetting> */
     public function getSettings(): Collection
     {
         return $this->settings;
@@ -190,9 +184,7 @@ class Tenant
         return $this;
     }
 
-    /**
-     * @return Collection<int, UsdRate>
-     */
+    /** @return Collection<int, UsdRate> */
     public function getUsdRates(): Collection
     {
         return $this->usdRates;
@@ -213,9 +205,7 @@ class Tenant
         return $this;
     }
 
-    /**
-     * @return Collection<int, Product>
-     */
+    /** @return Collection<int, Product> */
     public function getProducts(): Collection
     {
         return $this->products;
@@ -236,9 +226,7 @@ class Tenant
         return $this;
     }
 
-    /**
-     * @return Collection<int, Investment>
-     */
+    /** @return Collection<int, Investment> */
     public function getInvestments(): Collection
     {
         return $this->investments;
@@ -259,9 +247,7 @@ class Tenant
         return $this;
     }
 
-    /**
-     * @return Collection<int, Sale>
-     */
+    /** @return Collection<int, Sale> */
     public function getSales(): Collection
     {
         return $this->sales;
@@ -279,6 +265,48 @@ class Tenant
     public function removeSale(Sale $sale): self
     {
         $this->sales->removeElement($sale);
+        return $this;
+    }
+
+    /** @return Collection<int, Customer> */
+    public function getCustomers(): Collection
+    {
+        return $this->customers;
+    }
+
+    public function addCustomer(Customer $customer): self
+    {
+        if (!$this->customers->contains($customer)) {
+            $this->customers->add($customer);
+            $customer->setTenant($this);
+        }
+        return $this;
+    }
+
+    public function removeCustomer(Customer $customer): self
+    {
+        $this->customers->removeElement($customer);
+        return $this;
+    }
+
+    /** @return Collection<int, Payment> */
+    public function getPayments(): Collection
+    {
+        return $this->payments;
+    }
+
+    public function addPayment(Payment $payment): self
+    {
+        if (!$this->payments->contains($payment)) {
+            $this->payments->add($payment);
+            $payment->setTenant($this);
+        }
+        return $this;
+    }
+
+    public function removePayment(Payment $payment): self
+    {
+        $this->payments->removeElement($payment);
         return $this;
     }
 

@@ -17,6 +17,18 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\HasLifecycleCallbacks]
 class InvestmentItem
 {
+    /*
+     * INVARIANTES (verificadas por InvestmentItemCalculatorService):
+     *   allocatedExpense  = Σ ExpenseAllocation.allocatedAmount del ítem
+     *   realUnitCost      = (unitCost * quantity + allocatedExpense) / quantity
+     *   realUnitCostUsd   = realUnitCost / usdRateSnapshot
+     *   suggestedPrice    = realUnitCost * (1 + suggestedMarginPct / 100)
+     *
+     * Estas columnas son denormalizaciones para reportes. La fuente
+     * autoritativa es ExpenseAllocation + unitCost + usdRateSnapshot.
+     * NUNCA asignarlas a mano fuera del servicio de cálculo.
+     */
+
     #[ORM\Id]
     #[ORM\GeneratedValue(strategy: 'IDENTITY')]
     #[ORM\Column(type: Types::INTEGER)]
@@ -38,19 +50,40 @@ class InvestmentItem
     private int $quantity;
 
     #[ORM\Column(name: 'unit_cost', type: Types::DECIMAL, precision: 12, scale: 2)]
-    private string $unitCost;
+    private string $unitCost = '0.00';
+
+    #[ORM\Column(name: 'unit_cost_usd', type: Types::DECIMAL, precision: 12, scale: 4, nullable: true)]
+    private ?string $unitCostUsd = null;
 
     #[ORM\Column(name: 'allocated_expense', type: Types::DECIMAL, precision: 12, scale: 2)]
     private string $allocatedExpense = '0.00';
 
+    #[ORM\Column(name: 'allocated_expense_usd', type: Types::DECIMAL, precision: 12, scale: 4, nullable: true)]
+    private ?string $allocatedExpenseUsd = null;
+
     #[ORM\Column(name: 'real_unit_cost', type: Types::DECIMAL, precision: 12, scale: 2)]
-    private string $realUnitCost;
+    private string $realUnitCost = '0.00';
+
+    #[ORM\Column(name: 'real_unit_cost_usd', type: Types::DECIMAL, precision: 12, scale: 4, nullable: true)]
+    private ?string $realUnitCostUsd = null;
+
+    #[ORM\Column(name: 'current_real_unit_cost', type: Types::DECIMAL, precision: 12, scale: 2)]
+    private string $currentRealUnitCost = '0.00';
 
     #[ORM\Column(name: 'suggested_margin_pct', type: Types::DECIMAL, precision: 5, scale: 2)]
-    private string $suggestedMarginPct;
+    private string $suggestedMarginPct = '0.00';
 
     #[ORM\Column(name: 'suggested_price', type: Types::DECIMAL, precision: 12, scale: 2)]
-    private string $suggestedPrice;
+    private string $suggestedPrice = '0.00';
+
+    #[ORM\Column(name: 'current_suggested_price', type: Types::DECIMAL, precision: 12, scale: 2)]
+    private string $currentSuggestedPrice = '0.00';
+
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    private ?string $notes = null;
+
+    #[ORM\Column(name: 'last_revalued_at', type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $lastRevaluedAt = null;
 
     #[ORM\Column(name: 'created_at', type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $createdAt;
@@ -58,28 +91,25 @@ class InvestmentItem
     #[ORM\Column(name: 'updated_at', type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $updatedAt;
 
-    /**
-     * @var Collection<int, SaleLine>
-     */
+    /** @var Collection<int, SaleLine> */
     #[ORM\OneToMany(mappedBy: 'investmentItem', targetEntity: SaleLine::class)]
     private Collection $saleLines;
 
-    /**
-     * @var Collection<int, InventoryMovement>
-     */
+    /** @var Collection<int, InventoryMovement> */
     #[ORM\OneToMany(mappedBy: 'investmentItem', targetEntity: InventoryMovement::class)]
     private Collection $inventoryMovements;
+
+    /** @var Collection<int, ItemCostRevaluation> */
+    #[ORM\OneToMany(mappedBy: 'investmentItem', targetEntity: ItemCostRevaluation::class)]
+    private Collection $revaluations;
 
     public function __construct()
     {
         $this->saleLines = new ArrayCollection();
         $this->inventoryMovements = new ArrayCollection();
+        $this->revaluations = new ArrayCollection();
         $this->createdAt = new \DateTimeImmutable();
         $this->updatedAt = new \DateTimeImmutable();
-        $this->unitCost = '0.00';
-        $this->realUnitCost = '0.00';
-        $this->suggestedMarginPct = '0.00';
-        $this->suggestedPrice = '0.00';
     }
 
     #[ORM\PrePersist]
@@ -87,12 +117,18 @@ class InvestmentItem
     {
         $this->createdAt = new \DateTimeImmutable();
         $this->updatedAt = new \DateTimeImmutable();
+        if ($this->quantity <= 0) {
+            throw new \LogicException('InvestmentItem.quantity debe ser > 0.');
+        }
     }
 
     #[ORM\PreUpdate]
     public function onPreUpdate(): void
     {
         $this->updatedAt = new \DateTimeImmutable();
+        if ($this->quantity <= 0) {
+            throw new \LogicException('InvestmentItem.quantity debe ser > 0.');
+        }
     }
 
     public function getId(): int
@@ -105,9 +141,9 @@ class InvestmentItem
         return $this->tenant;
     }
 
-    public function setTenant(Tenant $tenant): self
+    public function setTenant(Tenant $t): self
     {
-        $this->tenant = $tenant;
+        $this->tenant = $t;
         return $this;
     }
 
@@ -116,9 +152,9 @@ class InvestmentItem
         return $this->investment;
     }
 
-    public function setInvestment(Investment $investment): self
+    public function setInvestment(Investment $i): self
     {
-        $this->investment = $investment;
+        $this->investment = $i;
         return $this;
     }
 
@@ -127,9 +163,9 @@ class InvestmentItem
         return $this->product;
     }
 
-    public function setProduct(Product $product): self
+    public function setProduct(Product $p): self
     {
-        $this->product = $product;
+        $this->product = $p;
         return $this;
     }
 
@@ -138,9 +174,9 @@ class InvestmentItem
         return $this->quantity;
     }
 
-    public function setQuantity(int $quantity): self
+    public function setQuantity(int $q): self
     {
-        $this->quantity = $quantity;
+        $this->quantity = $q;
         return $this;
     }
 
@@ -149,9 +185,20 @@ class InvestmentItem
         return $this->unitCost;
     }
 
-    public function setUnitCost(string $unitCost): self
+    public function setUnitCost(string $v): self
     {
-        $this->unitCost = $unitCost;
+        $this->unitCost = $v;
+        return $this;
+    }
+
+    public function getUnitCostUsd(): ?string
+    {
+        return $this->unitCostUsd;
+    }
+
+    public function setUnitCostUsd(?string $v): self
+    {
+        $this->unitCostUsd = $v;
         return $this;
     }
 
@@ -160,9 +207,20 @@ class InvestmentItem
         return $this->allocatedExpense;
     }
 
-    public function setAllocatedExpense(string $allocatedExpense): self
+    public function setAllocatedExpense(string $v): self
     {
-        $this->allocatedExpense = $allocatedExpense;
+        $this->allocatedExpense = $v;
+        return $this;
+    }
+
+    public function getAllocatedExpenseUsd(): ?string
+    {
+        return $this->allocatedExpenseUsd;
+    }
+
+    public function setAllocatedExpenseUsd(?string $v): self
+    {
+        $this->allocatedExpenseUsd = $v;
         return $this;
     }
 
@@ -171,9 +229,31 @@ class InvestmentItem
         return $this->realUnitCost;
     }
 
-    public function setRealUnitCost(string $realUnitCost): self
+    public function setRealUnitCost(string $v): self
     {
-        $this->realUnitCost = $realUnitCost;
+        $this->realUnitCost = $v;
+        return $this;
+    }
+
+    public function getRealUnitCostUsd(): ?string
+    {
+        return $this->realUnitCostUsd;
+    }
+
+    public function setRealUnitCostUsd(?string $v): self
+    {
+        $this->realUnitCostUsd = $v;
+        return $this;
+    }
+
+    public function getCurrentRealUnitCost(): string
+    {
+        return $this->currentRealUnitCost;
+    }
+
+    public function setCurrentRealUnitCost(string $v): self
+    {
+        $this->currentRealUnitCost = $v;
         return $this;
     }
 
@@ -182,9 +262,9 @@ class InvestmentItem
         return $this->suggestedMarginPct;
     }
 
-    public function setSuggestedMarginPct(string $suggestedMarginPct): self
+    public function setSuggestedMarginPct(string $v): self
     {
-        $this->suggestedMarginPct = $suggestedMarginPct;
+        $this->suggestedMarginPct = $v;
         return $this;
     }
 
@@ -193,9 +273,42 @@ class InvestmentItem
         return $this->suggestedPrice;
     }
 
-    public function setSuggestedPrice(string $suggestedPrice): self
+    public function setSuggestedPrice(string $v): self
     {
-        $this->suggestedPrice = $suggestedPrice;
+        $this->suggestedPrice = $v;
+        return $this;
+    }
+
+    public function getCurrentSuggestedPrice(): string
+    {
+        return $this->currentSuggestedPrice;
+    }
+
+    public function setCurrentSuggestedPrice(string $v): self
+    {
+        $this->currentSuggestedPrice = $v;
+        return $this;
+    }
+
+    public function getNotes(): ?string
+    {
+        return $this->notes;
+    }
+
+    public function setNotes(?string $n): self
+    {
+        $this->notes = $n;
+        return $this;
+    }
+
+    public function getLastRevaluedAt(): ?\DateTimeImmutable
+    {
+        return $this->lastRevaluedAt;
+    }
+
+    public function setLastRevaluedAt(?\DateTimeImmutable $v): self
+    {
+        $this->lastRevaluedAt = $v;
         return $this;
     }
 
@@ -209,57 +322,66 @@ class InvestmentItem
         return $this->updatedAt;
     }
 
-    /**
-     * @return Collection<int, SaleLine>
-     */
+    /** @return Collection<int, SaleLine> */
     public function getSaleLines(): Collection
     {
         return $this->saleLines;
     }
 
-    public function addSaleLine(SaleLine $saleLine): self
+    public function addSaleLine(SaleLine $l): self
     {
-        if (!$this->saleLines->contains($saleLine)) {
-            $this->saleLines->add($saleLine);
-            $saleLine->setInvestmentItem($this);
+        if (!$this->saleLines->contains($l)) {
+            $this->saleLines->add($l);
+            $l->setInvestmentItem($this);
         }
         return $this;
     }
 
-    public function removeSaleLine(SaleLine $saleLine): self
+    public function removeSaleLine(SaleLine $l): self
     {
-        $this->saleLines->removeElement($saleLine);
+        $this->saleLines->removeElement($l);
         return $this;
     }
 
-    /**
-     * @return Collection<int, InventoryMovement>
-     */
+    /** @return Collection<int, InventoryMovement> */
     public function getInventoryMovements(): Collection
     {
         return $this->inventoryMovements;
     }
 
-    public function addInventoryMovement(InventoryMovement $inventoryMovement): self
+    public function addInventoryMovement(InventoryMovement $m): self
     {
-        if (!$this->inventoryMovements->contains($inventoryMovement)) {
-            $this->inventoryMovements->add($inventoryMovement);
-            $inventoryMovement->setInvestmentItem($this);
+        if (!$this->inventoryMovements->contains($m)) {
+            $this->inventoryMovements->add($m);
+            $m->setInvestmentItem($this);
         }
         return $this;
     }
 
-    public function removeInventoryMovement(InventoryMovement $inventoryMovement): self
+    public function removeInventoryMovement(InventoryMovement $m): self
     {
-        $this->inventoryMovements->removeElement($inventoryMovement);
+        $this->inventoryMovements->removeElement($m);
         return $this;
     }
 
-    /**
-     * quantity_sold and quantity_remaining are NOT persisted as columns.
-     * They are calculated via SUM(inventory_movement.quantity_delta) where:
-     * - quantity_sold = ABS(SUM(quantity_delta) for TYPE_SALE)
-     * - quantity_remaining = SUM(quantity_delta) for all movements
-     * This avoids data duplication and ensures consistency with the ledger.
-     */
+    /** @return Collection<int, ItemCostRevaluation> */
+    public function getRevaluations(): Collection
+    {
+        return $this->revaluations;
+    }
+
+    public function addRevaluation(ItemCostRevaluation $r): self
+    {
+        if (!$this->revaluations->contains($r)) {
+            $this->revaluations->add($r);
+            $r->setInvestmentItem($this);
+        }
+        return $this;
+    }
+
+    public function removeRevaluation(ItemCostRevaluation $r): self
+    {
+        $this->revaluations->removeElement($r);
+        return $this;
+    }
 }
