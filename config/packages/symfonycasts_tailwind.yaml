@@ -1,0 +1,4 @@
+symfonycasts_tailwind:
+    binary: node_modules/.bin/tailwindcss
+    binary_version: v4.3.3
+    binary_platform: windows-x64

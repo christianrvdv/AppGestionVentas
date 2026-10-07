@@ -104,3 +104,11 @@ $RECYCLE.BIN/
 # Secretos de Symfony
 /config/secrets/*/*.decrypt.private.php
 ###< Entorno y secretos locales ###
+
+###> node ###
+/node_modules/
+###< node ###
+
+###> tailwind compiled ###
+/assets/styles/app.compiled.css
+###< tailwind compiled ###
