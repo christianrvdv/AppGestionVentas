@@ -18,9 +18,6 @@ doctrine:
         auto_mapping: true
 
         # [PHASE-0] Filtro SQL global por tenant.
-        # enabled: false → el listener lo activa en runtime por request.
-        # Si se pusiera a true, se activaría también en CLI y rompería
-        # migraciones y comandos cross-tenant.
         filters:
             tenant_filter:
                 class: App\Doctrine\Filter\TenantFilter
@@ -37,8 +34,21 @@ doctrine:
 when@test:
     doctrine:
         dbal:
-            # "TEST_TOKEN" is typically set by ParaTest
-            dbname_suffix: '_test%env(default::TEST_TOKEN)%'
+            # SQLite in-memory. Sobrescribe SOLO las claves individuales.
+            # NO usar "url" acá: DoctrineBundle prohíbe url + host/dbname/etc.
+            driver: pdo_sqlite
+            host: ~
+            port: ~
+            dbname: ':memory:'
+            user: ~
+            password: ~
+            server_version: ~
+            charset: UTF8
+
+    dama_doctrine_test:
+        enable_static_connection: true
+        enable_static_meta_data_cache: true
+        enable_static_query_cache: true
 
 when@prod:
     doctrine:
