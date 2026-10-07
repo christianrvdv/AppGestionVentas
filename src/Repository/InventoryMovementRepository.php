@@ -109,6 +109,23 @@ class InventoryMovementRepository extends ServiceEntityRepository implements Inv
         return (int)($result['total'] ?? 0);
     }
 
+    public function getLostQuantityByInvestment(int $investmentId, int $tenantId): int
+    {
+        $result = $this->createQueryBuilder('im')
+            ->innerJoin('im.investmentItem', 'ii')
+            ->select('SUM(ABS(im.quantityDelta)) AS total')
+            ->andWhere('ii.investment = :investmentId')
+            ->andWhere('im.tenant = :tenantId')
+            ->andWhere('im.movementType = :type')
+            ->setParameter('investmentId', $investmentId)
+            ->setParameter('tenantId', $tenantId)
+            ->setParameter('type', InventoryMovement::TYPE_LOSS)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        return (int)($result['total'] ?? 0);
+    }
+
     /**
      * Capital perdido usando el costo histórico.
      */

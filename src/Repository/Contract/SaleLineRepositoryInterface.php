@@ -48,6 +48,12 @@ interface SaleLineRepositoryInterface
         bool $includeVoided = false
     ): string;
 
+    public function sumCostRecoveredByInvestment(
+        int  $investmentId,
+        int  $tenantId,
+        bool $includeVoided = false
+    ): string;
+
     public function sumGrossProfitByInvestment(
         int  $investmentId,
         int  $tenantId,

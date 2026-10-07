@@ -30,6 +30,11 @@ interface InventoryMovementRepositoryInterface
     public function getLostQuantity(int $itemId, int $tenantId): int;
 
     /**
+     * Cantidad total perdida (movimientos LOSS) para una inversión completa.
+     */
+    public function getLostQuantityByInvestment(int $investmentId, int $tenantId): int;
+
+    /**
      * Capital perdido usando el costo histórico.
      */
     public function getLostCapital(int $itemId, int $tenantId): string;

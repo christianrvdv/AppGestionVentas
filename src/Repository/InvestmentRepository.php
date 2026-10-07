@@ -132,4 +132,16 @@ class InvestmentRepository extends ServiceEntityRepository implements Investment
             ->getQuery()
             ->getSingleScalarResult();
     }
+
+    public function countByCodePrefix(int $tenantId, string $prefix): int
+    {
+        return (int) $this->createQueryBuilder('i')
+            ->select('COUNT(i.id)')
+            ->andWhere('i.tenant = :tenantId')
+            ->andWhere('i.code LIKE :prefix')
+            ->setParameter('tenantId', $tenantId)
+            ->setParameter('prefix', $prefix . '%')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
 }

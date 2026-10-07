@@ -55,4 +55,10 @@ interface InvestmentRepositoryInterface
     public function findActiveByTenant(int $tenantId): array;
 
     public function countByStatus(int $tenantId, string $status): int;
+
+    /**
+     * Cuenta inversiones de un tenant cuyo código empieza con el prefijo dado.
+     * Usado para generar código secuencial INV-YYYYMMDD-NNN.
+     */
+    public function countByCodePrefix(int $tenantId, string $prefix): int;
 }

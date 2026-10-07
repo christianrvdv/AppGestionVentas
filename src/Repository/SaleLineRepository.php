@@ -104,6 +104,29 @@ class SaleLineRepository extends ServiceEntityRepository implements SaleLineRepo
         return (string)($result['total'] ?? '0.00');
     }
 
+    public function sumCostRecoveredByInvestment(
+        int  $investmentId,
+        int  $tenantId,
+        bool $includeVoided = false
+    ): string
+    {
+        $qb = $this->createQueryBuilder('sl')
+            ->select('SUM(sl.costRecovered) AS total')
+            ->innerJoin('sl.investmentItem', 'ii')
+            ->innerJoin('sl.sale', 's')
+            ->andWhere('ii.investment = :investmentId')
+            ->andWhere('sl.tenant = :tenantId')
+            ->setParameter('investmentId', $investmentId)
+            ->setParameter('tenantId', $tenantId);
+
+        if (!$includeVoided) {
+            $qb->andWhere('s.voidedAt IS NULL');
+        }
+
+        $result = $qb->getQuery()->getOneOrNullResult();
+        return (string)($result['total'] ?? '0.00');
+    }
+
     public function sumGrossProfitByInvestment(
         int  $investmentId,
         int  $tenantId,
