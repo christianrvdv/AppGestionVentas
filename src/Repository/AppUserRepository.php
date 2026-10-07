@@ -25,4 +25,19 @@ class AppUserRepository extends ServiceEntityRepository
             ->getQuery()
             ->getOneOrNullResult();
     }
+
+    /**
+     * @return AppUser[]
+     */
+    public function findActiveByTenant(int $tenantId): array
+    {
+        return $this->createQueryBuilder('u')
+            ->andWhere('u.tenant = :tenantId')
+            ->andWhere('u.isActive = :active')
+            ->setParameter('tenantId', $tenantId)
+            ->setParameter('active', true)
+            ->orderBy('u.email', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
 }

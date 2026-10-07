@@ -15,6 +15,17 @@ class InvestmentRepository extends ServiceEntityRepository
         parent::__construct($registry, Investment::class);
     }
 
+    public function findByIdAndTenant(int $id, int $tenantId): ?Investment
+    {
+        return $this->createQueryBuilder('i')
+            ->andWhere('i.id = :id')
+            ->andWhere('i.tenant = :tenantId')
+            ->setParameter('id', $id)
+            ->setParameter('tenantId', $tenantId)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     /**
      * @return Investment[]
      */
@@ -47,19 +58,75 @@ class InvestmentRepository extends ServiceEntityRepository
             ->getResult();
     }
 
-    public function sumInvestmentsByPeriod(int $tenantId, \DateTimeImmutable $from, \DateTimeImmutable $to): string
+    /**
+     * Suma de inversiones del período. Excluye CANCELLED: una inversión
+     * cancelada nunca se ejecutó, no debe contarse como capital invertido.
+     */
+    public function sumInvestmentsByPeriod(
+        int                $tenantId,
+        \DateTimeImmutable $from,
+        \DateTimeImmutable $to
+    ): string
     {
         $result = $this->createQueryBuilder('i')
-            ->select('SUM(i.totalInvestment) as total')
+            ->select('SUM(i.totalInvestment) AS total')
             ->andWhere('i.tenant = :tenantId')
             ->andWhere('i.investmentDate >= :from')
             ->andWhere('i.investmentDate <= :to')
+            ->andWhere('i.status != :cancelled')
             ->setParameter('tenantId', $tenantId)
             ->setParameter('from', $from)
             ->setParameter('to', $to)
+            ->setParameter('cancelled', Investment::STATUS_CANCELLED)
             ->getQuery()
             ->getOneOrNullResult();
 
-        return $result['total'] ?? '0.00';
+        return (string)($result['total'] ?? '0.00');
+    }
+
+    /**
+     * Inversiones candidatas a revaluación: abiertas/parciales, no canceladas
+     * y con tasa USD definida.
+     *
+     * @return Investment[]
+     */
+    public function findRevaluable(int $tenantId): array
+    {
+        return $this->createQueryBuilder('i')
+            ->andWhere('i.tenant = :tenantId')
+            ->andWhere('i.status IN (:statuses)')
+            ->andWhere('i.usdRateSnapshot IS NOT NULL')
+            ->setParameter('tenantId', $tenantId)
+            ->setParameter('statuses', [Investment::STATUS_OPEN, Investment::STATUS_PARTIAL])
+            ->orderBy('i.investmentDate', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * @return Investment[]
+     */
+    public function findActiveByTenant(int $tenantId): array
+    {
+        return $this->createQueryBuilder('i')
+            ->andWhere('i.tenant = :tenantId')
+            ->andWhere('i.status IN (:statuses)')
+            ->setParameter('tenantId', $tenantId)
+            ->setParameter('statuses', [Investment::STATUS_OPEN, Investment::STATUS_PARTIAL])
+            ->orderBy('i.investmentDate', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    public function countByStatus(int $tenantId, string $status): int
+    {
+        return (int) $this->createQueryBuilder('i')
+            ->select('COUNT(i.id)')
+            ->andWhere('i.tenant = :tenantId')
+            ->andWhere('i.status = :status')
+            ->setParameter('tenantId', $tenantId)
+            ->setParameter('status', $status)
+            ->getQuery()
+            ->getSingleScalarResult();
     }
 }
