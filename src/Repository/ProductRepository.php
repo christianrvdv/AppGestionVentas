@@ -5,14 +5,28 @@ declare(strict_types=1);
 namespace App\Repository;
 
 use App\Entity\Product;
+use App\Repository\Contract\ProductRepositoryInterface;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
-class ProductRepository extends ServiceEntityRepository
+#[AsAlias(ProductRepositoryInterface::class)]
+class ProductRepository extends ServiceEntityRepository implements ProductRepositoryInterface
 {
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, Product::class);
+    }
+
+    public function findByIdAndTenant(int $id, int $tenantId): ?Product
+    {
+        return $this->createQueryBuilder('p')
+            ->andWhere('p.id = :id')
+            ->andWhere('p.tenant = :tenantId')
+            ->setParameter('id', $id)
+            ->setParameter('tenantId', $tenantId)
+            ->getQuery()
+            ->getOneOrNullResult();
     }
 
     /**

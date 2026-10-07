@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Repository;
 
 use App\Entity\Payment;
+use App\Repository\Contract\PaymentRepositoryInterface;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
-class PaymentRepository extends ServiceEntityRepository
+#[AsAlias(PaymentRepositoryInterface::class)]
+class PaymentRepository extends ServiceEntityRepository implements PaymentRepositoryInterface
 {
     public function __construct(ManagerRegistry $registry)
     {

@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Repository;
 
 use App\Entity\ItemCostRevaluation;
+use App\Repository\Contract\ItemCostRevaluationRepositoryInterface;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
-class ItemCostRevaluationRepository extends ServiceEntityRepository
+#[AsAlias(ItemCostRevaluationRepositoryInterface::class)]
+class ItemCostRevaluationRepository extends ServiceEntityRepository implements ItemCostRevaluationRepositoryInterface
 {
     public function __construct(ManagerRegistry $registry)
     {

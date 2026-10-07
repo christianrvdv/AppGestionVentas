@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Repository;
 
 use App\Entity\SaleLine;
+use App\Repository\Contract\SaleLineRepositoryInterface;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
-class SaleLineRepository extends ServiceEntityRepository
+#[AsAlias(SaleLineRepositoryInterface::class)]
+class SaleLineRepository extends ServiceEntityRepository implements SaleLineRepositoryInterface
 {
     public function __construct(ManagerRegistry $registry)
     {

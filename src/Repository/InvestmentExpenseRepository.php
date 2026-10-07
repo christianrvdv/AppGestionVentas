@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Repository;
 
 use App\Entity\InvestmentExpense;
+use App\Repository\Contract\InvestmentExpenseRepositoryInterface;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
-class InvestmentExpenseRepository extends ServiceEntityRepository
+#[AsAlias(InvestmentExpenseRepositoryInterface::class)]
+class InvestmentExpenseRepository extends ServiceEntityRepository implements InvestmentExpenseRepositoryInterface
 {
     public function __construct(ManagerRegistry $registry)
     {

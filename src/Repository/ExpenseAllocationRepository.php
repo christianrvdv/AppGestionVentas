@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Repository;
 
 use App\Entity\ExpenseAllocation;
+use App\Repository\Contract\ExpenseAllocationRepositoryInterface;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
-class ExpenseAllocationRepository extends ServiceEntityRepository
+#[AsAlias(ExpenseAllocationRepositoryInterface::class)]
+class ExpenseAllocationRepository extends ServiceEntityRepository implements ExpenseAllocationRepositoryInterface
 {
     public function __construct(ManagerRegistry $registry)
     {

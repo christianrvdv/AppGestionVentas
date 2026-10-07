@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace App\Repository;
 
 use App\Entity\AppSetting;
+use App\Repository\Contract\AppSettingRepositoryInterface;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\NoResultException;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
-class AppSettingRepository extends ServiceEntityRepository
+#[AsAlias(AppSettingRepositoryInterface::class)]
+class AppSettingRepository extends ServiceEntityRepository implements AppSettingRepositoryInterface
 {
     public function __construct(ManagerRegistry $registry)
     {
@@ -63,11 +66,6 @@ class AppSettingRepository extends ServiceEntityRepository
         }
         return $keyed;
     }
-
-    // -----------------------------------------------------------------
-    // Getters tipados. Centralizan el casteo de setting_value (TEXT)
-    // para que ningún consumidor tenga que parsear strings a mano.
-    // -----------------------------------------------------------------
 
     public function getString(int $tenantId, string $key, ?string $default = null): ?string
     {

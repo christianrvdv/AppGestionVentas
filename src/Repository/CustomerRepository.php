@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Repository;
 
 use App\Entity\Customer;
+use App\Repository\Contract\CustomerRepositoryInterface;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
-class CustomerRepository extends ServiceEntityRepository
+#[AsAlias(CustomerRepositoryInterface::class)]
+class CustomerRepository extends ServiceEntityRepository implements CustomerRepositoryInterface
 {
     public function __construct(ManagerRegistry $registry)
     {

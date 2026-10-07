@@ -5,14 +5,28 @@ declare(strict_types=1);
 namespace App\Repository;
 
 use App\Entity\InventoryMovement;
+use App\Repository\Contract\InventoryMovementRepositoryInterface;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
-class InventoryMovementRepository extends ServiceEntityRepository
+#[AsAlias(InventoryMovementRepositoryInterface::class)]
+class InventoryMovementRepository extends ServiceEntityRepository implements InventoryMovementRepositoryInterface
 {
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, InventoryMovement::class);
+    }
+
+    public function findByIdAndTenant(int $id, int $tenantId): ?InventoryMovement
+    {
+        return $this->createQueryBuilder('im')
+            ->andWhere('im.id = :id')
+            ->andWhere('im.tenant = :tenantId')
+            ->setParameter('id', $id)
+            ->setParameter('tenantId', $tenantId)
+            ->getQuery()
+            ->getOneOrNullResult();
     }
 
     public function getQuantityDeltaSum(int $itemId, int $tenantId): int
@@ -26,7 +40,7 @@ class InventoryMovementRepository extends ServiceEntityRepository
             ->getQuery()
             ->getOneOrNullResult();
 
-        return (int) ($result['total'] ?? 0);
+        return (int)($result['total'] ?? 0);
     }
 
     /**
@@ -45,8 +59,8 @@ class InventoryMovementRepository extends ServiceEntityRepository
 
         $stock = [];
         foreach ($results as $row) {
-            $itemId = (int) $row['itemId'];
-            $delta = (int) $row['delta'];
+            $itemId = (int)$row['itemId'];
+            $delta = (int)$row['delta'];
 
             if (!isset($stock[$itemId])) {
                 $stock[$itemId] = ['in' => 0, 'out' => 0, 'balance' => 0];
@@ -76,7 +90,7 @@ class InventoryMovementRepository extends ServiceEntityRepository
             ->getQuery()
             ->getOneOrNullResult();
 
-        return (int) ($result['total'] ?? 0);
+        return (int)($result['total'] ?? 0);
     }
 
     public function getLostQuantity(int $itemId, int $tenantId): int
@@ -92,7 +106,7 @@ class InventoryMovementRepository extends ServiceEntityRepository
             ->getQuery()
             ->getOneOrNullResult();
 
-        return (int) ($result['total'] ?? 0);
+        return (int)($result['total'] ?? 0);
     }
 
     /**
@@ -112,7 +126,7 @@ class InventoryMovementRepository extends ServiceEntityRepository
             ->getQuery()
             ->getOneOrNullResult();
 
-        return (string) ($result['total'] ?? '0.00');
+        return (string)($result['total'] ?? '0.00');
     }
 
     /**
@@ -133,7 +147,7 @@ class InventoryMovementRepository extends ServiceEntityRepository
             ->getQuery()
             ->getOneOrNullResult();
 
-        return (string) ($result['total'] ?? '0.00');
+        return (string)($result['total'] ?? '0.00');
     }
 
     /**
@@ -153,12 +167,13 @@ class InventoryMovementRepository extends ServiceEntityRepository
     }
 
     public function existsForReference(
-        int $tenantId,
+        int    $tenantId,
         string $referenceType,
-        int $referenceId,
+        int    $referenceId,
         string $movementType
-    ): bool {
-        $count = (int) $this->createQueryBuilder('im')
+    ): bool
+    {
+        $count = (int)$this->createQueryBuilder('im')
             ->select('COUNT(im.id)')
             ->andWhere('im.tenant = :tenantId')
             ->andWhere('im.referenceType = :referenceType')
@@ -174,10 +189,12 @@ class InventoryMovementRepository extends ServiceEntityRepository
         return $count > 0;
     }
 
-    public function findByIdempotencyKey(string $idempotencyKey): ?InventoryMovement
+    public function findByIdempotencyKey(int $tenantId, string $idempotencyKey): ?InventoryMovement
     {
         return $this->createQueryBuilder('im')
+            ->andWhere('im.tenant = :tenantId')
             ->andWhere('im.idempotencyKey = :key')
+            ->setParameter('tenantId', $tenantId)
             ->setParameter('key', $idempotencyKey)
             ->getQuery()
             ->getOneOrNullResult();
@@ -239,8 +256,8 @@ class InventoryMovementRepository extends ServiceEntityRepository
 
         $stock = [];
         foreach ($results as $row) {
-            $itemId = (int) $row['itemId'];
-            $delta = (int) $row['delta'];
+            $itemId = (int)$row['itemId'];
+            $delta = (int)$row['delta'];
 
             if (!isset($stock[$itemId])) {
                 $stock[$itemId] = ['in' => 0, 'out' => 0, 'balance' => 0];
@@ -259,7 +276,7 @@ class InventoryMovementRepository extends ServiceEntityRepository
 
     public function countLossesWithoutSnapshot(int $tenantId): int
     {
-        $count = (int) $this->createQueryBuilder('im')
+        return (int)$this->createQueryBuilder('im')
             ->select('COUNT(im.id)')
             ->andWhere('im.tenant = :tenantId')
             ->andWhere('im.movementType = :type')
@@ -268,7 +285,5 @@ class InventoryMovementRepository extends ServiceEntityRepository
             ->setParameter('type', InventoryMovement::TYPE_LOSS)
             ->getQuery()
             ->getSingleScalarResult();
-
-        return $count;
     }
 }

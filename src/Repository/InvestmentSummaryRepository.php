@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Repository;
 
 use App\Entity\InvestmentSummary;
+use App\Repository\Contract\InvestmentSummaryRepositoryInterface;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
-class InvestmentSummaryRepository extends ServiceEntityRepository
+#[AsAlias(InvestmentSummaryRepositoryInterface::class)]
+class InvestmentSummaryRepository extends ServiceEntityRepository implements InvestmentSummaryRepositoryInterface
 {
     public function __construct(ManagerRegistry $registry)
     {
@@ -42,7 +45,7 @@ class InvestmentSummaryRepository extends ServiceEntityRepository
 
     /**
      * Totales consolidados del tenant. Expone AMBOS modos de recuperación
-     * para que el dashboard pueda compararlos sin recomputar nada.
+     * y la vista revaluada, para que el dashboard no tenga que recomputar.
      *
      * @return array{
      *   totalInvestment: string,
@@ -50,8 +53,11 @@ class InvestmentSummaryRepository extends ServiceEntityRepository
      *   totalRecovered: string,
      *   totalRecoveredPerProduct: string,
      *   totalRecoveredInvestmentFirst: string,
+     *   totalRecoveredCurrent: string,
      *   totalPending: string,
+     *   totalPendingCurrent: string,
      *   totalGrossProfit: string,
+     *   totalRecognizedProfit: string,
      *   totalProfit: string,
      *   totalProfitPerProduct: string,
      *   totalProfitInvestmentFirst: string
@@ -66,8 +72,11 @@ class InvestmentSummaryRepository extends ServiceEntityRepository
                 'SUM(is.totalRecovered) AS totalRecovered',
                 'SUM(is.totalRecoveredPerProduct) AS totalRecoveredPerProduct',
                 'SUM(is.totalRecoveredInvestmentFirst) AS totalRecoveredInvestmentFirst',
+                'SUM(is.totalRecoveredCurrent) AS totalRecoveredCurrent',
                 'SUM(is.totalPending) AS totalPending',
+                'SUM(is.totalPendingCurrent) AS totalPendingCurrent',
                 'SUM(is.totalGrossProfit) AS totalGrossProfit',
+                'SUM(is.totalRecognizedProfit) AS totalRecognizedProfit',
                 'SUM(is.totalProfit) AS totalProfit',
                 'SUM(is.totalProfitPerProduct) AS totalProfitPerProduct',
                 'SUM(is.totalProfitInvestmentFirst) AS totalProfitInvestmentFirst'
@@ -83,8 +92,11 @@ class InvestmentSummaryRepository extends ServiceEntityRepository
             'totalRecovered' => (string)($row['totalRecovered'] ?? '0.00'),
             'totalRecoveredPerProduct' => (string)($row['totalRecoveredPerProduct'] ?? '0.00'),
             'totalRecoveredInvestmentFirst' => (string)($row['totalRecoveredInvestmentFirst'] ?? '0.00'),
+            'totalRecoveredCurrent' => (string)($row['totalRecoveredCurrent'] ?? '0.00'),
             'totalPending' => (string)($row['totalPending'] ?? '0.00'),
+            'totalPendingCurrent' => (string)($row['totalPendingCurrent'] ?? '0.00'),
             'totalGrossProfit' => (string)($row['totalGrossProfit'] ?? '0.00'),
+            'totalRecognizedProfit' => (string)($row['totalRecognizedProfit'] ?? '0.00'),
             'totalProfit' => (string)($row['totalProfit'] ?? '0.00'),
             'totalProfitPerProduct' => (string)($row['totalProfitPerProduct'] ?? '0.00'),
             'totalProfitInvestmentFirst' => (string)($row['totalProfitInvestmentFirst'] ?? '0.00'),

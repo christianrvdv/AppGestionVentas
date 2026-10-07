@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Repository;
 
 use App\Entity\Tenant;
+use App\Repository\Contract\TenantRepositoryInterface;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
-class TenantRepository extends ServiceEntityRepository
+#[AsAlias(TenantRepositoryInterface::class)]
+class TenantRepository extends ServiceEntityRepository implements TenantRepositoryInterface
 {
     public function __construct(ManagerRegistry $registry)
     {

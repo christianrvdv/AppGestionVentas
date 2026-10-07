@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Repository;
 
 use App\Entity\UsdRate;
+use App\Repository\Contract\UsdRateRepositoryInterface;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
-class UsdRateRepository extends ServiceEntityRepository
+#[AsAlias(UsdRateRepositoryInterface::class)]
+class UsdRateRepository extends ServiceEntityRepository implements UsdRateRepositoryInterface
 {
     public function __construct(ManagerRegistry $registry)
     {
@@ -33,15 +36,6 @@ class UsdRateRepository extends ServiceEntityRepository
     }
 
     /**
-     * Alias semántico de findCurrent(). Se mantiene por compatibilidad
-     * con consumidores previos.
-     */
-    public function findLatestForTenant(int $tenantId): ?UsdRate
-    {
-        return $this->findCurrent($tenantId);
-    }
-
-    /**
      * Tasa vigente antes (o en) una fecha dada, considerando correcciones.
      */
     public function findCurrentBefore(int $tenantId, \DateTimeImmutable $date): ?UsdRate
@@ -59,17 +53,9 @@ class UsdRateRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
-    public function findLatestBefore(int $tenantId, \DateTimeImmutable $date): ?UsdRate
-    {
-        return $this->findCurrentBefore($tenantId, $date);
-    }
-
     /**
      * Tasa efectiva de una fecha concreta. Si hay correcciones, devuelve
      * la última insertada. Devuelve null si no hay ninguna tasa para esa fecha.
-     *
-     * Reemplaza al anterior findByDate(), que podía lanzar
-     * NonUniqueResultException cuando existían correcciones.
      */
     public function findEffectiveByDate(int $tenantId, \DateTimeImmutable $date): ?UsdRate
     {
@@ -88,7 +74,11 @@ class UsdRateRepository extends ServiceEntityRepository
     /**
      * @return UsdRate[]
      */
-    public function findByDateRange(int $tenantId, \DateTimeImmutable $from, \DateTimeImmutable $to): array
+    public function findByDateRange(
+        int                $tenantId,
+        \DateTimeImmutable $from,
+        \DateTimeImmutable $to
+    ): array
     {
         return $this->createQueryBuilder('r')
             ->andWhere('r.tenant = :tenantId')
