@@ -37,6 +37,11 @@ class Investment
     #[ORM\Column(type: Types::INTEGER)]
     private int $id;
 
+    // [PHASE-0] Concurrencia optimista.
+    #[ORM\Version]
+    #[ORM\Column(type: Types::INTEGER)]
+    private int $version = 1;
+
     #[ORM\ManyToOne(targetEntity: Tenant::class, inversedBy: 'investments')]
     #[ORM\JoinColumn(name: 'tenant_id', referencedColumnName: 'id', nullable: false, onDelete: 'RESTRICT')]
     private Tenant $tenant;
@@ -45,12 +50,6 @@ class Investment
     #[ORM\JoinColumn(name: 'created_by', referencedColumnName: 'id', nullable: false, onDelete: 'RESTRICT')]
     private AppUser $createdBy;
 
-    /**
-     * Código visible por el usuario.
-     * Formato: {PREFIJO_TENANT}-{YYYYMM}-{SECUENCIA_4}.
-     * Ejemplo: "MZ-202601-0007". Único por tenant.
-     * La generación corresponde a InvestmentCodeGeneratorService.
-     */
     #[ORM\Column(type: Types::STRING, length: 30)]
     private string $code;
 
@@ -81,21 +80,12 @@ class Investment
     #[ORM\Column(name: 'current_usd_rate', type: Types::DECIMAL, precision: 12, scale: 4, nullable: true)]
     private ?string $currentUsdRate = null;
 
-    /**
-     * Snapshot estructural. Fuente autoritativa del costo de la inversión.
-     * investment_summary.total_investment es una copia denormalizada para
-     * reportes y NO debe escribirse fuera de InvestmentSummaryService.
-     */
     #[ORM\Column(name: 'total_merchandise_cost', type: Types::DECIMAL, precision: 12, scale: 2)]
     private string $totalMerchandiseCost = '0.00';
 
     #[ORM\Column(name: 'total_expenses', type: Types::DECIMAL, precision: 12, scale: 2)]
     private string $totalExpenses = '0.00';
 
-    /**
-     * Snapshot histórico a la tasa de la inversión.
-     * NO se revalúa. La versión revaluada vive en investment_summary.total_investment_current.
-     */
     #[ORM\Column(name: 'total_investment', type: Types::DECIMAL, precision: 12, scale: 2)]
     private string $totalInvestment = '0.00';
 
@@ -117,12 +107,27 @@ class Investment
     #[ORM\Column(name: 'updated_at', type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $updatedAt;
 
-    /** @var Collection<int, InvestmentItem> */
-    #[ORM\OneToMany(mappedBy: 'investment', targetEntity: InvestmentItem::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
+    /**
+     * [PHASE-0] cascade SOLO persist.
+     *
+     * Se eliminan 'remove' y orphanRemoval:true. Razones:
+     *   1) InventoryMovement tiene FK RESTRICT hacia InvestmentItem.
+     *      Un cascade delete provocaría un error SQL en runtime en lugar
+     *      de un error de dominio controlado.
+     *   2) El ciclo de vida de una inversión se cierra con CANCELLED/CLOSED,
+     *      nunca con borrado físico.
+     *
+     * @var Collection<int, InvestmentItem>
+     */
+    #[ORM\OneToMany(mappedBy: 'investment', targetEntity: InvestmentItem::class, cascade: ['persist'])]
     private Collection $items;
 
-    /** @var Collection<int, InvestmentExpense> */
-    #[ORM\OneToMany(mappedBy: 'investment', targetEntity: InvestmentExpense::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
+    /**
+     * [PHASE-0] cascade SOLO persist. Mismo razonamiento que items.
+     *
+     * @var Collection<int, InvestmentExpense>
+     */
+    #[ORM\OneToMany(mappedBy: 'investment', targetEntity: InvestmentExpense::class, cascade: ['persist'])]
     private Collection $expenses;
 
     /** @var Collection<int, Sale> */
@@ -153,10 +158,6 @@ class Investment
         $this->assertStatusConsistency();
     }
 
-    /**
-     * Invariante: CANCELLED requiere cancelledAt; CLOSED requiere closedAt.
-     * Las demás combinaciones son válidas.
-     */
     private function assertStatusConsistency(): void
     {
         if ($this->status === self::STATUS_CANCELLED && $this->cancelledAt === null) {
@@ -170,6 +171,11 @@ class Investment
     public function getId(): int
     {
         return $this->id;
+    }
+
+    public function getVersion(): int
+    {
+        return $this->version;
     }
 
     public function getTenant(): Tenant

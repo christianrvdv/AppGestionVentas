@@ -24,15 +24,26 @@ class InvestmentItem
      *   realUnitCostUsd   = realUnitCost / usdRateSnapshot
      *   suggestedPrice    = realUnitCost * (1 + suggestedMarginPct / 100)
      *
-     * Estas columnas son denormalizaciones para reportes. La fuente
-     * autoritativa es ExpenseAllocation + unitCost + usdRateSnapshot.
-     * NUNCA asignarlas a mano fuera del servicio de cálculo.
+     * [PHASE-0] currentRealUnitCost y currentSuggestedPrice DEBEN ser
+     * inicializados por InvestmentItemCalculatorService al confirmar la
+     * inversión, copiando realUnitCost y suggestedPrice respectivamente.
+     * NO se inicializan en la entidad para mantener una única fuente de
+     * verdad: el servicio.
+     *
+     * fixedPrice: precio fijado manualmente por el usuario. Independiente
+     * de suggestedPrice. Puede ser null (sin fijar). SaleLine.unitPrice
+     * sigue siendo libre y puede diferir de ambos por regateo.
      */
 
     #[ORM\Id]
     #[ORM\GeneratedValue(strategy: 'IDENTITY')]
     #[ORM\Column(type: Types::INTEGER)]
     private int $id;
+
+    // [PHASE-0] Concurrencia optimista.
+    #[ORM\Version]
+    #[ORM\Column(type: Types::INTEGER)]
+    private int $version = 1;
 
     #[ORM\ManyToOne(targetEntity: Tenant::class)]
     #[ORM\JoinColumn(name: 'tenant_id', referencedColumnName: 'id', nullable: false, onDelete: 'RESTRICT')]
@@ -78,6 +89,11 @@ class InvestmentItem
 
     #[ORM\Column(name: 'current_suggested_price', type: Types::DECIMAL, precision: 12, scale: 2)]
     private string $currentSuggestedPrice = '0.00';
+
+    // [PHASE-0] Precio fijado manualmente por el usuario.
+    // Nullable: null significa "no fijado aún, usar suggestedPrice como guía".
+    #[ORM\Column(name: 'fixed_price', type: Types::DECIMAL, precision: 12, scale: 2, nullable: true)]
+    private ?string $fixedPrice = null;
 
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $notes = null;
@@ -134,6 +150,11 @@ class InvestmentItem
     public function getId(): int
     {
         return $this->id;
+    }
+
+    public function getVersion(): int
+    {
+        return $this->version;
     }
 
     public function getTenant(): Tenant
@@ -288,6 +309,27 @@ class InvestmentItem
     {
         $this->currentSuggestedPrice = $v;
         return $this;
+    }
+
+    // [PHASE-0] Precio fijado manual. Nullable.
+    public function getFixedPrice(): ?string
+    {
+        return $this->fixedPrice;
+    }
+
+    public function setFixedPrice(?string $v): self
+    {
+        $this->fixedPrice = $v;
+        return $this;
+    }
+
+    /**
+     * Precio efectivo a mostrar al vendedor: el fijado si existe,
+     * si no el sugerido actual. NO es precio de venta obligatorio.
+     */
+    public function getEffectivePrice(): string
+    {
+        return $this->fixedPrice ?? $this->currentSuggestedPrice;
     }
 
     public function getNotes(): ?string

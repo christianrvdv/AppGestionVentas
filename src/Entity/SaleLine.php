@@ -57,6 +57,18 @@ class SaleLine
     #[ORM\Column(name: 'gross_profit_line', type: Types::DECIMAL, precision: 12, scale: 2)]
     private string $grossProfitLine = '0.00';
 
+    /**
+     * [PHASE-0] Ganancia reconocida de la línea.
+     *
+     * Depende del recovery_mode de la inversión:
+     *   - PER_PRODUCT: coincide con grossProfitLine.
+     *   - INVESTMENT_FIRST: porción de grossProfitLine que excede la
+     *     inversión aún no recuperada al momento de la venta.
+     *
+     * Se asigna EXCLUSIVAMENTE vía applyRecognizedProfit().
+     * No hay setter público: un setter genérico permitía sobrescribir
+     * el valor sin validar la invariante contable.
+     */
     #[ORM\Column(name: 'recognized_profit_line', type: Types::DECIMAL, precision: 12, scale: 2)]
     private string $recognizedProfitLine = '0.00';
 
@@ -88,14 +100,17 @@ class SaleLine
     }
 
     /**
-     * Recalcula los derivados para que NUNCA queden inconsistentes.
-     * recognizedProfitLine NO se toca aquí: lo asigna SaleService
-     * según el recovery_mode y la posición en la cadena de recuperación.
+     * Recalcula los derivados deterministas de la línea.
+     * recognizedProfitLine NO se recalcula aquí: es responsabilidad
+     * explícita de SaleService vía applyRecognizedProfit().
      */
     private function recalculateDerived(): void
     {
         if ($this->quantity <= 0) {
-            throw new \LogicException('SaleLine.quantity debe ser > 0.');
+            throw new \LogicException(sprintf(
+                'SaleLine.quantity debe ser > 0 (id=%s).',
+                $this->id ?? 'new'
+            ));
         }
 
         $qty = (string)$this->quantity;
@@ -103,6 +118,65 @@ class SaleLine
         $this->totalLine = bcmul($this->unitPrice, $qty, 2);
         $this->costRecovered = bcmul($this->realUnitCostSnapshot, $qty, 2);
         $this->grossProfitLine = bcsub($this->totalLine, $this->costRecovered, 2);
+    }
+
+    /**
+     * [PHASE-0] Asigna la ganancia reconocida de esta línea.
+     *
+     * Método explícito y validado. Solo RecoveryRecognitionService (S6)
+     * debe invocarlo, después de calcular el modo de recuperación de la
+     * inversión.
+     *
+     * [FIX] Antes de validar, recalculamos los derivados. Razón:
+     * `grossProfitLine` solo se computa en PrePersist/PreUpdate, es
+     * decir, DESPUÉS de que el servicio termine de armar la entidad.
+     * Si el servicio llama a este método tras setear unitPrice,
+     * quantity y realUnitCostSnapshot (el flujo natural), la
+     * validación del techo compararía contra '0.00' y rompería toda
+     * venta con ganancia positiva.
+     *
+     * Al recalcular aquí, garantizamos que la validación use el
+     * grossProfitLine real. El recálculo es idempotente y barato.
+     *
+     * Invariantes (ADR-0002, sección "Manejo de ventas bajo costo"):
+     *   - recognizedProfitLine >= 0 (nunca se reconoce pérdida).
+     *   - recognizedProfitLine <= max(0, grossProfitLine). El techo es
+     *     el grossProfitLine solo cuando es positivo; en una línea bajo
+     *     costo (grossProfitLine < 0) el techo es '0.00', de modo que la
+     *     única asignación válida es cero.
+     *   - La pérdida vive en grossProfitLine (negativo): es lo que
+     *     alimenta InvestmentSummary.totalGrossProfit, no el
+     *     recognizedProfitLine.
+     */
+    public function applyRecognizedProfit(string $amount): self
+    {
+        $this->recalculateDerived();
+
+        if (bccomp($amount, '0', 2) < 0) {
+            throw new \LogicException(sprintf(
+                'recognizedProfitLine no puede ser negativo (recibido: %s).',
+                $amount
+            ));
+        }
+
+        // [ADR-0002] Cota superior = max(0, grossProfitLine): una línea
+        // bajo costo no reconoce nada, no admite 'amount <= grossProfitLine'
+        // porque ese comparando sería negativo y rechazaría incluso '0.00'.
+        $cap = bccomp($this->grossProfitLine, '0', 2) > 0
+            ? $this->grossProfitLine
+            : '0.00';
+
+        if (bccomp($amount, $cap, 2) > 0) {
+            throw new \LogicException(sprintf(
+                'recognizedProfitLine (%s) no puede superar el máximo reconocible (%s): grossProfitLine = %s.',
+                $amount,
+                $cap,
+                $this->grossProfitLine
+            ));
+        }
+
+        $this->recognizedProfitLine = $amount;
+        return $this;
     }
 
     public function getId(): int
@@ -170,12 +244,6 @@ class SaleLine
         return $this->totalLine;
     }
 
-    public function setTotalLine(string $v): self
-    {
-        $this->totalLine = $v;
-        return $this;
-    }
-
     public function getUsdRateSnapshot(): ?string
     {
         return $this->usdRateSnapshot;
@@ -214,32 +282,14 @@ class SaleLine
         return $this->costRecovered;
     }
 
-    public function setCostRecovered(string $v): self
-    {
-        $this->costRecovered = $v;
-        return $this;
-    }
-
     public function getGrossProfitLine(): string
     {
         return $this->grossProfitLine;
     }
 
-    public function setGrossProfitLine(string $v): self
-    {
-        $this->grossProfitLine = $v;
-        return $this;
-    }
-
     public function getRecognizedProfitLine(): string
     {
         return $this->recognizedProfitLine;
-    }
-
-    public function setRecognizedProfitLine(string $v): self
-    {
-        $this->recognizedProfitLine = $v;
-        return $this;
     }
 
     public function getCreatedAt(): \DateTimeImmutable

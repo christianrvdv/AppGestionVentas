@@ -23,6 +23,11 @@ class Sale
     #[ORM\Column(type: Types::INTEGER)]
     private int $id;
 
+    // [PHASE-0] Concurrencia optimista.
+    #[ORM\Version]
+    #[ORM\Column(type: Types::INTEGER)]
+    private int $version = 1;
+
     #[ORM\ManyToOne(targetEntity: Tenant::class, inversedBy: 'sales')]
     #[ORM\JoinColumn(name: 'tenant_id', referencedColumnName: 'id', nullable: false, onDelete: 'RESTRICT')]
     private Tenant $tenant;
@@ -39,11 +44,6 @@ class Sale
     #[ORM\JoinColumn(name: 'customer_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
     private ?Customer $customer = null;
 
-    /**
-     * Moneda de la venta. Debe coincidir con Investment.baseCurrency.
-     * Se persiste explícitamente para que Payment pueda validar
-     * coincidencia y para que reportes no dependan de un join.
-     */
     #[ORM\Column(type: Types::STRING, length: 3)]
     private string $currency;
 
@@ -95,6 +95,7 @@ class Sale
         $this->createdAt = new \DateTimeImmutable();
         $this->updatedAt = new \DateTimeImmutable();
         $this->assertCurrencyMatchesInvestment();
+        $this->recalculateTotalAmount();
     }
 
     #[ORM\PreUpdate]
@@ -102,6 +103,7 @@ class Sale
     {
         $this->updatedAt = new \DateTimeImmutable();
         $this->assertCurrencyMatchesInvestment();
+        $this->recalculateTotalAmount();
     }
 
     private function assertCurrencyMatchesInvestment(): void
@@ -115,9 +117,27 @@ class Sale
         }
     }
 
+    /**
+     * Mantiene totalAmount alineado con la suma de líneas.
+     * Evita que un servicio olvide recalcularlo y rompa reportes.
+     */
+    private function recalculateTotalAmount(): void
+    {
+        $total = '0.00';
+        foreach ($this->lines as $line) {
+            $total = bcadd($total, $line->getTotalLine(), 2);
+        }
+        $this->totalAmount = $total;
+    }
+
     public function getId(): int
     {
         return $this->id;
+    }
+
+    public function getVersion(): int
+    {
+        return $this->version;
     }
 
     public function getTenant(): Tenant
@@ -189,12 +209,6 @@ class Sale
     public function getTotalAmount(): string
     {
         return $this->totalAmount;
-    }
-
-    public function setTotalAmount(string $v): self
-    {
-        $this->totalAmount = $v;
-        return $this;
     }
 
     public function getNotes(): ?string

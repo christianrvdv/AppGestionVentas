@@ -21,6 +21,11 @@ class InvestmentSummary
     #[ORM\Column(type: Types::INTEGER)]
     private int $id;
 
+    // [PHASE-0] Concurrencia optimista.
+    #[ORM\Version]
+    #[ORM\Column(type: Types::INTEGER)]
+    private int $version = 1;
+
     #[ORM\ManyToOne(targetEntity: Tenant::class)]
     #[ORM\JoinColumn(name: 'tenant_id', referencedColumnName: 'id', nullable: false, onDelete: 'RESTRICT')]
     private Tenant $tenant;
@@ -29,27 +34,15 @@ class InvestmentSummary
     #[ORM\JoinColumn(name: 'investment_id', referencedColumnName: 'id', nullable: false, onDelete: 'RESTRICT')]
     private Investment $investment;
 
-    /**
-     * Copia denormalizada de Investment.totalInvestment (tasa snapshot).
-     * NO revaluado. Solo InvestmentSummaryService escribe esta tabla.
-     */
     #[ORM\Column(name: 'total_investment', type: Types::DECIMAL, precision: 12, scale: 2)]
     private string $totalInvestment = '0.00';
 
-    /**
-     * Inversión total revaluada a la tasa actual.
-     * Aquí SÍ vive la versión revaluada (Investment ya no la persiste).
-     */
     #[ORM\Column(name: 'total_investment_current', type: Types::DECIMAL, precision: 12, scale: 2)]
     private string $totalInvestmentCurrent = '0.00';
 
     #[ORM\Column(name: 'total_revaluation_gain_loss', type: Types::DECIMAL, precision: 12, scale: 2)]
     private string $totalRevaluationGainLoss = '0.00';
 
-    /**
-     * Total recuperado SEGÚN EL MODO ACTIVO de la inversión.
-     * Es una vista sobre los dos campos siguientes.
-     */
     #[ORM\Column(name: 'total_recovered', type: Types::DECIMAL, precision: 12, scale: 2)]
     private string $totalRecovered = '0.00';
 
@@ -68,9 +61,6 @@ class InvestmentSummary
     #[ORM\Column(name: 'total_recognized_profit', type: Types::DECIMAL, precision: 12, scale: 2)]
     private string $totalRecognizedProfit = '0.00';
 
-    /**
-     * Ganancia total SEGÚN EL MODO ACTIVO. Vista sobre los dos siguientes.
-     */
     #[ORM\Column(name: 'total_profit', type: Types::DECIMAL, precision: 12, scale: 2)]
     private string $totalProfit = '0.00';
 
@@ -129,10 +119,6 @@ class InvestmentSummary
         $this->updatedAt = new \DateTimeImmutable();
     }
 
-    /**
-     * Aplica el recovery_mode sobre los dos modos persistidos.
-     * Invocado por InvestmentSummaryService tras recalcular ambos modos.
-     */
     public function syncActiveMode(string $recoveryMode): void
     {
         if ($recoveryMode === Investment::RECOVERY_INVESTMENT_FIRST) {
@@ -147,6 +133,11 @@ class InvestmentSummary
     public function getId(): int
     {
         return $this->id;
+    }
+
+    public function getVersion(): int
+    {
+        return $this->version;
     }
 
     public function getTenant(): Tenant

@@ -16,6 +16,16 @@ doctrine:
         identity_generation_preferences:
             Doctrine\DBAL\Platforms\PostgreSQLPlatform: identity
         auto_mapping: true
+
+        # [PHASE-0] Filtro SQL global por tenant.
+        # enabled: false → el listener lo activa en runtime por request.
+        # Si se pusiera a true, se activaría también en CLI y rompería
+        # migraciones y comandos cross-tenant.
+        filters:
+            tenant_filter:
+                class: App\Doctrine\Filter\TenantFilter
+                enabled: false
+
         mappings:
             App:
                 type: attribute

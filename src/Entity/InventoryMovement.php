@@ -14,7 +14,10 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'idx_movement_tenant_date', columns: ['tenant_id', 'movement_date'])]
 #[ORM\Index(name: 'idx_movement_tenant_type', columns: ['tenant_id', 'movement_type'])]
 #[ORM\Index(name: 'idx_movement_reference', columns: ['tenant_id', 'reference_type', 'reference_id', 'movement_type'])]
-#[ORM\UniqueConstraint(name: 'uniq_movement_idempotency', columns: ['idempotency_key'])]
+// [PHASE-0] Unique compuesto por tenant. Antes era global y colisionaba
+// entre tenants cuando dos usaban la misma clave determinista
+// (p.ej. "sale:42:line:7" en dos tenants distintos).
+#[ORM\UniqueConstraint(name: 'uniq_movement_tenant_idempotency', columns: ['tenant_id', 'idempotency_key'])]
 #[ORM\HasLifecycleCallbacks]
 class InventoryMovement
 {
@@ -53,10 +56,6 @@ class InventoryMovement
     #[ORM\Column(name: 'movement_type', type: Types::STRING, length: 20)]
     private string $movementType;
 
-    /**
-     * Clasificación de la causa. Solo aplica a LOSS y ADJUSTMENT.
-     * Null en SALE, PURCHASE, returns.
-     */
     #[ORM\Column(name: 'reason_code', type: Types::STRING, length: 30, nullable: true)]
     private ?string $reasonCode = null;
 
@@ -109,6 +108,33 @@ class InventoryMovement
     public static function generateManualKey(): string
     {
         return 'manual:' . bin2hex(random_bytes(16));
+    }
+
+    /**
+     * Clave idempotente determinista para una venta.
+     * Formato: sale:{saleId}:line:{lineId}
+     *
+     * Gracias al unique compuesto (tenant_id, idempotency_key),
+     * dos tenants pueden usar la misma clave sin colisionar.
+     */
+    public static function generateSaleKey(int $saleId, int $lineId): string
+    {
+        return sprintf('sale:%d:line:%d', $saleId, $lineId);
+    }
+
+    public static function generatePurchaseKey(int $investmentItemId): string
+    {
+        return sprintf('purchase:item:%d', $investmentItemId);
+    }
+
+    public static function generateLossKey(int $investmentItemId, string $uniqueSuffix): string
+    {
+        return sprintf('loss:item:%d:%s', $investmentItemId, $uniqueSuffix);
+    }
+
+    public static function generateReturnKey(int $saleId, int $lineId): string
+    {
+        return sprintf('return:sale:%d:line:%d', $saleId, $lineId);
     }
 
     public function getId(): int
