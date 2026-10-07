@@ -11,3 +11,8 @@ if (method_exists(Dotenv::class, 'bootEnv')) {
 if ($_SERVER['APP_DEBUG']) {
     umask(0000);
 }
+
+// Ensure bcmath is available
+if (!extension_loaded('bcmath')) {
+    throw new \LogicException('La extensión bcmath es requerida para los tests.');
+}
