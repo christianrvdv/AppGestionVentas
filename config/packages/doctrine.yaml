@@ -1,14 +1,6 @@
 doctrine:
     dbal:
-        driver: '%env(DB_DRIVER)%'
-        host: '%env(DB_HOST)%'
-        port: '%env(int:DB_PORT)%'
-        dbname: '%env(DB_NAME)%'
-        user: '%env(DB_USER)%'
-        password: '%env(DB_PASSWORD)%'
-        server_version: '%env(DB_VERSION)%'
-        charset: UTF8
-
+        url: '%env(DATABASE_URL)%'
         profiling_collect_backtrace: '%kernel.debug%'
     orm:
         validate_xml_mapping: true
@@ -16,13 +8,10 @@ doctrine:
         identity_generation_preferences:
             Doctrine\DBAL\Platforms\PostgreSQLPlatform: identity
         auto_mapping: true
-
-        # [PHASE-0] Filtro SQL global por tenant.
         filters:
             tenant_filter:
                 class: App\Doctrine\Filter\TenantFilter
                 enabled: false
-
         mappings:
             App:
                 type: attribute
@@ -32,19 +21,6 @@ doctrine:
                 alias: App
 
 when@test:
-    doctrine:
-        dbal:
-            # SQLite in-memory. Sobrescribe SOLO las claves individuales.
-            # NO usar "url" acá: DoctrineBundle prohíbe url + host/dbname/etc.
-            driver: pdo_sqlite
-            host: ~
-            port: ~
-            dbname: ':memory:'
-            user: ~
-            password: ~
-            server_version: ~
-            charset: UTF8
-
     dama_doctrine_test:
         enable_static_connection: true
         enable_static_meta_data_cache: true
