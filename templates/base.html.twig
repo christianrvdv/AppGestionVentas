@@ -1,24 +1,76 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
     <head>
         <meta charset="UTF-8">
-        <title>{% block title %}Welcome!{% endblock %}</title>
-        <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 128 128%22><text y=%221.2em%22 font-size=%2296%22>⚫️</text><text y=%221.3em%22 x=%220.2em%22 font-size=%2276%22 fill=%22%23fff%22>sf</text></svg>">
-        {% block stylesheets %}
-        {% endblock %}
-
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>{% block title %}Gestión de Negocio{% endblock %}</title>
+        {% block stylesheets %}{% endblock %}
         {% block javascripts %}
             {% block importmap %}{{ importmap('app') }}{% endblock %}
         {% endblock %}
-
-        {% set frankenphp_hot_reload = app.request.server.get('FRANKENPHP_HOT_RELOAD') %}
-        {% if frankenphp_hot_reload %}
-        <meta name="frankenphp-hot-reload:url" content="{{ frankenphp_hot_reload }}">
-        <script src="https://cdn.jsdelivr.net/npm/idiomorph"></script>
-        <script src="https://cdn.jsdelivr.net/npm/frankenphp-hot-reload/+esm" type="module"></script>
-        {% endif %}
     </head>
-    <body>
-        {% block body %}{% endblock %}
+    <body class="min-h-screen bg-background font-sans text-foreground antialiased">
+        <a
+            href="#contenido"
+            class="sr-only rounded focus:not-sr-only focus:absolute focus:start-4 focus:top-4 focus:z-50 focus:bg-surface focus:px-4 focus:py-2 focus:text-brand focus:ring-2 focus:ring-brand"
+        >Saltar al contenido principal</a>
+
+        {% if app.user %}
+            <header class="border-b border-border bg-surface">
+                <nav
+                    aria-label="Navegación principal"
+                    class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3"
+                >
+                    <a
+                        href="{{ path('app_dashboard') }}"
+                        class="text-base font-semibold text-foreground"
+                    >Gestión de Negocio</a>
+
+                    <ul class="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
+                        <li>
+                            <a
+                                href="{{ path('app_dashboard') }}"
+                                class="{{ app.request.attributes.get('_route') == 'app_dashboard' ? 'font-semibold text-brand' : 'text-foreground hover:text-brand' }}"
+                            >Dashboard</a>
+                        </li>
+                        <li><span aria-disabled="true" class="cursor-not-allowed text-muted">Inversiones</span></li>
+                        <li><span aria-disabled="true" class="cursor-not-allowed text-muted">Ventas</span></li>
+                        <li><span aria-disabled="true" class="cursor-not-allowed text-muted">Productos</span></li>
+                        <li><span aria-disabled="true" class="cursor-not-allowed text-muted">Clientes</span></li>
+                        <li><span aria-disabled="true" class="cursor-not-allowed text-muted">Reportes</span></li>
+                        <li><span aria-disabled="true" class="cursor-not-allowed text-muted">Configuración</span></li>
+                    </ul>
+
+                    <form
+                        action="{{ path('_logout_main') }}"
+                        method="post"
+                        class="ms-auto"
+                    >
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token('logout') }}">
+                        <button
+                            type="submit"
+                            class="text-sm text-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                        >Cerrar sesión</button>
+                    </form>
+                </nav>
+            </header>
+        {% endif %}
+
+        <main id="contenido" class="mx-auto max-w-6xl px-4 py-8">
+            {% for type, messages in app.flashes %}
+                <div
+                    role="{{ type == 'error' ? 'alert' : 'status' }}"
+                    class="mb-6 rounded border px-4 py-3 text-sm {{ type == 'error' ? 'border-danger/30 bg-danger/10 text-danger' : 'border-success/30 bg-success/10 text-success' }}"
+                >
+                    {% for message in messages %}
+                        <p>{{ message }}</p>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+
+            {% block body %}{% endblock %}
+        </main>
+
+        {% block scripts %}{% endblock %}
     </body>
 </html>

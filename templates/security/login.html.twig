@@ -1,0 +1,73 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Iniciar sesión · Gestión de Negocio{% endblock %}
+
+{% block body %}
+    <div class="mx-auto mt-12 w-full max-w-md">
+        <h1 class="mb-6 text-2xl font-semibold text-foreground">Iniciar sesión</h1>
+
+        {% if error %}
+            <p
+                role="alert"
+                class="mb-4 rounded border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger"
+            >No se pudo iniciar sesión con los datos proporcionados.</p>
+        {% endif %}
+
+        <form method="post" action="{{ path('app_login') }}" class="space-y-5">
+            <div>
+                <label for="tenant_slug" class="mb-1 block text-sm font-medium text-foreground">Negocio (slug)</label>
+                <input
+                    type="text"
+                    id="tenant_slug"
+                    name="tenant_slug"
+                    required
+                    autofocus
+                    autocomplete="organization"
+                    class="w-full rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                >
+            </div>
+
+            <div>
+                <label for="email" class="mb-1 block text-sm font-medium text-foreground">Correo electrónico</label>
+                <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    value="{{ last_username }}"
+                    required
+                    autocomplete="username"
+                    class="w-full rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                >
+            </div>
+
+            <div>
+                <label for="password" class="mb-1 block text-sm font-medium text-foreground">Contraseña</label>
+                <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    required
+                    autocomplete="current-password"
+                    class="w-full rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                >
+            </div>
+
+            <div class="flex items-center gap-2">
+                <input
+                    type="checkbox"
+                    id="remember_me"
+                    name="_remember_me"
+                    class="size-4 rounded border-border text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                >
+                <label for="remember_me" class="text-sm text-foreground">Mantener sesión iniciada</label>
+            </div>
+
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+
+            <button
+                type="submit"
+                class="w-full rounded bg-brand px-4 py-2 font-medium text-white hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+            >Iniciar sesión</button>
+        </form>
+    </div>
+{% endblock %}

@@ -1,0 +1,94 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Dashboard · Gestión de Negocio{% endblock %}
+
+{% set status_labels = {
+    'OPEN': 'Abierta',
+    'PARTIAL': 'Parcial',
+    'RECOVERED': 'Recuperada',
+    'CLOSED': 'Cerrada',
+    'CANCELLED': 'Cancelada'
+} %}
+
+{% block body %}
+    <h1 class="mb-6 text-2xl font-semibold text-foreground">Dashboard</h1>
+
+    <section aria-labelledby="titulos-totales" class="mb-10">
+        <h2 id="titulos-totales" class="mb-4 text-lg font-medium text-foreground">Resumen</h2>
+
+        <ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <li class="rounded border border-border bg-surface p-4">
+                <p class="text-sm text-muted">Total invertido</p>
+                <p class="mt-1 text-xl font-semibold text-foreground">{{ totals.totalInvestment|number_format(2, ',', '.') }}</p>
+            </li>
+            <li class="rounded border border-border bg-surface p-4">
+                <p class="text-sm text-muted">Total recuperado</p>
+                <p class="mt-1 text-xl font-semibold text-foreground">{{ totals.totalRecovered|number_format(2, ',', '.') }}</p>
+            </li>
+            <li class="rounded border border-border bg-surface p-4">
+                <p class="text-sm text-muted">Total pendiente</p>
+                <p class="mt-1 text-xl font-semibold text-foreground">{{ totals.totalPending|number_format(2, ',', '.') }}</p>
+            </li>
+            <li class="rounded border border-border bg-surface p-4">
+                <p class="text-sm text-muted">Ganancia bruta</p>
+                <p class="mt-1 text-xl font-semibold text-foreground">{{ totals.totalGrossProfit|number_format(2, ',', '.') }}</p>
+            </li>
+            <li class="rounded border border-border bg-surface p-4">
+                <p class="text-sm text-muted">Ganancia reconocida</p>
+                <p class="mt-1 text-xl font-semibold text-foreground">{{ totals.totalRecognizedProfit|number_format(2, ',', '.') }}</p>
+            </li>
+            <li class="rounded border border-border bg-surface p-4">
+                <p class="text-sm text-muted">Tasa USD vigente</p>
+                <p class="mt-1 text-xl font-semibold text-foreground">
+                    {% if usd_rate %}
+                        {{ usd_rate.rate|number_format(4, ',', '.') }}
+                        <span class="text-sm font-normal text-muted">({{ usd_rate.rateDate|date('d/m/Y') }})</span>
+                    {% else %}
+                        <span class="text-base font-normal text-muted">Sin registrar</span>
+                    {% endif %}
+                </p>
+            </li>
+        </ul>
+    </section>
+
+    <section aria-labelledby="titulos-inversiones" class="mb-10">
+        <h2 id="titulos-inversiones" class="mb-4 text-lg font-medium text-foreground">Inversiones activas</h2>
+
+        {% if active_investments is empty %}
+            <p class="rounded border border-border bg-surface px-4 py-3 text-sm text-muted">No hay inversiones activas.</p>
+        {% else %}
+            <div class="overflow-x-auto rounded border border-border bg-surface">
+                <table class="w-full text-sm">
+                    <caption class="sr-only">Inversiones en estado abierta o parcial</caption>
+                    <thead>
+                        <tr class="border-b border-border text-start text-muted">
+                            <th scope="col" class="px-4 py-2 text-start font-medium">Código</th>
+                            <th scope="col" class="px-4 py-2 text-start font-medium">Fecha</th>
+                            <th scope="col" class="px-4 py-2 text-start font-medium">Estado</th>
+                            <th scope="col" class="px-4 py-2 text-end font-medium">Total</th>
+                            <th scope="col" class="px-4 py-2 text-end font-medium"><span class="sr-only">Detalle</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for investment in active_investments %}
+                            <tr class="border-b border-border last:border-b-0">
+                                <td class="px-4 py-2 font-medium text-foreground">{{ investment.code }}</td>
+                                <td class="px-4 py-2 text-foreground">{{ investment.investmentDate|date('d/m/Y') }}</td>
+                                <td class="px-4 py-2 text-foreground">{{ status_labels[investment.status] ?? investment.status }}</td>
+                                <td class="px-4 py-2 text-end text-foreground">{{ investment.totalInvestment|number_format(2, ',', '.') }}</td>
+                                <td class="px-4 py-2 text-end text-muted">Detalle (próximamente)</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </section>
+
+    <section aria-labelledby="titulos-proximamente">
+        <h2 id="titulos-proximamente" class="mb-4 text-lg font-medium text-foreground">Próximamente</h2>
+        <p class="rounded border border-dashed border-border bg-surface px-4 py-3 text-sm text-muted">
+            Gráficos de evolución y comparativas entre períodos estarán disponibles en una próxima versión.
+        </p>
+    </section>
+{% endblock %}

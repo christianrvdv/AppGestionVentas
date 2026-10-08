@@ -1,5 +1,19 @@
 @import "tailwindcss";
 
-body {
-    background-color: skyblue;
+/* Design tokens (Tailwind v4, CSS-first): única fuente de verdad de
+   color/tipografía de la app. `background`, `foreground`, `surface`,
+   `border`, `muted`, `brand`, `success` y `danger` quedan registrados
+   como utilidades (bg-background, text-brand, ...). */
+@theme {
+    --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+    --color-background: #f8fafc;
+    --color-foreground: #0f172a;
+    --color-surface: #ffffff;
+    --color-border: #e2e8f0;
+    --color-muted: #64748b;
+
+    --color-brand: #4338ca;
+    --color-success: #15803d;
+    --color-danger: #b91c1c;
 }
