@@ -29,3 +29,29 @@ services:
     Doctrine\ORM\EntityManagerInterface:
         alias: doctrine.orm.default_entity_manager
         public: false
+
+when@test:
+    services:
+        # Los _defaults NO se heredan entre bloques de configuración,
+        # hay que repetirlos para que sigan aplicando autowiring.
+        _defaults:
+            autowire: true
+            autoconfigure: true
+
+        # Los servicios de dominio todavía no tienen controllers ni
+        # comandos que los referencien, así que la fase de optimización
+        # del contenedor los elimina (están "sin usar") y los tests de
+        # integración no podrían obtenerlos con static::getContainer().
+        # En test se marcan públicos para que se conserven.
+        #
+        # Se limita a App\Service\: hacer público todo el namespace
+        # src/ también resucita clases que no son servicios (DTO y
+        # Exception, con argumentos escalares que no se pueden
+        # autowirear) y rompe la compilación del contenedor.
+        App\Service\:
+            resource: '../src/Service/'
+            exclude:
+                # Money es un value object con constructor privado
+                # (fábricas estáticas): no es un servicio.
+                - '../src/Service/Money/'
+            public: true

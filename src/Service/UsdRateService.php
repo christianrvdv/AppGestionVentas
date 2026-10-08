@@ -89,7 +89,10 @@ final class UsdRateService
         $this->entityManager->flush();
 
         // Actualizar setting KEY_USD_RATE_CURRENT a la nueva tasa (incluyendo correcciones)
-        $setting = $this->settingRepository->findByKeyAndTenant(AppSetting::KEY_USD_RATE_CURRENT, $tenantId);
+        // [FIX-2] Firma real del repositorio: findSetting(int $tenantId, string $key).
+        // Antes se invocaba findByKeyAndTenant(), que no existe ni en la interfaz
+        // ni en la implementación, y toda llamada a setRate() reventaba con Error.
+        $setting = $this->settingRepository->findSetting($tenantId, AppSetting::KEY_USD_RATE_CURRENT);
         if ($setting === null) {
             $setting = new AppSetting();
             $setting->setTenant($tenant);

@@ -30,9 +30,17 @@ class Payment
     #[ORM\JoinColumn(name: 'tenant_id', referencedColumnName: 'id', nullable: false, onDelete: 'RESTRICT')]
     private Tenant $tenant;
 
+    /**
+     * Cliente al que aplica el pago.
+     *
+     * [FIX-7] Estrategia B: nullable. El dominio contempla ventas/pagos de
+     * mostrador sin cliente registrado (misma razón por la que
+     * Sale.customer es nullable). Antes era nullable=false, lo que hacía
+     * imposible persistir un pago sin cliente aunque el DTO lo permitía.
+     */
     #[ORM\ManyToOne(targetEntity: Customer::class, inversedBy: 'payments')]
-    #[ORM\JoinColumn(name: 'customer_id', referencedColumnName: 'id', nullable: false, onDelete: 'RESTRICT')]
-    private Customer $customer;
+    #[ORM\JoinColumn(name: 'customer_id', referencedColumnName: 'id', nullable: true, onDelete: 'RESTRICT')]
+    private ?Customer $customer = null;
 
     /**
      * Venta a la que aplica este pago.
@@ -112,12 +120,13 @@ class Payment
         return $this;
     }
 
-    public function getCustomer(): Customer
+    /** [FIX-7] Null = pago de mostrador / sin cliente registrado. */
+    public function getCustomer(): ?Customer
     {
         return $this->customer;
     }
 
-    public function setCustomer(Customer $customer): self
+    public function setCustomer(?Customer $customer): self
     {
         $this->customer = $customer;
         return $this;

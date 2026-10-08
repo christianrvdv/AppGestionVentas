@@ -19,8 +19,13 @@ use Doctrine\ORM\Query\Filter\SQLFilter;
  *     (p.ej. Tenant mismo).
  *   - Si el parámetro 'tenantId' no está definido, no aplica restricción
  *     (útil para migraciones y comandos CLI cross-tenant).
- *   - Si tenantId es null, '', o '0', restringe a 0 filas
- *     (caso "sin tenant activo").
+ *   - Si tenantId no es un entero positivo (null, '', '0', no numérico),
+ *     restringe a 0 filas (caso "sin tenant activo").
+ *
+ * [FIX-5] El valor SIEMPRE se castea a int y se interpola con %d, nunca
+ * con %s: así un llamador que pase un string arbitrario no puede inyectar
+ * SQL y la rama "sin tenant" queda cubierta por <= 0 (antes se comparaba
+ * con la cadena literal '0', que no cubría el int 0).
  */
 final class TenantFilter extends SQLFilter
 {
@@ -40,10 +45,18 @@ final class TenantFilter extends SQLFilter
 
         $tenantId = $this->getParameter('tenantId');
 
-        // [FIX] Cubre null, cadena vacía y '0'. Sin la comprobación de
-        // null, un setParameter('tenantId', null) generaría SQL inválido
-        // del estilo "tenant_id = " y rompería la query.
-        if ($tenantId === null || $tenantId === '' || $tenantId === '0') {
+        // [FIX-5] ORM 3 / DBAL 4: getParameter() devuelve el valor YA
+        // ENTRECOMILLADO (Connection::quote(), p. ej. "'5'"). Un cast
+        // directo de "'5'" a int daría 0 y bloquearía todas las filas,
+        // así que primero se quitan las comillas simples envolventes.
+        //
+        // El cast a int es también la defensa contra inyección SQL: un
+        // valor no numérico ("1 OR 1=1") se trunca a su prefijo entero
+        // y, con %d, jamás se interpola como SQL crudo. Cubre además
+        // null, '' y '0' (antes: comparación frágil === '0').
+        $tenantIdInt = (int) trim($tenantId, "'");
+
+        if ($tenantIdInt <= 0) {
             return '1 = 0';
         }
 
@@ -56,6 +69,6 @@ final class TenantFilter extends SQLFilter
 
         $columnName = $joinColumns[0]['name'];
 
-        return sprintf('%s.%s = %s', $targetTableAlias, $columnName, $tenantId);
+        return sprintf('%s.%s = %d', $targetTableAlias, $columnName, $tenantIdInt);
     }
 }

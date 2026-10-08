@@ -10,9 +10,8 @@ use App\Entity\InventoryMovement;
 use App\Entity\InvestmentSummary;
 use App\Exception\Domain\InvestmentAlreadyConfirmedException;
 use App\Exception\Domain\AllocationMismatchException;
-use App\Repository\Contract\ExpenseAllocationRepositoryInterface;
 use App\Service\ExpenseAllocationService;
-use App\Service\InvestmentItemCalculatorService;
+use App\Service\Investment\InvestmentItemCalculatorService;
 use App\Service\SettingsService;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -23,6 +22,10 @@ use Doctrine\ORM\EntityManagerInterface;
  *   1. Al menos 1 ítem.
  *   2. Todos los ítems: quantity > 0, unitCost definido (>= 0).
  *   3. Para cada gasto con isAllocated = true: suma allocations == monto gasto (±0.01).
+ *      [FIX-4] La suma se hace EN MEMORIA sobre $expense->getAllocations():
+ *      ExpenseAllocationService reconstruye los allocations en memoria
+ *      (clear() + addAllocation() + orphanRemoval) y el llamador confirma
+ *      sin flush intermedio; validar contra la BD comparaba datos viejos.
  *   4. No confirmada previamente.
  *
  * ACCIONES:
@@ -44,7 +47,6 @@ final class InvestmentConfirmationService
     private const ALLOCATION_TOLERANCE = '0.01';
 
     public function __construct(
-        private readonly ExpenseAllocationRepositoryInterface $allocationRepository,
         private readonly ExpenseAllocationService $allocationService,
         private readonly InvestmentItemCalculatorService $calculatorService,
         private readonly SettingsService $settingsService,
@@ -129,29 +131,38 @@ final class InvestmentConfirmationService
 
     /**
      * Valida que cada gasto prorrateable tenga allocations que sumen su monto.
+     *
+     * [FIX-4] Se valida EN MEMORIA sobre $expense->getAllocations(), nunca
+     * contra la BD. ExpenseAllocationService reconstruye los allocations en
+     * memoria (clear() + addAllocation() + orphanRemoval) y el flujo típico
+     * confirma la inversión sin flush intermedio: la consulta anterior
+     * ($allocationRepository->sumByExpense) devolvía datos viejos o vacíos y
+     * disparaba AllocationMismatchException falsos, o bien aceptaba un
+     * prorrateo desfasado que aún no estaba en BD.
+     *
+     * Tolerancia ±ALLOCATION_TOLERANCE por redondeo de centavos.
      */
     private function validateExpenseAllocations(Investment $investment): void
     {
-        $tenantId = $investment->getTenant()->getId();
         foreach ($investment->getExpenses() as $expense) {
             if (!$expense->isAllocated()) {
                 continue;
             }
-            // Usa el repositorio directamente para sumar por gasto
-            // Inyectamos el repositorio en el constructor
-            $allocatedSum = $this->allocationRepository->sumByExpense($expense->getId(), $tenantId);
+
+            $allocatedSum = '0.00';
+            foreach ($expense->getAllocations() as $allocation) {
+                $allocatedSum = bcadd($allocatedSum, $allocation->getAllocatedAmount(), 2);
+            }
+
             $expenseAmount = $expense->getAmount();
-            if (bccomp($allocatedSum, $expenseAmount, 2) !== 0) {
-                // Tolerancia ±0.01 por redondeo
-                $diff = bcsub($allocatedSum, $expenseAmount, 2);
-                if (bccomp($diff, self::ALLOCATION_TOLERANCE, 2) > 0 ||
-                    bccomp($diff, bcsub('0', self::ALLOCATION_TOLERANCE, 2), 2) < 0) {
-                    throw AllocationMismatchException::forExpense(
-                        $expense->getId(),
-                        $expenseAmount,
-                        $allocatedSum
-                    );
-                }
+            $diff = bcsub($allocatedSum, $expenseAmount, 2);
+            if (bccomp($diff, self::ALLOCATION_TOLERANCE, 2) > 0 ||
+                bccomp($diff, bcsub('0', self::ALLOCATION_TOLERANCE, 2), 2) < 0) {
+                throw AllocationMismatchException::forExpense(
+                    $expense->getId(),
+                    $expenseAmount,
+                    $allocatedSum
+                );
             }
         }
     }

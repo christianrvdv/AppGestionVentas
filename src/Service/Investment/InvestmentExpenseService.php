@@ -8,7 +8,7 @@ use App\Entity\Investment;
 use App\Entity\InvestmentExpense;
 use App\Exception\Domain\InvestmentAlreadyConfirmedException;
 use App\Service\ExpenseAllocationService;
-use App\Service\InvestmentItemCalculatorService;
+use App\Service\Investment\InvestmentItemCalculatorService;
 use App\Service\SettingsService;
 
 /**

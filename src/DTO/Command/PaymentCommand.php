@@ -9,6 +9,14 @@ namespace App\DTO\Command;
  *
  * Inmutable: todas las propiedades son readonly.
  * El pago puede estar vinculado a una venta (saleId) o ser pago a cuenta (sin saleId).
+ *
+ * [FIX-7] Decisión: ESTRATEGIA B — el pago NO siempre requiere cliente.
+ *   customerId es nullable a propósito: modela el pago de mostrador (venta
+ *   sin cliente registrado), comportamiento que el dominio ya contempla en
+ *   Sale.customer. PaymentService::register omite la búsqueda de cliente
+ *   cuando es null y Payment.customer quedó nullable en el mapping.
+ *   Alternativa descartada (Estrategia A: customerId obligatorio) porque
+ *   habría roto el flujo de mostrador y obligado a inventar un cliente.
  */
 final readonly class PaymentCommand
 {

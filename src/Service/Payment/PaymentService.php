@@ -24,7 +24,13 @@ use App\Service\UsdRateService;
  * Registro de pagos (a ventas o anticipos de clientes).
  *
  * REGLAS:
- *   - Si sale está seteado: valida que customer == sale.customer
+ *   - Cliente OPCIONAL [FIX-7, Estrategia B]: customerId null = pago de
+ *     mostrador / sin cliente registrado (el dominio ya contempla ventas
+ *     sin cliente). Antes se pasaba null a findByIdAndTenant(int, int)
+ *     y reventaba con TypeError.
+ *   - Si sale está seteada Y el pago define cliente: valida que
+ *     customer == sale.customer. Si alguno de los dos es null no se
+ *     compara (la venta de mostrador tampoco tiene cliente).
  *   - Setea currency desde investment.baseCurrency o settings.baseCurrency
  *   - Snapshot de usdRateSnapshot
  *   - Método: CASH, TRANSFER, CARD, OTHER
@@ -67,18 +73,23 @@ final class PaymentService
             throw new \LogicException(sprintf('Inversión %d no encontrada.', $cmd->investmentId));
         }
 
-        // 2. Obtener cliente
-        $customer = $this->customerRepository->findByIdAndTenant($cmd->customerId, $user->getTenant()->getId());
-        if ($customer === null) {
-            throw new \LogicException(sprintf('Cliente %d no encontrado.', $cmd->customerId));
-        }
-        // C.6: Validar que el cliente pertenece al mismo tenant que la inversión
-        if ($customer->getTenant()->getId() !== $investment->getTenant()->getId()) {
-            throw TenantMismatchException::forEntities(
-                'Customer',
-                $investment->getTenant()->getId(),
-                $customer->getTenant()->getId()
-            );
+        // 2. Cliente (OPCIONAL) [FIX-7] Estrategia B: pago de mostrador.
+        //    Si customerId es null NO se consulta el repositorio (antes se
+        //    pasaba null a findByIdAndTenant(int, int) → TypeError en runtime).
+        $customer = null;
+        if ($cmd->customerId !== null) {
+            $customer = $this->customerRepository->findByIdAndTenant($cmd->customerId, $user->getTenant()->getId());
+            if ($customer === null) {
+                throw new \LogicException(sprintf('Cliente %d no encontrado.', $cmd->customerId));
+            }
+            // C.6: Validar que el cliente pertenece al mismo tenant que la inversión
+            if ($customer->getTenant()->getId() !== $investment->getTenant()->getId()) {
+                throw TenantMismatchException::forEntities(
+                    'Customer',
+                    $investment->getTenant()->getId(),
+                    $customer->getTenant()->getId()
+                );
+            }
         }
 
         // 3. Validar venta si está seteada
@@ -98,11 +109,13 @@ final class PaymentService
                 );
             }
 
-            // Validar que el cliente coincida
-            if ($sale->getCustomer() === null || $sale->getCustomer()->getId() !== $customer->getId()) {
+            // [FIX-7] Validar que el cliente coincida SOLO cuando ambos están
+            // definidos: una venta de mostrador no tiene cliente y un pago sin
+            // cliente no puede compararse con el de la venta.
+            if ($customer !== null && $sale->getCustomer() !== null && $sale->getCustomer()->getId() !== $customer->getId()) {
                 throw CustomerMismatchException::forSale(
                     $sale->getId(),
-                    $sale->getCustomer()?->getId() ?? 0,
+                    $sale->getCustomer()->getId(),
                     $customer->getId()
                 );
             }

@@ -18,7 +18,7 @@ use Doctrine\Common\Collections\Collection;
  *   1. Filtra gastos con isAllocated = true.
  *   2. Calcula subtotal de mercancía por ítem: itemSubtotal = unitCost * quantity.
  *   3. Si totalMerchandise = 0, no prorratea (limpia allocations existentes).
- *   4. Para cada ítem (ordenados por ID para determinismo):
+ *   4. Para cada ítem (en el orden de la colección):
  *        allocationPct = (itemSubtotal / totalMerchandise) * 100
  *        allocatedAmount = round(expenseAmount * allocationPct / 100, scale)
  *      El ÚLTIMO ítem absorbe el remanente para que Σ === expenseAmount exacto.
@@ -31,6 +31,14 @@ use Doctrine\Common\Collections\Collection;
  *         flush. Esto evita duplicados cuando el servicio se invoca dos veces
  *         en el mismo request (ej. addItem → addExpense → allocateForInvestment
  *         dos veces).
+ *
+ * [FIX-3] Claves de array por INSTANCIA, nunca por ID: los ítems de una
+ *         inversión en borrador aún no tienen ID (getId() no está inicializado
+ *         y PHP convertiría null en la clave ''), con lo que dos ítems nuevos
+ *         compartían clave y el segundo pisaba al primero. Se usa
+ *         spl_object_id($item), único para cada instancia en memoria.
+ *         Vale para allocateForInvestment(), allocateExpense() y
+ *         recalculateItemAllocatedExpenses().
  */
 final class ExpenseAllocationService
 {
@@ -52,12 +60,14 @@ final class ExpenseAllocationService
         $scale = $this->settingsService->getCurrencyScale();
 
         // Calcula subtotales por ítem
+        // [FIX-3] Clave = spl_object_id($item): getId() es null en ítems
+        // nuevos y PHP mapea null a la clave '', colisionando todos.
         $itemSubtotals = [];
         $totalMerchandise = '0.00';
         foreach ($items as $item) {
             $qty = (string)$item->getQuantity();
             $subtotal = bcmul($item->getUnitCost(), $qty, $scale);
-            $itemSubtotals[$item->getId()] = $subtotal;
+            $itemSubtotals[spl_object_id($item)] = $subtotal;
             $totalMerchandise = bcadd($totalMerchandise, $subtotal, $scale);
         }
 
@@ -98,16 +108,16 @@ final class ExpenseAllocationService
         // cargadas en memoria y produce duplicados en el mismo request.
         $expense->getAllocations()->clear();
 
-        $itemArray = $items->toArray();
+        $itemArray = array_values($items->toArray());
         $count = count($itemArray);
         $allocatedSum = '0.00';
 
         for ($i = 0; $i < $count; ++$i) {
             $item = $itemArray[$i];
-            $itemId = $item->getId();
             $isLast = ($i === $count - 1);
 
-            $subtotal = $itemSubtotals[$itemId] ?? '0.00';
+            // [FIX-3] Misma clave que en allocateForInvestment(): instancia, no ID.
+            $subtotal = $itemSubtotals[spl_object_id($item)] ?? '0.00';
 
             $allocationPct = bccomp($totalMerchandise, '0', $scale) !== 0
                 ? bcdiv(bcmul($subtotal, '100', $scale + 4), $totalMerchandise, $scale + 4)
@@ -133,12 +143,17 @@ final class ExpenseAllocationService
 
     /**
      * Recalcula allocatedExpense sumando EN MEMORIA (sin consultar DB).
+     *
+     * [FIX-3] El mapa se indexa por spl_object_id: los allocations referencian
+     * la MISMA instancia de InvestmentItem que vive en la colección de la
+     * inversión (EntityManager con identity map), de modo que la búsqueda por
+     * instancia es exacta incluso con ítems sin ID persistido.
      */
     private function recalculateItemAllocatedExpenses(Collection $items, Investment $investment): void
     {
         $sumsByItem = [];
         foreach ($items as $item) {
-            $sumsByItem[$item->getId()] = '0.00';
+            $sumsByItem[spl_object_id($item)] = '0.00';
         }
 
         foreach ($investment->getExpenses() as $expense) {
@@ -146,16 +161,16 @@ final class ExpenseAllocationService
                 continue;
             }
             foreach ($expense->getAllocations() as $allocation) {
-                $itemId = $allocation->getInvestmentItem()->getId();
-                if (isset($sumsByItem[$itemId])) {
-                    $sumsByItem[$itemId] = bcadd($sumsByItem[$itemId], $allocation->getAllocatedAmount(), 2);
+                $itemKey = spl_object_id($allocation->getInvestmentItem());
+                if (isset($sumsByItem[$itemKey])) {
+                    $sumsByItem[$itemKey] = bcadd($sumsByItem[$itemKey], $allocation->getAllocatedAmount(), 2);
                 }
             }
         }
 
         $usdRate = $investment->getUsdRateSnapshot();
         foreach ($items as $item) {
-            $sum = $sumsByItem[$item->getId()] ?? '0.00';
+            $sum = $sumsByItem[spl_object_id($item)] ?? '0.00';
             $item->setAllocatedExpense($sum);
 
             if ($usdRate !== null && bccomp($usdRate, '0', 4) > 0) {
@@ -166,6 +181,10 @@ final class ExpenseAllocationService
         }
     }
 
+    /**
+     * [FIX-3] Revisado: no usa getId() como clave (solo recorre la colección),
+     * por lo que funciona igual con ítems nuevos que con persistidos.
+     */
     private function resetAllocatedExpenseOnItems(Collection $items): void
     {
         foreach ($items as $item) {
