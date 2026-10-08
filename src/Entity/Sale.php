@@ -120,8 +120,19 @@ class Sale
     /**
      * Mantiene totalAmount alineado con la suma de líneas.
      * Evita que un servicio olvide recalcularlo y rompa reportes.
+     *
+     * [FIX-1] Es público porque SaleLine lo invoca desde sus setters
+     * (quantity/unitPrice): si se modifica una línea de una venta ya
+     * persistida, Doctrine no dispara Sale::onPreUpdate y el total
+     * quedaría desfasado sin este aviso.
+     *
+     * Los callbacks PrePersist/PreUpdate siguen llamándolo como red de
+     * seguridad. [FIX-1] SaleLine::recalculateTotalLine() calcula
+     * totalLine en los setters, de modo que al llegar aquí la suma ya
+     * usa valores correctos (antes dependía de un orden de callbacks que
+     * no existe: Sale se persiste ANTES que SaleLine).
      */
-    private function recalculateTotalAmount(): void
+    public function recalculateTotalAmount(): void
     {
         $total = '0.00';
         foreach ($this->lines as $line) {
@@ -281,6 +292,8 @@ class Sale
         if (!$this->lines->contains($l)) {
             $this->lines->add($l);
             $l->setSale($this);
+            // [FIX-1] La línea recién agregada debe sumarse al total.
+            $this->recalculateTotalAmount();
         }
         return $this;
     }
@@ -288,6 +301,8 @@ class Sale
     public function removeLine(SaleLine $l): self
     {
         $this->lines->removeElement($l);
+        // [FIX-1] La línea removida deja de sumar al total.
+        $this->recalculateTotalAmount();
         return $this;
     }
 

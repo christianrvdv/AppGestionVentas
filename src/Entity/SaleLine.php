@@ -100,9 +100,36 @@ class SaleLine
     }
 
     /**
+     * [FIX-1] Recalcula totalLine EN EL MOMENTO de asignar quantity/unitPrice.
+     *
+     * Motivo: Doctrine dispara los callbacks PrePersist en orden de dependencia
+     * de claves foráneas, es decir PRIMERO Sale y DESPUÉS SaleLine. Si
+     * totalLine solo se calculara en SaleLine::onPrePersist, cuando
+     * Sale::onPrePersist suma las líneas todas leerían '0.00' y
+     * Sale.totalAmount se persistiría en cero.
+     *
+     * Al calcularlo en los setters, la línea llega a Sale con totalLine ya
+     * correcto, con o sin flush intermedio.
+     *
+     * Es defensivo con isset(): los setters pueden invocarse en cualquier
+     * orden y aún no ambos estar seteados.
+     */
+    private function recalculateTotalLine(): void
+    {
+        if (isset($this->quantity, $this->unitPrice)) {
+            $this->totalLine = bcmul($this->unitPrice, (string)$this->quantity, 2);
+        }
+    }
+
+    /**
      * Recalcula los derivados deterministas de la línea.
      * recognizedProfitLine NO se recalcula aquí: es responsabilidad
      * explícita de SaleService vía applyRecognizedProfit().
+     *
+     * NOTA [FIX-1]: totalLine también se calcula aquí (defensa en
+     * profundidad), pero la fuente de verdad en memoria es el setter,
+     * porque este método solo corre en PrePersist/PreUpdate, demasiado
+     * tarde para que Sale::onPrePersist lo vea.
      */
     private function recalculateDerived(): void
     {
@@ -225,6 +252,9 @@ class SaleLine
     public function setQuantity(int $q): self
     {
         $this->quantity = $q;
+        // [FIX-1] Eager: mantiene totalLine sincronizada siempre.
+        $this->recalculateTotalLine();
+        $this->notifySaleTotal();
         return $this;
     }
 
@@ -236,7 +266,26 @@ class SaleLine
     public function setUnitPrice(string $p): self
     {
         $this->unitPrice = $p;
+        // [FIX-1] Eager: mantiene totalLine sincronizada siempre.
+        $this->recalculateTotalLine();
+        $this->notifySaleTotal();
         return $this;
+    }
+
+    /**
+     * [FIX-1] Propaga el recálculo a la venta padre si ya está vinculada.
+     *
+     * Si se modifica el precio o la cantidad de una línea de una venta YA
+     * persistida, Doctrine no dispara Sale::onPreUpdate (no cambió ningún
+     * campo de la venta) y totalAmount quedaría desfasado. Este aviso
+     * garantiza la invariante "Sale.totalAmount === Σ líneas" también
+     * durante modificaciones.
+     */
+    private function notifySaleTotal(): void
+    {
+        if (isset($this->sale)) {
+            $this->sale->recalculateTotalAmount();
+        }
     }
 
     public function getTotalLine(): string
