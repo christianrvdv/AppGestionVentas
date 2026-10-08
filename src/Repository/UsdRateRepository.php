@@ -7,6 +7,7 @@ namespace App\Repository;
 use App\Entity\UsdRate;
 use App\Repository\Contract\UsdRateRepositoryInterface;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
@@ -63,7 +64,7 @@ class UsdRateRepository extends ServiceEntityRepository implements UsdRateReposi
             ->andWhere('r.tenant = :tenantId')
             ->andWhere('r.rateDate = :date')
             ->setParameter('tenantId', $tenantId)
-            ->setParameter('date', $date)
+            ->setParameter('date', $date, Types::DATE_IMMUTABLE)
             ->orderBy('r.createdAt', 'DESC')
             ->addOrderBy('r.id', 'DESC')
             ->setMaxResults(1)
@@ -85,8 +86,8 @@ class UsdRateRepository extends ServiceEntityRepository implements UsdRateReposi
             ->andWhere('r.rateDate >= :from')
             ->andWhere('r.rateDate <= :to')
             ->setParameter('tenantId', $tenantId)
-            ->setParameter('from', $from)
-            ->setParameter('to', $to)
+            ->setParameter('from', $from, Types::DATE_IMMUTABLE)
+            ->setParameter('to', $to, Types::DATE_IMMUTABLE)
             ->orderBy('r.rateDate', 'ASC')
             ->addOrderBy('r.createdAt', 'ASC')
             ->getQuery()

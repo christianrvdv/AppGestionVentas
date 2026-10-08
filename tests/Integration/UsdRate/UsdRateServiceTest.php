@@ -61,14 +61,6 @@ final class UsdRateServiceTest extends IntegrationTestCase
     /**
      * SEGUNDA llamada a setRate(): el setting debe refrescarse siempre a
      * la tasa vigente, que es justo lo que rompía [FIX-2].
-     *
-     * NOTA (observación, fuera de alcance): no se cubre aquí el escenario
-     * de corrección "misma fecha" porque findEffectiveByDate() compara el
-     * parámetro inferido como datetime_immutable ('2026-10-01 00:00:00')
-     * contra una columna DATE ('2026-10-01'). En PostgreSQL el motor
-     * convierte el literal a DATE y encuentra la fila; en SQLite (motor de
-     * tests) es una comparación de texto que nunca coincide. El código de
-     * corrección no se modifica por estar fuera de alcance.
      */
     public function test_set_rate_en_otra_fecha_actualiza_el_setting_vigente(): void
     {
@@ -87,6 +79,58 @@ final class UsdRateServiceTest extends IntegrationTestCase
         );
         $this->assertSame('360.0000', $setting->getSettingValue());
         $this->assertSame('360.0000', $this->usdRateService->getCurrent()->getRate());
+    }
+
+    /**
+     * [FIX-9] Misma fecha dos veces: la segunda NO sobrescribe, crea una
+     * corrección encadenada (isCorrection = true, supersedes = la anterior).
+     *
+     * Cubre el escenario que antes quedaba fuera de alcance: sin forzar el
+     * tipo DATE del parámetro, findEffectiveByDate() no hallaba la fila en
+     * SQLite y el "existing" salía siempre null.
+     */
+    public function test_set_rate_misma_fecha_crea_correccion_encadenada(): void
+    {
+        $tenant = $this->createTenant();
+        $user = $this->createAppUser($tenant);
+
+        $first = $this->usdRateService->setRate(new \DateTimeImmutable('2026-10-01'), '350.5000', $user);
+        $second = $this->usdRateService->setRate(new \DateTimeImmutable('2026-10-01'), '355.0000', $user, 'corrección');
+
+        $this->assertFalse($first->isCorrection());
+        $this->assertNull($first->getSupersedes());
+
+        $this->assertTrue($second->isCorrection(), 'La segunda llamada en la misma fecha debe crear una corrección.');
+        $this->assertNotNull($second->getSupersedes(), 'La corrección debe apuntar a la tasa anterior.');
+        $this->assertSame($first->getId(), $second->getSupersedes()->getId());
+        $this->assertNotSame($first->getId(), $second->getId());
+
+        $effective = $this->usdRateService->getEffectiveFor(new \DateTimeImmutable('2026-10-01'));
+        $this->assertNotNull($effective, 'getEffectiveByDate debe encontrar la fila en SQLite.');
+        $this->assertSame($second->getId(), $effective->getId(), 'La efectiva es la última insertada (la corrección).');
+        $this->assertSame('355.0000', $effective->getRate());
+        $this->assertSame('355.0000', $this->usdRateService->getCurrent()->getRate());
+    }
+
+    public function test_get_effective_for_devuelve_la_tasa_de_la_fecha(): void
+    {
+        $tenant = $this->createTenant();
+        $user = $this->createAppUser($tenant);
+
+        $this->usdRateService->setRate(new \DateTimeImmutable('2026-10-01'), '350.5000', $user);
+        $this->usdRateService->setRate(new \DateTimeImmutable('2026-10-02'), '360.0000', $user);
+
+        $effective = $this->usdRateService->getEffectiveFor(new \DateTimeImmutable('2026-10-01'));
+
+        $this->assertNotNull($effective, 'getEffectiveFor(2026-10-01) debe devolver la tasa de esa fecha en SQLite.');
+        $this->assertSame('350.5000', $effective->getRate());
+        $this->assertFalse($effective->isCorrection());
+        $this->assertSame('2026-10-01', $effective->getRateDate()->format('Y-m-d'));
+
+        $this->assertNull(
+            $this->usdRateService->getEffectiveFor(new \DateTimeImmutable('2026-09-30')),
+            'Sin tasa para esa fecha debe devolver null.'
+        );
     }
 
     public function test_sin_tenant_en_contexto_no_explota(): void
