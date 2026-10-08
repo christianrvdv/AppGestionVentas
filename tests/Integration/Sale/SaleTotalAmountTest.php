@@ -10,7 +10,6 @@ use App\Entity\SaleLine;
 use App\Service\Investment\InvestmentItemService;
 use App\Service\Sale\SaleService;
 use App\Tests\Integration\IntegrationTestCase;
-use Doctrine\ORM\Query\QueryException;
 
 /**
  * [FIX-1] Sale.totalAmount y SaleLine.totalLine se calculan en el momento
@@ -40,7 +39,7 @@ final class SaleTotalAmountTest extends IntegrationTestCase
     {
         [$tenant, $user, $investment, $item] = $this->investmentWithStock();
 
-        $this->registerSaleToleratingSummaryDqlBug(
+        $this->saleService->register(
             new RegisterSaleCommand(
                 investmentId: $investment->getId(),
                 customerId: null,
@@ -60,7 +59,7 @@ final class SaleTotalAmountTest extends IntegrationTestCase
     {
         [$tenant, $user, $investment, $item] = $this->investmentWithStock();
 
-        $this->registerSaleToleratingSummaryDqlBug(
+        $this->saleService->register(
             new RegisterSaleCommand(
                 investmentId: $investment->getId(),
                 customerId: null,
@@ -193,26 +192,6 @@ final class SaleTotalAmountTest extends IntegrationTestCase
         $sale->setSaleDate(new \DateTimeImmutable('2026-01-10'));
 
         return $sale;
-    }
-
-    /**
-     * SaleService::register ya persistió el Sale y sus líneas (flush #1 y
-     * #2) antes de recalcular el summary, así que el total se puede
-     * comprobar aunque el paso final falle.
-     *
-     * [OBS-1] FUERA DE ALCANCE: InvestmentSummaryRepository usa el alias
-     * DQL 'is', palabra reservada del parser, por lo que
-     * InvestmentSummaryService::recompute() lanza QueryException siempre,
-     * en cualquier plataforma. No se corrige aquí (no es parte de [FIX-1]);
-     * queda anotado en las observaciones del reporte.
-     */
-    private function registerSaleToleratingSummaryDqlBug(RegisterSaleCommand $cmd, AppUser $user): void
-    {
-        try {
-            $this->saleService->register($cmd, $user);
-        } catch (QueryException) {
-            // Ver docblock: bug fuera de alcance que no afecta al total.
-        }
     }
 
     private function onlySale(): Sale

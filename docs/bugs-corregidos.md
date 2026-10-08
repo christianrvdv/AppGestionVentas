@@ -2,7 +2,8 @@
 
 ## Estado
 
-7 fixes + 1 bloqueante de soporte. **105 tests / 203 assertions** (baseline 79/123).
+8 fixes (FIX-1 … FIX-8) + 1 bloqueante de soporte. **109 tests / 231 assertions**
+(baseline 79/123).
 `doctrine:schema:validate` OK (mapping + BD), `lint:container` OK, `lint:twig` OK,
 migración desde BD Postgres vacía OK (3 migraciones / 132 SQL).
 
@@ -138,6 +139,36 @@ Cada fix tiene al menos un test que **falla antes** del cambio y **pasa después
   `src/DTO/Command/PaymentCommand.php`, `migrations/Version20261008153127.php`.
 - **Pre-fix (verificado):** `Tests: 4, Errors: 2`.
 
+### Fix 8 — Alias DQL `is` en `InvestmentSummaryRepository` (OBS-1)
+
+- **Causa raíz:** `is` es palabra reservada del parser DQL (`IS NULL`,
+  `IS NOT NULL`). Los tres métodos del repositorio construían la consulta con
+  `createQueryBuilder('is')` → `[Syntax Error] ... Expected IdentificationVariable
+  ..., got 'is'` en **toda** ejecución, en cualquier plataforma.
+- **Impacto:** `InvestmentSummaryService::recompute()` lanzaba `QueryException`
+  siempre, así que `InvestmentSummary` **nunca** se actualizaba: ni al confirmar
+  la inversión ni al registrar una venta (`SaleService::register()` paso 13), ni
+  al anular, ni al revaluar. El sistema no funcionaba end-to-end aunque la suite
+  estuviera en verde (los tests lo parcheaban con un `try/catch`).
+- **Solución:** alias `is` → `summary` en `findByInvestment()`,
+  `findTopRecovered()` y `sumTotalsByTenant()`. Ningún consumidor depende del
+  alias (los repositorios no lo exponen); `InvestmentSummaryService`,
+  `SaleService`, `SaleVoidService`, `LossService` e
+  `InvestmentRevaluationService` usan la interfaz.
+- **Tests:** `tests/Integration/Investment/InvestmentSummaryTest` (4 tests:
+  confirmación con stock → summary con valores ≠ 0, `recompute()` sin ventas,
+  venta registrada → summary refleja la venta, `findTopRecovered()` +
+  `sumTotalsByTenant()`). Además `SaleTotalAmountTest` llama a
+  `SaleService::register()` **sin** `try/catch`: se eliminó
+  `registerSaleToleratingSummaryDqlBug()`.
+- **Archivos:** `src/Repository/InvestmentSummaryRepository.php`,
+  `tests/Integration/Sale/SaleTotalAmountTest.php`,
+  `tests/Integration/Investment/InvestmentSummaryTest.php`.
+- **Pre-fix (verificado):** revertido el alias a `is`: **6 de 8 tests** fallan con
+  `QueryException` (los 4 de `InvestmentSummaryTest` + los 2 que registran venta
+  de `SaleTotalAmountTest`). Pasan los 2 tests de entidades de `SaleTotalAmountTest`,
+  que no tocan el repositorio.
+
 ### Soporte — `config/services.yaml` (`when:test:`)
 
 Los servicios de dominio no tienen controllers, así que no entran al contenedor
@@ -152,21 +183,11 @@ de integración.
 
 ## Observaciones fuera de alcance
 
-### OBS-1 — Alias DQL `is` en `InvestmentSummaryRepository`
+### OBS-1 — Alias DQL `is` en `InvestmentSummaryRepository` → **RESUELTO (FIX-8)**
 
-**Bloqueante real. Prioridad: alta.**
-
-`src/Repository/InvestmentSummaryRepository.php` usa el alias `is`
-(palabra reservada del parser DQL) en `findByInvestment()`, `findTopRecovered()`
-y en la consulta agregada → `[Syntax Error] ... Expected IdentificationVariable ..., got 'is'`.
-
-Impacto: `InvestmentSummaryService::recompute()` falla **siempre**, en cualquier
-plataforma, y `SaleService::register()` (paso 13) lanza `QueryException` tras
-haber persistido el sale y sus líneas.
-
-Mitigación actual en tests: `SaleTotalAmountTest::registerSaleToleratingSummaryDqlBug()`
-tolera ese `QueryException` (documentado en el propio docblock). **No corregido
-por estar fuera del alcance de [FIX-1].**
+Ver **Fix 8**. Alias renombrado a `summary`; la mitigación
+`SaleTotalAmountTest::registerSaleToleratingSummaryDqlBug()` se eliminó, así que
+ya no hay ningún `try/catch (QueryException)` en la suite.
 
 ### OBS-2 — Comparación `DATE` vs `datetime_immutable` en SQLite
 

@@ -20,9 +20,9 @@ class InvestmentSummaryRepository extends ServiceEntityRepository implements Inv
 
     public function findByInvestment(int $investmentId, int $tenantId): ?InvestmentSummary
     {
-        return $this->createQueryBuilder('is')
-            ->andWhere('is.investment = :investmentId')
-            ->andWhere('is.tenant = :tenantId')
+        return $this->createQueryBuilder('summary')
+            ->andWhere('summary.investment = :investmentId')
+            ->andWhere('summary.tenant = :tenantId')
             ->setParameter('investmentId', $investmentId)
             ->setParameter('tenantId', $tenantId)
             ->getQuery()
@@ -34,10 +34,10 @@ class InvestmentSummaryRepository extends ServiceEntityRepository implements Inv
      */
     public function findTopRecovered(int $tenantId, int $limit = 10): array
     {
-        return $this->createQueryBuilder('is')
-            ->andWhere('is.tenant = :tenantId')
+        return $this->createQueryBuilder('summary')
+            ->andWhere('summary.tenant = :tenantId')
             ->setParameter('tenantId', $tenantId)
-            ->orderBy('is.recoveryPct', 'DESC')
+            ->orderBy('summary.recoveryPct', 'DESC')
             ->setMaxResults($limit)
             ->getQuery()
             ->getResult();
@@ -65,23 +65,23 @@ class InvestmentSummaryRepository extends ServiceEntityRepository implements Inv
      */
     public function sumTotalsByTenant(int $tenantId): array
     {
-        $row = $this->createQueryBuilder('is')
+        $row = $this->createQueryBuilder('summary')
             ->select(
-                'SUM(is.totalInvestment) AS totalInvestment',
-                'SUM(is.totalInvestmentCurrent) AS totalInvestmentCurrent',
-                'SUM(is.totalRecovered) AS totalRecovered',
-                'SUM(is.totalRecoveredPerProduct) AS totalRecoveredPerProduct',
-                'SUM(is.totalRecoveredInvestmentFirst) AS totalRecoveredInvestmentFirst',
-                'SUM(is.totalRecoveredCurrent) AS totalRecoveredCurrent',
-                'SUM(is.totalPending) AS totalPending',
-                'SUM(is.totalPendingCurrent) AS totalPendingCurrent',
-                'SUM(is.totalGrossProfit) AS totalGrossProfit',
-                'SUM(is.totalRecognizedProfit) AS totalRecognizedProfit',
-                'SUM(is.totalProfit) AS totalProfit',
-                'SUM(is.totalProfitPerProduct) AS totalProfitPerProduct',
-                'SUM(is.totalProfitInvestmentFirst) AS totalProfitInvestmentFirst'
+                'SUM(summary.totalInvestment) AS totalInvestment',
+                'SUM(summary.totalInvestmentCurrent) AS totalInvestmentCurrent',
+                'SUM(summary.totalRecovered) AS totalRecovered',
+                'SUM(summary.totalRecoveredPerProduct) AS totalRecoveredPerProduct',
+                'SUM(summary.totalRecoveredInvestmentFirst) AS totalRecoveredInvestmentFirst',
+                'SUM(summary.totalRecoveredCurrent) AS totalRecoveredCurrent',
+                'SUM(summary.totalPending) AS totalPending',
+                'SUM(summary.totalPendingCurrent) AS totalPendingCurrent',
+                'SUM(summary.totalGrossProfit) AS totalGrossProfit',
+                'SUM(summary.totalRecognizedProfit) AS totalRecognizedProfit',
+                'SUM(summary.totalProfit) AS totalProfit',
+                'SUM(summary.totalProfitPerProduct) AS totalProfitPerProduct',
+                'SUM(summary.totalProfitInvestmentFirst) AS totalProfitInvestmentFirst'
             )
-            ->andWhere('is.tenant = :tenantId')
+            ->andWhere('summary.tenant = :tenantId')
             ->setParameter('tenantId', $tenantId)
             ->getQuery()
             ->getOneOrNullResult();
