@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Repository\Contract;
 
 use App\Entity\Investment;
+use Doctrine\ORM\QueryBuilder;
 
 /**
  * Puerto de persistencia para inversiones (lotes de compra).
@@ -61,4 +62,11 @@ interface InvestmentRepositoryInterface
      * Usado para generar código secuencial INV-YYYYMMDD-NNN.
      */
     public function countByCodePrefix(int $tenantId, string $prefix): int;
+
+    /**
+     * QueryBuilder paginable para el listado web (Fase 2). Filtra siempre
+     * por tenant (explícito, sin depender del SQLFilter) y opcionalmente
+     * por estado; ordena por fecha DESC y código DESC.
+     */
+    public function createPaginatedQueryBuilder(int $tenantId, ?string $status): QueryBuilder;
 }

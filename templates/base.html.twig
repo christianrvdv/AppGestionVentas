@@ -33,7 +33,12 @@
                                 class="{{ app.request.attributes.get('_route') == 'app_dashboard' ? 'font-semibold text-brand' : 'text-foreground hover:text-brand' }}"
                             >Dashboard</a>
                         </li>
-                        <li><span aria-disabled="true" class="cursor-not-allowed text-muted">Inversiones</span></li>
+                        <li>
+                            <a
+                                href="{{ path('app_investment_index') }}"
+                                class="{{ app.request.attributes.get('_route') starts with 'app_investment_' ? 'font-semibold text-brand' : 'text-foreground hover:text-brand' }}"
+                            >Inversiones</a>
+                        </li>
                         <li><span aria-disabled="true" class="cursor-not-allowed text-muted">Ventas</span></li>
                         <li><span aria-disabled="true" class="cursor-not-allowed text-muted">Productos</span></li>
                         <li><span aria-disabled="true" class="cursor-not-allowed text-muted">Clientes</span></li>

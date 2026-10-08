@@ -1,0 +1,25 @@
+{% set input_class = 'w-full rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand' %}
+{% set label_class = 'mb-1 block text-sm font-medium text-foreground' %}
+{% set error_class = 'mt-1 text-sm text-danger' %}
+{% set submit_class = 'rounded bg-brand px-4 py-2 font-medium text-white hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2' %}
+
+{{ form_start(form, {attr: {class: 'space-y-5'}}) }}
+    <div>
+        <label for="{{ form.investmentDate.vars.id }}" class="{{ label_class }}">{{ form.investmentDate.vars.label }}</label>
+        {{ form_widget(form.investmentDate, {attr: {class: input_class}}) }}
+        {% for error in form.investmentDate.vars.errors %}
+            <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+        {% endfor %}
+    </div>
+
+    <div>
+        <label for="{{ form.description.vars.id }}" class="{{ label_class }}">{{ form.description.vars.label }}</label>
+        {{ form_widget(form.description, {attr: {class: input_class}}) }}
+        {% for error in form.description.vars.errors %}
+            <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+        {% endfor %}
+    </div>
+
+    {{ form_rest(form) }}
+    <button type="submit" class="{{ submit_class }}">{{ submit_label|default('Guardar') }}</button>
+{{ form_end(form) }}

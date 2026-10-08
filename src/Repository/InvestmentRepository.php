@@ -7,6 +7,7 @@ namespace App\Repository;
 use App\Entity\Investment;
 use App\Repository\Contract\InvestmentRepositoryInterface;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
@@ -143,5 +144,21 @@ class InvestmentRepository extends ServiceEntityRepository implements Investment
             ->setParameter('prefix', $prefix . '%')
             ->getQuery()
             ->getSingleScalarResult();
+    }
+
+    public function createPaginatedQueryBuilder(int $tenantId, ?string $status): QueryBuilder
+    {
+        $qb = $this->createQueryBuilder('i')
+            ->andWhere('i.tenant = :tenantId')
+            ->setParameter('tenantId', $tenantId)
+            ->orderBy('i.investmentDate', 'DESC')
+            ->addOrderBy('i.code', 'DESC');
+
+        if (null !== $status && '' !== $status) {
+            $qb->andWhere('i.status = :status')
+                ->setParameter('status', $status);
+        }
+
+        return $qb;
     }
 }

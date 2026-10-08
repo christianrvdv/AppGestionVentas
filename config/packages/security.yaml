@@ -29,6 +29,12 @@ security:
                 failure_path: /login
                 post_only: true
 
+            # Fuerza bruta: 5 intentos fallidos / 5 minutos (por usuario+IP,
+            # con techo global). LoginThrottlingListener del SecurityBundle.
+            login_throttling:
+                max_attempts: 5
+                interval: 5 minutes
+
             logout:
                 path: /logout
                 target: /login

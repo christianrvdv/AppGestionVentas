@@ -76,7 +76,12 @@
                                 <td class="px-4 py-2 text-foreground">{{ investment.investmentDate|date('d/m/Y') }}</td>
                                 <td class="px-4 py-2 text-foreground">{{ status_labels[investment.status] ?? investment.status }}</td>
                                 <td class="px-4 py-2 text-end text-foreground">{{ investment.totalInvestment|number_format(2, ',', '.') }}</td>
-                                <td class="px-4 py-2 text-end text-muted">Detalle (próximamente)</td>
+                                <td class="px-4 py-2 text-end">
+                                    <a
+                                        href="{{ path('app_investment_show', {id: investment.id}) }}"
+                                        class="text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                                    >Ver detalle</a>
+                                </td>
                             </tr>
                         {% endfor %}
                     </tbody>

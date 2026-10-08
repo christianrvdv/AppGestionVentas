@@ -1,0 +1,15 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Editar {{ investment.code }} · Gestión de Negocio{% endblock %}
+
+{% block body %}
+    <div class="mx-auto w-full max-w-lg">
+        <h1 class="mb-6 text-2xl font-semibold text-foreground">Editar inversión {{ investment.code }}</h1>
+
+        {% include 'investment/_form.html.twig' with {form: form, submit_label: 'Guardar cambios'} %}
+
+        <p class="mt-4">
+            <a href="{{ path('app_investment_show', {id: investment.id}) }}" class="text-sm text-brand hover:underline">Volver al detalle</a>
+        </p>
+    </div>
+{% endblock %}

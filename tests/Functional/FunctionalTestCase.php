@@ -5,7 +5,13 @@ declare(strict_types=1);
 namespace App\Tests\Functional;
 
 use App\Entity\AppUser;
+use App\Entity\Investment;
+use App\Entity\InvestmentItem;
+use App\Entity\Product;
 use App\Entity\Tenant;
+use App\Service\Investment\InvestmentCreationService;
+use App\Service\Investment\InvestmentItemService;
+use App\Service\TenantContext;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -105,5 +111,62 @@ abstract class FunctionalTestCase extends WebTestCase
             'email' => 'admin@demo.local',
             'password' => 'demo',
         ]);
+    }
+
+    /**
+     * Crea una inversión en borrador (OPEN) con los servicios del dominio,
+     * asignando el TenantContext que los servicios esperan (en web lo hace
+     * el TenantFilterListener; aquí se simula para el seed).
+     */
+    protected function seedInvestment(AppUser $user, ?\DateTimeImmutable $date = null, ?string $description = null): Investment
+    {
+        $context = static::getContainer()->get(TenantContext::class);
+        $previous = $context->getTenantId();
+        $context->setTenantId($user->getTenant()->getId());
+
+        try {
+            $investment = static::getContainer()
+                ->get(InvestmentCreationService::class)
+                ->createDraft($user, $date ?? new \DateTimeImmutable('today'), $description);
+
+            $this->em->persist($investment);
+            $this->em->flush();
+
+            return $investment;
+        } finally {
+            $context->setTenantId($previous);
+        }
+    }
+
+    protected function seedProduct(Tenant $tenant, string $name, ?string $sku = null): Product
+    {
+        $product = new Product();
+        $product->setTenant($tenant);
+        $product->setName($name);
+        $product->setSku($sku);
+
+        $this->em->persist($product);
+        $this->em->flush();
+
+        return $product;
+    }
+
+    protected function addItemToInvestment(Investment $investment, Product $product, int $quantity = 1, string $unitCost = '100.00'): InvestmentItem
+    {
+        $context = static::getContainer()->get(TenantContext::class);
+        $previous = $context->getTenantId();
+        $context->setTenantId($investment->getTenant()->getId());
+
+        try {
+            $item = static::getContainer()
+                ->get(InvestmentItemService::class)
+                ->addItem($investment, $product, $quantity, $unitCost);
+
+            $this->em->flush();
+
+            return $item;
+        } finally {
+            $context->setTenantId($previous);
+        }
     }
 }

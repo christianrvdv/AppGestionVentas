@@ -1,0 +1,243 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ investment.code }} · Inversiones · Gestión de Negocio{% endblock %}
+
+{% set input_class = 'w-full rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand' %}
+{% set label_class = 'mb-1 block text-sm font-medium text-foreground' %}
+{% set error_class = 'mt-1 text-sm text-danger' %}
+
+{% block body %}
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <h1 class="text-2xl font-semibold text-foreground">
+            Inversión {{ investment.code }}
+            <span class="ml-2 align-middle text-sm font-normal text-muted">{{ status_labels[investment.status] ?? investment.status }}</span>
+        </h1>
+        <a href="{{ path('app_investment_index') }}" class="text-sm text-brand hover:underline">Volver al listado</a>
+    </div>
+
+    <section aria-labelledby="titulos-cabecera" class="mb-10">
+        <h2 id="titulos-cabecera" class="mb-4 text-lg font-medium text-foreground">Resumen</h2>
+        <dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div class="rounded border border-border bg-surface p-4">
+                <dt class="text-sm text-muted">Fecha</dt>
+                <dd class="mt-1 text-foreground">{{ investment.investmentDate|date('d/m/Y') }}</dd>
+            </div>
+            <div class="rounded border border-border bg-surface p-4">
+                <dt class="text-sm text-muted">Descripción</dt>
+                <dd class="mt-1 text-foreground">{{ investment.description ?? '—' }}</dd>
+            </div>
+            <div class="rounded border border-border bg-surface p-4">
+                <dt class="text-sm text-muted">Moneda base</dt>
+                <dd class="mt-1 text-foreground">{{ investment.baseCurrency }}</dd>
+            </div>
+            <div class="rounded border border-border bg-surface p-4">
+                <dt class="text-sm text-muted">Tasa USD (snapshot)</dt>
+                <dd class="mt-1 text-foreground">
+                    {% if investment.usdRateSnapshot %}
+                        {{ investment.usdRateSnapshot|number_format(4, ',', '.') }}
+                    {% else %}
+                        Sin registrar
+                    {% endif %}
+                </dd>
+            </div>
+            <div class="rounded border border-border bg-surface p-4">
+                <dt class="text-sm text-muted">Total mercadería</dt>
+                <dd class="mt-1 text-foreground">{{ investment.totalMerchandiseCost|number_format(2, ',', '.') }}</dd>
+            </div>
+            <div class="rounded border border-border bg-surface p-4">
+                <dt class="text-sm text-muted">Total gastos</dt>
+                <dd class="mt-1 text-foreground">{{ investment.totalExpenses|number_format(2, ',', '.') }}</dd>
+            </div>
+            <div class="rounded border border-border bg-surface p-4">
+                <dt class="text-sm text-muted">Total inversión</dt>
+                <dd class="mt-1 text-xl font-semibold text-foreground">{{ investment.totalInvestment|number_format(2, ',', '.') }}</dd>
+            </div>
+            <div class="rounded border border-border bg-surface p-4">
+                <dt class="text-sm text-muted">Confirmada</dt>
+                <dd class="mt-1 text-foreground">
+                    {% if investment.confirmedAt %}
+                        {{ investment.confirmedAt|date('d/m/Y H:i') }}
+                    {% else %}
+                        Aún no confirmada
+                    {% endif %}
+                </dd>
+            </div>
+            {% if investment.status == 'CANCELLED' %}
+                <div class="rounded border border-danger/30 bg-danger/10 p-4">
+                    <dt class="text-sm text-danger">Motivo de cancelación</dt>
+                    <dd class="mt-1 text-danger">{{ investment.cancelledReason }}</dd>
+                </div>
+            {% endif %}
+        </dl>
+
+        {% if can_modify %}
+            <div class="mt-6 flex flex-wrap items-center gap-3">
+                <a
+                    href="{{ path('app_investment_edit', {id: investment.id}) }}"
+                    class="rounded border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                >Editar cabecera</a>
+
+                {{ form_start(confirm_form, {action: path('app_investment_confirm', {id: investment.id}), method: 'POST', attr: {class: 'inline'}}) }}
+                    {% if investment.items is empty %}
+                        <button
+                            type="submit"
+                            disabled
+                            aria-disabled="true"
+                            title="Agrega al menos un ítem para poder confirmar"
+                            class="cursor-not-allowed rounded bg-brand/40 px-4 py-2 font-medium text-white"
+                        >Confirmar inversión</button>
+                    {% else %}
+                        <button
+                            type="submit"
+                            class="rounded bg-brand px-4 py-2 font-medium text-white hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                        >Confirmar inversión</button>
+                    {% endif %}
+                {{ form_end(confirm_form) }}
+            </div>
+        {% endif %}
+    </section>
+
+    <section aria-labelledby="titulos-items" class="mb-10">
+        <h2 id="titulos-items" class="mb-4 text-lg font-medium text-foreground">Ítems</h2>
+
+        {% if investment.items is empty %}
+            <p class="mb-6 rounded border border-border bg-surface px-4 py-3 text-sm text-muted">Sin ítems.</p>
+        {% else %}
+            <div class="mb-6 overflow-x-auto rounded border border-border bg-surface">
+                <table class="w-full text-sm">
+                    <caption class="sr-only">Ítems de la inversión</caption>
+                    <thead>
+                        <tr class="border-b border-border text-start text-muted">
+                            <th scope="col" class="px-4 py-2 text-start font-medium">Producto</th>
+                            <th scope="col" class="px-4 py-2 text-end font-medium">Cantidad</th>
+                            <th scope="col" class="px-4 py-2 text-end font-medium">Costo unitario</th>
+                            <th scope="col" class="px-4 py-2 text-end font-medium">Costo real</th>
+                            <th scope="col" class="px-4 py-2 text-end font-medium">Precio sugerido</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in investment.items %}
+                            <tr class="border-b border-border last:border-b-0">
+                                <td class="px-4 py-2 font-medium text-foreground">
+                                    {{ item.product.name }}{% if item.product.sku %} ({{ item.product.sku }}){% endif %}
+                                </td>
+                                <td class="px-4 py-2 text-end">{{ item.quantity }}</td>
+                                <td class="px-4 py-2 text-end">{{ item.unitCost|number_format(2, ',', '.') }}</td>
+                                <td class="px-4 py-2 text-end">{{ item.realUnitCost|number_format(2, ',', '.') }}</td>
+                                <td class="px-4 py-2 text-end">{{ item.suggestedPrice|number_format(2, ',', '.') }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+
+        {% if can_modify %}
+            <h3 class="mb-3 text-base font-medium text-foreground">Agregar ítem</h3>
+            {{ form_start(item_form, {action: path('app_investment_add_item', {id: investment.id}), method: 'POST', attr: {class: 'space-y-5 rounded border border-border bg-surface p-4'}}) }}
+                <div class="grid gap-4 sm:grid-cols-3">
+                    <div>
+                        <label for="{{ item_form.product.vars.id }}" class="{{ label_class }}">{{ item_form.product.vars.label }}</label>
+                        {{ form_widget(item_form.product, {attr: {class: input_class}}) }}
+                        {% for error in item_form.product.vars.errors %}
+                            <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+                        {% endfor %}
+                    </div>
+                    <div>
+                        <label for="{{ item_form.quantity.vars.id }}" class="{{ label_class }}">{{ item_form.quantity.vars.label }}</label>
+                        {{ form_widget(item_form.quantity, {attr: {class: input_class}}) }}
+                        {% for error in item_form.quantity.vars.errors %}
+                            <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+                        {% endfor %}
+                    </div>
+                    <div>
+                        <label for="{{ item_form.unitCost.vars.id }}" class="{{ label_class }}">{{ item_form.unitCost.vars.label }}</label>
+                        {{ form_widget(item_form.unitCost, {attr: {class: input_class}}) }}
+                        {% for error in item_form.unitCost.vars.errors %}
+                            <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+                        {% endfor %}
+                    </div>
+                </div>
+                <button
+                    type="submit"
+                    class="rounded bg-brand px-4 py-2 font-medium text-white hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                >Agregar ítem</button>
+            {{ form_end(item_form) }}
+        {% endif %}
+    </section>
+
+    <section aria-labelledby="titulos-gastos" class="mb-10">
+        <h2 id="titulos-gastos" class="mb-4 text-lg font-medium text-foreground">Gastos</h2>
+        {% if investment.expenses is empty %}
+            <p class="rounded border border-border bg-surface px-4 py-3 text-sm text-muted">Sin gastos registrados.</p>
+        {% else %}
+            <div class="overflow-x-auto rounded border border-border bg-surface">
+                <table class="w-full text-sm">
+                    <caption class="sr-only">Gastos de la inversión</caption>
+                    <thead>
+                        <tr class="border-b border-border text-start text-muted">
+                            <th scope="col" class="px-4 py-2 text-start font-medium">Categoría</th>
+                            <th scope="col" class="px-4 py-2 text-start font-medium">Descripción</th>
+                            <th scope="col" class="px-4 py-2 text-end font-medium">Monto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for expense in investment.expenses %}
+                            <tr class="border-b border-border last:border-b-0">
+                                <td class="px-4 py-2 text-foreground">{{ expense.category }}</td>
+                                <td class="px-4 py-2 text-foreground">{{ expense.description ?? '—' }}</td>
+                                <td class="px-4 py-2 text-end">{{ expense.amount|number_format(2, ',', '.') }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </section>
+
+    <section aria-labelledby="titulos-ventas" class="mb-10">
+        <h2 id="titulos-ventas" class="mb-4 text-lg font-medium text-foreground">Ventas asociadas</h2>
+        {% if investment.sales is empty %}
+            <p class="rounded border border-border bg-surface px-4 py-3 text-sm text-muted">Sin ventas registradas.</p>
+        {% else %}
+            <div class="overflow-x-auto rounded border border-border bg-surface">
+                <table class="w-full text-sm">
+                    <caption class="sr-only">Ventas asociadas a la inversión</caption>
+                    <thead>
+                        <tr class="border-b border-border text-start text-muted">
+                            <th scope="col" class="px-4 py-2 text-start font-medium">Fecha</th>
+                            <th scope="col" class="px-4 py-2 text-end font-medium">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sale in investment.sales %}
+                            <tr class="border-b border-border last:border-b-0">
+                                <td class="px-4 py-2 text-foreground">{{ sale.saleDate|date('d/m/Y') }}</td>
+                                <td class="px-4 py-2 text-end">{{ sale.totalAmount|number_format(2, ',', '.') }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </section>
+
+    {% if can_modify %}
+        <section aria-labelledby="titulos-cancelar" class="mb-6">
+            <h2 id="titulos-cancelar" class="mb-4 text-lg font-medium text-foreground">Cancelar inversión</h2>
+            {{ form_start(cancel_form, {action: path('app_investment_cancel', {id: investment.id}), method: 'POST', attr: {class: 'space-y-4 rounded border border-danger/30 bg-surface p-4'}}) }}
+                <div>
+                    <label for="{{ cancel_form.reason.vars.id }}" class="{{ label_class }}">{{ cancel_form.reason.vars.label }}</label>
+                    {{ form_widget(cancel_form.reason, {attr: {class: input_class}}) }}
+                    {% for error in cancel_form.reason.vars.errors %}
+                        <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+                    {% endfor %}
+                </div>
+                <button
+                    type="submit"
+                    class="rounded border border-danger/40 bg-surface px-4 py-2 text-sm font-medium text-danger hover:bg-danger/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger"
+                >Cancelar inversión</button>
+            {{ form_end(cancel_form) }}
+        </section>
+    {% endif %}
+{% endblock %}

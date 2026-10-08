@@ -1,0 +1,83 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Inversiones · Gestión de Negocio{% endblock %}
+
+{% block body %}
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <h1 class="text-2xl font-semibold text-foreground">Inversiones</h1>
+        <a
+            href="{{ path('app_investment_new') }}"
+            class="rounded bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+        >Nueva inversión</a>
+    </div>
+
+    <form method="get" action="{{ path('app_investment_index') }}" class="mb-6 flex flex-wrap items-end gap-3">
+        <div>
+            <label for="status" class="mb-1 block text-sm font-medium text-foreground">Estado</label>
+            <select
+                id="status"
+                name="status"
+                class="rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >
+                <option value="">Todos</option>
+                {% for value, label in status_labels %}
+                    <option value="{{ value }}" {{ current_status == value ? 'selected' }}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button
+            type="submit"
+            class="rounded border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+        >Filtrar</button>
+        {% if current_status %}
+            <a
+                href="{{ path('app_investment_index') }}"
+                class="px-2 py-2 text-sm text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >Limpiar filtro</a>
+        {% endif %}
+    </form>
+
+    {% if pagination.items is empty %}
+        <p class="rounded border border-border bg-surface px-4 py-3 text-sm text-muted">
+            No hay inversiones registradas.
+            <a href="{{ path('app_investment_new') }}" class="text-brand hover:underline">Crea la primera</a>.
+        </p>
+    {% else %}
+        <div class="overflow-x-auto rounded border border-border bg-surface">
+            <table class="w-full text-sm">
+                <caption class="sr-only">Listado de inversiones del negocio</caption>
+                <thead>
+                    <tr class="border-b border-border text-start text-muted">
+                        <th scope="col" class="px-4 py-2 text-start font-medium">Código</th>
+                        <th scope="col" class="px-4 py-2 text-start font-medium">Fecha</th>
+                        <th scope="col" class="px-4 py-2 text-start font-medium">Estado</th>
+                        <th scope="col" class="px-4 py-2 text-start font-medium">Descripción</th>
+                        <th scope="col" class="px-4 py-2 text-end font-medium">Total</th>
+                        <th scope="col" class="px-4 py-2 text-end font-medium"><span class="sr-only">Detalle</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for investment in pagination %}
+                        <tr class="border-b border-border last:border-b-0 {{ investment.status in ['CLOSED', 'CANCELLED'] ? 'text-muted' : '' }}">
+                            <td class="px-4 py-2 font-medium text-foreground">{{ investment.code }}</td>
+                            <td class="px-4 py-2">{{ investment.investmentDate|date('d/m/Y') }}</td>
+                            <td class="px-4 py-2">{{ status_labels[investment.status] ?? investment.status }}</td>
+                            <td class="px-4 py-2">{{ investment.description ?? '—' }}</td>
+                            <td class="px-4 py-2 text-end">{{ investment.totalInvestment|number_format(2, ',', '.') }}</td>
+                            <td class="px-4 py-2 text-end">
+                                <a
+                                    href="{{ path('app_investment_show', {id: investment.id}) }}"
+                                    class="text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                                >Ver detalle</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <nav aria-label="Paginación de inversiones" class="mt-4">
+            {{ knp_pagination_render(pagination) }}
+        </nav>
+    {% endif %}
+{% endblock %}
