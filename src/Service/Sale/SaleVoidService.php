@@ -10,7 +10,6 @@ use App\Entity\Investment;
 use App\Entity\Sale;
 use App\Entity\SaleLine;
 use App\Exception\Domain\SaleHasPaymentsException;
-use App\Repository\Contract\InventoryMovementRepositoryInterface;
 use App\Repository\Contract\PaymentRepositoryInterface;
 use App\Service\Investment\InvestmentStateMachine;
 use App\Service\Investment\InvestmentSummaryService;
@@ -33,7 +32,6 @@ final class SaleVoidService
 {
     public function __construct(
         private readonly PaymentRepositoryInterface $paymentRepository,
-        private readonly InventoryMovementRepositoryInterface $movementRepository,
         private readonly InvestmentStateMachine $stateMachine,
         private readonly InvestmentSummaryService $summaryService,
         private readonly EntityManagerInterface $entityManager

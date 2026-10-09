@@ -10,6 +10,9 @@ use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
+/**
+ * @extends ServiceEntityRepository<Product>
+ */
 #[AsAlias(ProductRepositoryInterface::class)]
 class ProductRepository extends ServiceEntityRepository implements ProductRepositoryInterface
 {

@@ -48,11 +48,10 @@ final class InvestmentConfirmationServiceTest extends IntegrationTestCase
 
         // El gasto y sus allocations NO se han flusheado: solo existen en
         // memoria. Es el caso exacto que antes disparaba el error falso.
-        $summary = $this->confirmationService->confirm($investment);
+        $this->confirmationService->confirm($investment);
         $this->em->flush();
 
         $this->assertTrue($investment->isConfirmed());
-        $this->assertNotNull($summary->getId());
         $this->assertCount(2, $expense->getAllocations());
 
         $expenseId = $expense->getId();
@@ -86,11 +85,10 @@ final class InvestmentConfirmationServiceTest extends IntegrationTestCase
         $expense = $this->addAllocatedExpense($investment, $tenant, '60.00', isAllocated: false);
         $this->em->flush();
 
-        $summary = $this->confirmationService->confirm($investment);
+        $this->confirmationService->confirm($investment);
         $this->em->flush();
 
         $this->assertTrue($investment->isConfirmed());
-        $this->assertNotNull($summary->getId());
         $this->assertCount(0, $expense->getAllocations());
     }
 

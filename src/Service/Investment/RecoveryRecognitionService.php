@@ -21,6 +21,16 @@ use App\Entity\Investment;
  *   PER_PRODUCT:       reconocido = max(0, grossProfit)   [no se reconoce pérdida]
  *   INVESTMENT_FIRST:  reconocido = min( max(0, excess), max(0, grossProfit) )
  *                      donde excess = acumuladoRecuperado - inversiónTotal
+ *
+ * @phpstan-type SaleLineMetrics array{costRecovered: string, grossProfit: string, recognizedProfit?: string}
+ * @phpstan-type RecoveryMetrics array{
+ *   totalRecoveredPerProduct: string,
+ *   totalRecoveredInvestmentFirst: string,
+ *   totalProfitPerProduct: string,
+ *   totalProfitInvestmentFirst: string,
+ *   totalGrossProfit: string,
+ *   totalRecognizedProfit: string
+ * }
  */
 final class RecoveryRecognitionService
 {
@@ -56,7 +66,8 @@ final class RecoveryRecognitionService
     /**
      * Métricas agregadas de recuperación para una inversión (usado por summary).
      *
-     * @param array $saleLines Cada elemento: ['costRecovered' => string, 'grossProfit' => string, 'recognizedProfit' => string]
+     * @param list<SaleLineMetrics> $saleLines
+     * @return RecoveryMetrics
      * @return array{
      *   totalRecoveredPerProduct: string,
      *   totalRecoveredInvestmentFirst: string,
@@ -74,6 +85,9 @@ final class RecoveryRecognitionService
     /**
      * Igual que computeFromLines pero con un total de inversión personalizado
      * (usado para cálculos "current" con inversión ajustada por revaluación).
+     *
+     * @param list<SaleLineMetrics> $saleLines
+     * @return RecoveryMetrics
      */
     public function computeFromLinesWithCustomTotal(string $customInvestmentTotal, array $saleLines): array
     {
@@ -82,6 +96,9 @@ final class RecoveryRecognitionService
 
     /**
      * [FIX-4] Núcleo del cálculo. Ambos modos se computan independientemente.
+     *
+     * @param list<SaleLineMetrics> $saleLines
+     * @return RecoveryMetrics
      */
     private function computeMetrics(string $investmentTotal, array $saleLines): array
     {

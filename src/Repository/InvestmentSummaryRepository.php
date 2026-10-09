@@ -10,6 +10,9 @@ use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
+/**
+ * @extends ServiceEntityRepository<InvestmentSummary>
+ */
 #[AsAlias(InvestmentSummaryRepositoryInterface::class)]
 class InvestmentSummaryRepository extends ServiceEntityRepository implements InvestmentSummaryRepositoryInterface
 {

@@ -124,8 +124,6 @@ final class PaymentServiceTest extends IntegrationTestCase
 
         $this->em->persist($payment);
         $this->em->flush();
-
-        $this->assertTrue(true, 'No debe lanzar CustomerMismatchException cuando el pago no define cliente.');
     }
 
     public function test_rechaza_cliente_distinto_al_de_la_venta(): void

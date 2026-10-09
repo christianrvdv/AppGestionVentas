@@ -35,6 +35,9 @@ use Symfony\Component\Security\Core\User\UserProviderInterface;
  * los lookups y se restaura al salir. El listener vuelve a setear el
  * parámetro en kernel.request (prioridad 5), después del firewall.
  */
+/**
+ * @implements UserProviderInterface<AppUser>
+ */
 final class AppUserProvider implements UserProviderInterface
 {
     public function __construct(

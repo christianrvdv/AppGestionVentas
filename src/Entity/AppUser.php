@@ -31,6 +31,7 @@ class AppUser implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(name: 'password_hash', type: Types::STRING, length: 255)]
     private string $passwordHash;
 
+    /** @var list<string> */
     #[ORM\Column(type: Types::JSON)]
     private array $roles = [];
 
@@ -113,6 +114,9 @@ class AppUser implements UserInterface, PasswordAuthenticatedUserInterface
         return array_unique($roles);
     }
 
+    /**
+     * @param list<string> $roles
+     */
     public function setRoles(array $roles): self
     {
         $this->roles = $roles;

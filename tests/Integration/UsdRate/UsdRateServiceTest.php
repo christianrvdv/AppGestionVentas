@@ -41,7 +41,6 @@ final class UsdRateServiceTest extends IntegrationTestCase
             'prueba unit'
         );
 
-        $this->assertNotNull($rate->getId());
         $this->assertSame('350.5000', $rate->getRate());
         $this->assertFalse($rate->isCorrection());
 

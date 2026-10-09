@@ -11,6 +11,9 @@ use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
+/**
+ * @extends ServiceEntityRepository<Investment>
+ */
 #[AsAlias(InvestmentRepositoryInterface::class)]
 class InvestmentRepository extends ServiceEntityRepository implements InvestmentRepositoryInterface
 {

@@ -11,6 +11,9 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
+/**
+ * @extends ServiceEntityRepository<UsdRate>
+ */
 #[AsAlias(UsdRateRepositoryInterface::class)]
 class UsdRateRepository extends ServiceEntityRepository implements UsdRateRepositoryInterface
 {

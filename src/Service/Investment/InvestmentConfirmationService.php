@@ -10,7 +10,6 @@ use App\Entity\InventoryMovement;
 use App\Entity\InvestmentSummary;
 use App\Exception\Domain\InvestmentAlreadyConfirmedException;
 use App\Exception\Domain\AllocationMismatchException;
-use App\Service\ExpenseAllocationService;
 use App\Service\Investment\InvestmentItemCalculatorService;
 use App\Service\SettingsService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -47,7 +46,6 @@ final class InvestmentConfirmationService
     private const ALLOCATION_TOLERANCE = '0.01';
 
     public function __construct(
-        private readonly ExpenseAllocationService $allocationService,
         private readonly InvestmentItemCalculatorService $calculatorService,
         private readonly SettingsService $settingsService,
         private readonly EntityManagerInterface $entityManager

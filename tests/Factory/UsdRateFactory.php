@@ -3,17 +3,22 @@
 namespace App\Tests\Factory;
 
 use App\Entity\UsdRate;
-use Zenstruck\Foundry\Persistence\PersistentProxy;
-use Zenstruck\Foundry\Test\Factories;
+use Zenstruck\Foundry\Persistence\PersistentObjectFactory;
 
-final class UsdRateFactory extends Factories
+/**
+ * @extends PersistentObjectFactory<UsdRate>
+ */
+final class UsdRateFactory extends PersistentObjectFactory
 {
-    protected static string $class = UsdRate::class;
+    public static function class(): string
+    {
+        return UsdRate::class;
+    }
 
     protected function defaults(): array|callable
     {
         return [
-            'rateDate' => self::faker()->dateTimeImmutableThisMonth(),
+            'rateDate' => new \DateTimeImmutable(self::faker()->dateTimeThisMonth()->format('Y-m-d H:i:s')),
             'rate' => self::faker()->randomFloat(4, 100, 1500),
             'isCorrection' => false,
             'supersedes' => null,
@@ -29,15 +34,5 @@ final class UsdRateFactory extends Factories
             ->afterInstantiate(function (UsdRate $rate) {
                 $rate->onPrePersist();
             });
-    }
-
-    public static function create(array|callable $attributes = []): PersistentProxy
-    {
-        return static::instantiate($attributes)->_save();
-    }
-
-    public static function createOne(array $attributes = []): UsdRate
-    {
-        return static::create($attributes)->object();
     }
 }

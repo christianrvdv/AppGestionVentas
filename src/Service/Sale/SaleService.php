@@ -41,6 +41,15 @@ use Doctrine\ORM\EntityManagerInterface;
  * [FIX-1] Stock validado en memoria durante el loop de líneas para evitar
  *         stock negativo cuando hay múltiples líneas del mismo ítem
  *         (los InventoryMovements no existen hasta después del flush).
+ *
+ * @phpstan-type SaleLineData array{
+ *   line: SaleLine,
+ *   item: InvestmentItem,
+ *   quantity: int,
+ *   unitCostSnapshot: string,
+ *   currentCostSnapshot: string,
+ *   costRecovered: string
+ * }
  */
 final class SaleService
 {
@@ -187,6 +196,11 @@ final class SaleService
 
     /**
      * [FIX-1] Valida stock contra $remainingStock (en memoria) y lo descuenta.
+     *
+     * @param list<SaleLineData> $saleLinesData Salida: acumula las líneas creadas
+     * @param array<int, int>    $remainingStock Entrada/salida: stock por itemId
+     *
+     * @return string Recuperado acumulado tras crear la línea
      */
     private function createSaleLine(
         Sale                    $sale,
@@ -257,12 +271,13 @@ final class SaleService
         return bcadd($accumulatedRecoveredBefore, $line->getCostRecovered(), 2);
     }
 
+    /**
+     * @param list<SaleLineData> $saleLinesData
+     */
     private function createSaleMovements(Sale $sale, array $saleLinesData, \DateTimeImmutable $saleDate): void
     {
         foreach ($saleLinesData as $data) {
-            /** @var SaleLine $line */
             $line = $data['line'];
-            /** @var InvestmentItem $item */
             $item = $data['item'];
             $quantity = $data['quantity'];
 
@@ -315,6 +330,9 @@ final class SaleService
         }
     }
 
+    /**
+     * @param list<RegisterSaleLineCommand> $lines
+     */
     private function validateLineUnitPrices(array $lines, Investment $investment): void
     {
         $scale = $this->settingsService->getCurrencyScale();

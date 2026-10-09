@@ -10,6 +10,9 @@ use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
+/**
+ * @extends ServiceEntityRepository<ItemCostRevaluation>
+ */
 #[AsAlias(ItemCostRevaluationRepositoryInterface::class)]
 class ItemCostRevaluationRepository extends ServiceEntityRepository implements ItemCostRevaluationRepositoryInterface
 {

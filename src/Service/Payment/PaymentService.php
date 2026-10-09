@@ -15,9 +15,7 @@ use App\Exception\Domain\CustomerMismatchException;
 use App\Exception\Domain\TenantMismatchException;
 use App\Repository\Contract\CustomerRepositoryInterface;
 use App\Repository\Contract\InvestmentRepositoryInterface;
-use App\Repository\Contract\PaymentRepositoryInterface;
 use App\Repository\Contract\SaleRepositoryInterface;
-use App\Service\SettingsService;
 use App\Service\UsdRateService;
 
 /**
@@ -31,7 +29,7 @@ use App\Service\UsdRateService;
  *   - Si sale está seteada Y el pago define cliente: valida que
  *     customer == sale.customer. Si alguno de los dos es null no se
  *     compara (la venta de mostrador tampoco tiene cliente).
- *   - Setea currency desde investment.baseCurrency o settings.baseCurrency
+ *   - Setea currency desde investment.baseCurrency
  *   - Snapshot de usdRateSnapshot
  *   - Método: CASH, TRANSFER, CARD, OTHER
  */
@@ -47,8 +45,6 @@ final class PaymentService
         private readonly InvestmentRepositoryInterface $investmentRepository,
         private readonly CustomerRepositoryInterface   $customerRepository,
         private readonly SaleRepositoryInterface       $saleRepository,
-        private readonly PaymentRepositoryInterface    $paymentRepository,
-        private readonly SettingsService               $settingsService,
         private readonly UsdRateService                $usdRateService
     )
     {

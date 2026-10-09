@@ -11,6 +11,9 @@ use Doctrine\ORM\NoResultException;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
+/**
+ * @extends ServiceEntityRepository<AppSetting>
+ */
 #[AsAlias(AppSettingRepositoryInterface::class)]
 class AppSettingRepository extends ServiceEntityRepository implements AppSettingRepositoryInterface
 {

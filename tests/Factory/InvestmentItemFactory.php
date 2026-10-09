@@ -3,12 +3,17 @@
 namespace App\Tests\Factory;
 
 use App\Entity\InvestmentItem;
-use Zenstruck\Foundry\Persistence\PersistentProxy;
-use Zenstruck\Foundry\Test\Factories;
+use Zenstruck\Foundry\Persistence\PersistentObjectFactory;
 
-final class InvestmentItemFactory extends Factories
+/**
+ * @extends PersistentObjectFactory<InvestmentItem>
+ */
+final class InvestmentItemFactory extends PersistentObjectFactory
 {
-    protected static string $class = InvestmentItem::class;
+    public static function class(): string
+    {
+        return InvestmentItem::class;
+    }
 
     protected function defaults(): array|callable
     {
@@ -38,15 +43,5 @@ final class InvestmentItemFactory extends Factories
             ->afterInstantiate(function (InvestmentItem $item) {
                 $item->onPrePersist();
             });
-    }
-
-    public static function create(array|callable $attributes = []): PersistentProxy
-    {
-        return static::instantiate($attributes)->_save();
-    }
-
-    public static function createOne(array $attributes = []): InvestmentItem
-    {
-        return static::create($attributes)->object();
     }
 }

@@ -3,12 +3,17 @@
 namespace App\Tests\Factory;
 
 use App\Entity\Customer;
-use Zenstruck\Foundry\Persistence\PersistentProxy;
-use Zenstruck\Foundry\Test\Factories;
+use Zenstruck\Foundry\Persistence\PersistentObjectFactory;
 
-final class CustomerFactory extends Factories
+/**
+ * @extends PersistentObjectFactory<Customer>
+ */
+final class CustomerFactory extends PersistentObjectFactory
 {
-    protected static string $class = Customer::class;
+    public static function class(): string
+    {
+        return Customer::class;
+    }
 
     protected function defaults(): array|callable
     {
@@ -29,15 +34,5 @@ final class CustomerFactory extends Factories
             ->afterInstantiate(function (Customer $customer) {
                 $customer->onPrePersist();
             });
-    }
-
-    public static function create(array|callable $attributes = []): PersistentProxy
-    {
-        return static::instantiate($attributes)->_save();
-    }
-
-    public static function createOne(array $attributes = []): Customer
-    {
-        return static::create($attributes)->object();
     }
 }

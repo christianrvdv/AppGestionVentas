@@ -3,18 +3,23 @@
 namespace App\Tests\Factory;
 
 use App\Entity\Investment;
-use Zenstruck\Foundry\Persistence\PersistentProxy;
-use Zenstruck\Foundry\Test\Factories;
+use Zenstruck\Foundry\Persistence\PersistentObjectFactory;
 
-final class InvestmentFactory extends Factories
+/**
+ * @extends PersistentObjectFactory<Investment>
+ */
+final class InvestmentFactory extends PersistentObjectFactory
 {
-    protected static string $class = Investment::class;
+    public static function class(): string
+    {
+        return Investment::class;
+    }
 
     protected function defaults(): array|callable
     {
         return [
             'code' => 'INV-' . self::faker()->unique()->numberBetween(1000, 9999),
-            'investmentDate' => self::faker()->dateTimeImmutableThisMonth(),
+            'investmentDate' => new \DateTimeImmutable(self::faker()->dateTimeThisMonth()->format('Y-m-d H:i:s')),
             'baseCurrency' => 'ARS',
             'usdRateSnapshot' => null,
             'currentUsdRate' => null,
@@ -36,15 +41,5 @@ final class InvestmentFactory extends Factories
             ->afterInstantiate(function (Investment $investment) {
                 $investment->onPrePersist();
             });
-    }
-
-    public static function create(array|callable $attributes = []): PersistentProxy
-    {
-        return static::instantiate($attributes)->_save();
-    }
-
-    public static function createOne(array $attributes = []): Investment
-    {
-        return static::create($attributes)->object();
     }
 }

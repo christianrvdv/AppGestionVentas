@@ -128,7 +128,7 @@ final class Money
     private static function padScale(string $amount, int $scale): string
     {
         if ($scale === 0) {
-            return explode('.', $amount)[0] ?? '0';
+            return explode('.', $amount)[0];
         }
 
         if (str_contains($amount, '.')) {

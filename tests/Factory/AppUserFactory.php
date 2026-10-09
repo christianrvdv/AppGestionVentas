@@ -3,12 +3,17 @@
 namespace App\Tests\Factory;
 
 use App\Entity\AppUser;
-use Zenstruck\Foundry\Persistence\PersistentProxy;
-use Zenstruck\Foundry\Test\Factories;
+use Zenstruck\Foundry\Persistence\PersistentObjectFactory;
 
-final class AppUserFactory extends Factories
+/**
+ * @extends PersistentObjectFactory<AppUser>
+ */
+final class AppUserFactory extends PersistentObjectFactory
 {
-    protected static string $class = AppUser::class;
+    public static function class(): string
+    {
+        return AppUser::class;
+    }
 
     protected function defaults(): array|callable
     {
@@ -27,15 +32,5 @@ final class AppUserFactory extends Factories
             ->afterInstantiate(function (AppUser $user) {
                 $user->onPrePersist();
             });
-    }
-
-    public static function create(array|callable $attributes = []): PersistentProxy
-    {
-        return static::instantiate($attributes)->_save();
-    }
-
-    public static function createOne(array $attributes = []): AppUser
-    {
-        return static::create($attributes)->object();
     }
 }

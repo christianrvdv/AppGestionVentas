@@ -32,7 +32,6 @@ final class InvestmentRevaluationService
 {
     public function __construct(
         private readonly InventoryMovementRepositoryInterface $movementRepository,
-        private readonly InvestmentItemCalculatorService      $calculatorService,
         private readonly InvestmentSummaryService             $summaryService,
         private readonly SettingsService                      $settingsService,
         private readonly EntityManagerInterface               $entityManager

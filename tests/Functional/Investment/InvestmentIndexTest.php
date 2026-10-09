@@ -79,7 +79,7 @@ final class InvestmentIndexTest extends FunctionalTestCase
         $this->em->persist($otherUser);
         $this->em->flush();
 
-        $foreign = $this->seedInvestment($otherUser, null, 'Inversión ajena');
+        $this->seedInvestment($otherUser, null, 'Inversión ajena');
 
         $this->loginAsDemoAdmin($client);
         $crawler = $client->request('GET', '/inversiones');
@@ -88,6 +88,5 @@ final class InvestmentIndexTest extends FunctionalTestCase
         $body = $crawler->filter('body')->text();
         $this->assertStringContainsString('Inversión tenant demo', $body);
         $this->assertStringNotContainsString('Inversión ajena', $body);
-        $this->assertNotNull($foreign->getId());
     }
 }

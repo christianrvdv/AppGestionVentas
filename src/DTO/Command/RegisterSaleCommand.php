@@ -12,9 +12,12 @@ namespace App\DTO\Command;
  */
 final readonly class RegisterSaleCommand
 {
-    /** @var RegisterSaleLineCommand[] */
+    /** @var list<RegisterSaleLineCommand> */
     public array $lines;
 
+    /**
+     * @param list<RegisterSaleLineCommand> $lines
+     */
     public function __construct(
         public int $investmentId,
         public ?int $customerId,

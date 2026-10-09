@@ -93,6 +93,10 @@ final class ExpenseAllocationService
         $this->recalculateItemAllocatedExpenses($items, $investment);
     }
 
+    /**
+     * @param Collection<int, InvestmentItem> $items
+     * @param array<int, string>              $itemSubtotals Clave = spl_object_id del ítem
+     */
     private function allocateExpense(
         InvestmentExpense $expense,
         Collection        $items,
@@ -148,6 +152,8 @@ final class ExpenseAllocationService
      * la MISMA instancia de InvestmentItem que vive en la colección de la
      * inversión (EntityManager con identity map), de modo que la búsqueda por
      * instancia es exacta incluso con ítems sin ID persistido.
+     *
+     * @param Collection<int, InvestmentItem> $items
      */
     private function recalculateItemAllocatedExpenses(Collection $items, Investment $investment): void
     {
@@ -182,8 +188,10 @@ final class ExpenseAllocationService
     }
 
     /**
-     * [FIX-3] Revisado: no usa getId() como clave (solo recorre la colección),
+     * [FIX-3] No usa getId() como clave (solo recorre la colección),
      * por lo que funciona igual con ítems nuevos que con persistidos.
+     *
+     * @param Collection<int, InvestmentItem> $items
      */
     private function resetAllocatedExpenseOnItems(Collection $items): void
     {
