@@ -9,33 +9,34 @@ use App\Entity\AppUser;
 use App\Entity\Tenant;
 use App\Security\AppUserProvider;
 use App\Tests\Integration\IntegrationTestCase;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\Security\Core\Exception\UnsupportedUserException;
 use Symfony\Component\Security\Core\Exception\UserNotFoundException;
 
 /**
- * Aislamiento multi-tenant del user provider (ADR-0009).
+ * User provider con identidad GLOBAL (ADR-0015).
  *
  * loadUserByIdentifier corre en el login (sin tenant en contexto) y
- * refreshUser corre en cada request autenticado. Ambos deshabilitan el
- * TenantFilter alrededor de su lookup — así que la defensa contra una
- * sesión manipulada es la comparación EXPLÍCITA del tenant persistido
- * contra el tenant que declara el usuario de la sesión, más la
- * restauración del filtro al salir (finally).
+ * refreshUser corre en cada request autenticada (antes de que exista un
+ * tenant activo en la sesión). Ambos deshabilitan el TenantFilter
+ * alrededor de su lookup y lo restauran al salir.
+ *
+ * Lo que estos tests protegen es el cambio de modelo: el email es único
+ * en todo el sistema, así que el usuario se resuelve SIN importar el
+ * tenant activo de la sesión, y ya no existe ningún "claim" de tenant
+ * en el usuario que validar.
  */
 final class AppUserProviderTest extends IntegrationTestCase
 {
-    public function testLoadUserByIdentifierRestoresTenantFilterAfterLookup(): void
+    public function testLoadUserByIdentifierFindsUserWithTenantFilterEnabled(): void
     {
-        ['tenant' => $tenant, 'user' => $user] = $this->seedUser('admin@example.com');
+        ['user' => $user] = $this->seedUser('admin@example.com');
 
+        // Filtro habilitado con un tenant SIN usuarios: si la carga
+        // dependiera del filtro, el lookup fallaría con
+        // UserNotFoundException.
         $filters = $this->em->getFilters();
         $filters->enable(TenantFilter::NAME);
-
-        static::getContainer()->get(RequestStack::class)->push(
-            Request::create('/login', 'POST', ['tenant_slug' => $tenant->getSlug()])
-        );
+        $filters->getFilter(TenantFilter::NAME)
+            ->setParameter('tenantId', '999999', 'integer');
 
         $loaded = $this->provider()->loadUserByIdentifier('admin@example.com');
 
@@ -46,23 +47,16 @@ final class AppUserProviderTest extends IntegrationTestCase
         );
     }
 
-    public function testRefreshUserRejectsSessionUserWhosePersistedTenantDiffers(): void
+    public function testLoadUserByIdentifierRejectsUnknownEmail(): void
     {
-        ['user' => $user] = $this->seedUser('admin@example.com');
-        $otherTenant = $this->persistTenant('otro');
+        $this->seedUser('admin@example.com');
 
-        // Simula una sesión con un usuario cuyo tenant EN MEMORIA (B) no
-        // coincide con el tenant realmente persistido (A): así se
-        // reproduce una sesión manipulada o desactualizada.
-        $sessionUser = clone $user;
-        $sessionUser->setTenant($otherTenant);
+        $this->expectException(UserNotFoundException::class);
 
-        $this->expectException(UnsupportedUserException::class);
-
-        $this->provider()->refreshUser($sessionUser);
+        $this->provider()->loadUserByIdentifier('no-existe@example.com');
     }
 
-    public function testRefreshUserReturnsSameUserWhenTenantMatches(): void
+    public function testRefreshUserReturnsSameUser(): void
     {
         ['user' => $user] = $this->seedUser('admin@example.com');
 
@@ -75,7 +69,6 @@ final class AppUserProviderTest extends IntegrationTestCase
     {
         ['user' => $user] = $this->seedUser('admin@example.com');
         $id = $user->getId();
-        $tenant = $user->getTenant();
 
         // Borra el usuario de la BD; luego un objeto "fantasma" con su
         // id simula el usuario deserializado de una sesión cuya fila ya
@@ -85,7 +78,6 @@ final class AppUserProviderTest extends IntegrationTestCase
 
         $ghost = new AppUser();
         (new \ReflectionProperty(AppUser::class, 'id'))->setValue($ghost, $id);
-        $ghost->setTenant($tenant);
 
         $filters = $this->em->getFilters();
         $filters->enable(TenantFilter::NAME);
@@ -116,7 +108,6 @@ final class AppUserProviderTest extends IntegrationTestCase
         $tenant = $this->persistTenant('demo');
 
         $user = new AppUser();
-        $user->setTenant($tenant);
         $user->setEmail($email);
         $user->setRoles(['ROLE_ADMIN']);
         $user->setPasswordHash('hash-test');

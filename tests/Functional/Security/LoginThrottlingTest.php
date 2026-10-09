@@ -24,7 +24,6 @@ final class LoginThrottlingTest extends FunctionalTestCase
         $crawler = $client->request('GET', '/login');
         $form = $crawler->selectButton('Iniciar sesión')->form();
         $client->submit($form, [
-            'tenant_slug' => 'demo',
             'email' => 'admin@demo.local',
             'password' => 'wrong-password',
         ]);
@@ -60,7 +59,6 @@ final class LoginThrottlingTest extends FunctionalTestCase
             $crawler = $client->request('GET', '/login');
             $form = $crawler->selectButton('Iniciar sesión')->form();
             $client->submit($form, [
-                'tenant_slug' => 'demo',
                 'email' => 'admin@demo.local',
                 'password' => 'wrong-password-'.$attempt,
             ]);
@@ -72,7 +70,6 @@ final class LoginThrottlingTest extends FunctionalTestCase
         $crawler = $client->request('GET', '/login');
         $form = $crawler->selectButton('Iniciar sesión')->form();
         $client->submit($form, [
-            'tenant_slug' => 'demo',
             'email' => 'admin@demo.local',
             'password' => 'demo',
         ]);

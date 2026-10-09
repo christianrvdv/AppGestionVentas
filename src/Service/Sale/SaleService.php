@@ -23,6 +23,7 @@ use App\Repository\Contract\InvestmentItemRepositoryInterface;
 use App\Repository\Contract\InvestmentRepositoryInterface;
 use App\Repository\Contract\InvestmentSummaryRepositoryInterface;
 use App\Repository\Contract\SaleLineRepositoryInterface;
+use App\Service\ActiveTenantProvider;
 use App\Service\Investment\InvestmentStateMachine;
 use App\Service\Investment\InvestmentSummaryService;
 use App\Service\Investment\RecoveryRecognitionService;
@@ -65,6 +66,7 @@ final class SaleService
         private readonly UsdRateService                       $usdRateService,
         private readonly InvestmentRepositoryInterface        $investmentRepository,
         private readonly EntityManagerInterface               $entityManager,
+        private readonly ActiveTenantProvider                 $activeTenantProvider,
         private readonly RecoveryRecognitionService           $recoveryRecognitionService
     )
     {
@@ -72,8 +74,11 @@ final class SaleService
 
     public function register(RegisterSaleCommand $cmd, AppUser $user): Sale
     {
-        // 1. Obtener inversión
-        $investment = $this->loadInvestment($cmd->investmentId, $user->getTenant()->getId());
+        // 1. Obtener inversión (el tenant activo de la sesión, ADR-0015)
+        $investment = $this->loadInvestment(
+            $cmd->investmentId,
+            $this->activeTenantProvider->requireTenant()->getId()
+        );
 
         // 2. Validar inversión confirmada
         if (!$investment->isConfirmed()) {

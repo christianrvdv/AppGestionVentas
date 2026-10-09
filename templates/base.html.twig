@@ -56,17 +56,27 @@
                         <li><span aria-disabled="true" class="cursor-not-allowed text-muted">Configuración</span></li>
                     </ul>
 
-                    <form
-                        action="{{ path('_logout_main') }}"
-                        method="post"
-                        class="ms-auto"
-                    >
-                        <input type="hidden" name="_csrf_token" value="{{ csrf_token('logout') }}">
-                        <button
-                            type="submit"
+                    <div class="ms-auto flex flex-wrap items-center gap-x-4 gap-y-1">
+                        <a
+                            href="{{ path('app_select_tenant') }}"
                             class="text-sm text-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-                        >Cerrar sesión</button>
-                    </form>
+                            title="Cambiar de negocio"
+                        >
+                            <span class="text-xs uppercase tracking-wide">Negocio</span>
+                            <span class="font-medium text-foreground">{{ active_tenant.name ?? 'Sin negocio' }}</span>
+                        </a>
+
+                        <form
+                            action="{{ path('_logout_main') }}"
+                            method="post"
+                        >
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token('logout') }}">
+                            <button
+                                type="submit"
+                                class="text-sm text-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                            >Cerrar sesión</button>
+                        </form>
+                    </div>
                 </nav>
             </header>
         {% endif %}

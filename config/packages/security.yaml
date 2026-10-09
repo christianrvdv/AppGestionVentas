@@ -3,8 +3,9 @@ security:
         Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: 'auto'
 
     providers:
-        # Carga por email + tenant slug (ADR-0009). El slug se toma del
-        # request de login; ver AppUserProvider.
+        # Identidad GLOBAL por email (ADR-0015; antes era email + tenant
+        # slug, ADR-0009). El negocio activo se decide después del login:
+        # ver TenantSessionListener y RequireTenantListener.
         app_user_provider:
             id: App\Security\AppUserProvider
 

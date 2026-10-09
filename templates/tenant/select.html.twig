@@ -1,0 +1,49 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Elegir negocio · Gestión de Negocio{% endblock %}
+
+{% block body %}
+    <div class="mx-auto mt-12 w-full max-w-lg">
+        <h1 class="mb-2 text-2xl font-semibold text-foreground">Elegí un negocio</h1>
+        <p class="mb-8 text-sm text-muted">
+            Elegí con cuál de tus negocios querés trabajar. Podés cambiarlo cuando quieras desde el menú superior.
+        </p>
+
+        <ul class="space-y-3">
+            {% for membership in memberships %}
+                {% set tenant = membership.tenant %}
+                <li>
+                    <div
+                        class="flex items-center justify-between gap-4 rounded border border-border bg-surface px-4 py-3 {{ tenant.id == active_tenant_id ? 'ring-2 ring-brand' }}"
+                    >
+                        <div>
+                            <p class="font-medium text-foreground">{{ tenant.name }}</p>
+                            <p class="text-xs text-muted">
+                                {{ tenant.slug }}
+                                {% if membership.isDefault %}
+                                    · negocio principal
+                                {% endif %}
+                            </p>
+                        </div>
+
+                        {% if tenant.id == active_tenant_id %}
+                            <span class="text-sm font-medium text-brand">Activo</span>
+                        {% else %}
+                            <form method="post" action="{{ path('app_select_tenant_switch', { membershipId: membership.id }) }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token('select_tenant') }}">
+                                <button
+                                    type="submit"
+                                    class="rounded bg-brand px-3 py-1.5 text-sm font-medium text-white hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                                >Usar este negocio</button>
+                            </form>
+                        {% endif %}
+                    </div>
+                </li>
+            {% endfor %}
+        </ul>
+
+        <p class="mt-8 text-sm text-muted">
+            <a href="{{ path('app_onboarding') }}" class="text-brand hover:underline">Crear un negocio nuevo</a>
+        </p>
+    </div>
+{% endblock %}

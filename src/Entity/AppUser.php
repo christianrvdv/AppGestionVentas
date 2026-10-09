@@ -5,14 +5,24 @@ declare(strict_types=1);
 namespace App\Entity;
 
 use App\Repository\AppUserRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 
+/**
+ * Usuario GLOBAL de la aplicación (ADR-0015).
+ *
+ * El email es único en todo el sistema (antes: único por tenant) y el
+ * usuario ya NO pertenece a un tenant directamente: sus negocios viven
+ * en TenantMembership. El tenant activo de una request se resuelve desde
+ * la sesión (active_tenant_id), nunca desde esta entidad.
+ */
 #[ORM\Entity(repositoryClass: AppUserRepository::class)]
 #[ORM\Table(name: 'app_user')]
-#[ORM\UniqueConstraint(name: 'uniq_user_tenant_email', columns: ['tenant_id', 'email'])]
+#[ORM\UniqueConstraint(name: 'uniq_user_email', columns: ['email'])]
 #[ORM\HasLifecycleCallbacks]
 class AppUser implements UserInterface, PasswordAuthenticatedUserInterface
 {
@@ -20,10 +30,6 @@ class AppUser implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\GeneratedValue(strategy: 'IDENTITY')]
     #[ORM\Column(type: Types::INTEGER)]
     private int $id;
-
-    #[ORM\ManyToOne(targetEntity: Tenant::class, inversedBy: 'users')]
-    #[ORM\JoinColumn(name: 'tenant_id', referencedColumnName: 'id', nullable: false, onDelete: 'RESTRICT')]
-    private Tenant $tenant;
 
     #[ORM\Column(type: Types::STRING, length: 180)]
     private string $email;
@@ -44,8 +50,13 @@ class AppUser implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(name: 'updated_at', type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $updatedAt;
 
+    /** @var Collection<int, TenantMembership> */
+    #[ORM\OneToMany(mappedBy: 'user', targetEntity: TenantMembership::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
+    private Collection $memberships;
+
     public function __construct()
     {
+        $this->memberships = new ArrayCollection();
         $this->createdAt = new \DateTimeImmutable();
         $this->updatedAt = new \DateTimeImmutable();
     }
@@ -68,14 +79,23 @@ class AppUser implements UserInterface, PasswordAuthenticatedUserInterface
         return $this->id;
     }
 
-    public function getTenant(): Tenant
+    /** @return Collection<int, TenantMembership> */
+    public function getMemberships(): Collection
     {
-        return $this->tenant;
+        return $this->memberships;
     }
 
-    public function setTenant(Tenant $tenant): self
+    public function addMembership(TenantMembership $membership): self
     {
-        $this->tenant = $tenant;
+        if (!$this->memberships->contains($membership)) {
+            $this->memberships->add($membership);
+        }
+        return $this;
+    }
+
+    public function removeMembership(TenantMembership $membership): self
+    {
+        $this->memberships->removeElement($membership);
         return $this;
     }
 

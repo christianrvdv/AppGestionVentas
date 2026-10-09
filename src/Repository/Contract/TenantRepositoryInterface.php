@@ -12,6 +12,8 @@ use App\Entity\Tenant;
  */
 interface TenantRepositoryInterface
 {
+    public function findById(int $id): ?Tenant;
+
     public function findBySlug(string $slug): ?Tenant;
 
     /**

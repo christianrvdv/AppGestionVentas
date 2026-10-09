@@ -82,12 +82,14 @@ final class InvestmentCrudTest extends FunctionalTestCase
         $foreignTenant->setName('Ajeno');
         $foreignTenant->setSlug('ajeno');
         $foreignUser = new \App\Entity\AppUser();
-        $foreignUser->setTenant($foreignTenant);
         $foreignUser->setEmail('admin@ajeno.local');
         $foreignUser->setRoles(['ROLE_ADMIN']);
         $foreignUser->setPasswordHash('x');
+        $foreignMembership = new \App\Entity\TenantMembership($foreignUser, $foreignTenant);
+        $foreignUser->addMembership($foreignMembership);
         $this->em->persist($foreignTenant);
         $this->em->persist($foreignUser);
+        $this->em->persist($foreignMembership);
         $this->em->flush();
 
         $foreign = $this->seedInvestment($foreignUser, null, 'Ajena');

@@ -25,6 +25,14 @@ final class LoginSmokeTest extends FunctionalTestCase
         $response = $client->getResponse();
         $this->assertSame(200, $response->getStatusCode());
         $this->assertStringContainsString('Iniciar sesión', $response->getContent());
+
+        // ADR-0015: el login es global. El slug de negocio desapareció
+        // del formulario; si vuelve a aparecer, el modelo se rompió.
+        $this->assertStringNotContainsString(
+            'tenant_slug',
+            $response->getContent(),
+            'El formulario de login no debe pedir slug de negocio (ADR-0015).'
+        );
     }
 
     public function testLoginWithValidCredentialsRedirectsToHome(): void
@@ -60,7 +68,6 @@ final class LoginSmokeTest extends FunctionalTestCase
         $form = $crawler->selectButton('Iniciar sesión')->form();
 
         $client->submit($form, [
-            'tenant_slug' => 'demo',
             'email' => 'admin@demo.local',
             'password' => 'clave-mala',
         ]);

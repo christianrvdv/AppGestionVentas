@@ -10,42 +10,39 @@ use App\Entity\AppUser;
  * Puerto de persistencia para usuarios de la aplicación.
  * Implementación Doctrine: App\Repository\AppUserRepository.
  *
- * Invariante: toda consulta filtra por tenant_id. Ningún método puede
- * devolver datos de otro tenant.
+ * Usuario GLOBAL (ADR-0015): el email es único en todo el sistema y la
+ * tabla app_user ya no tiene tenant_id, por lo que NINGUNA consulta de
+ * este repositorio recibe $tenantId. La pertenencia a negocios vive en
+ * TenantMembership (ver TenantMembershipRepositoryInterface).
  *
- * Excepción documentada: findById() NO filtra por tenant. Es el único
- * lookup cross-tenant permitido en la capa de repositorio y existe
- * exclusivamente para que AppUserProvider::refreshUser() valide la
- * sesión: carga el usuario por id y COMPARA su tenant persistido contra
- * el que declara el usuario de la sesión (rechaza con
- * UnsupportedUserException si difieren). Nunca devuelve datos ajenos:
- * un mismatch termina en excepción antes de usarse.
+ * Los dos métodos son, por diseño, los ÚNICOS lookups de la capa de
+ * repositorio que ignoran el tenant activo: los ejecuta exclusivamente
+ * AppUserProvider (login y refresco de sesión), con el TenantFilter
+ * deshabilitado y nunca para leer datos de negocio.
  */
 interface AppUserRepositoryInterface
 {
-    public function findByIdAndTenant(int $id, int $tenantId): ?AppUser;
+    /**
+     * Lookup de login (ADR-0015): identidad global por email.
+     *
+     * NO recibe $tenantId porque el email identifica al usuario en todo
+     * el sistema. Verificado por test: AppUserRepositoryInterfaceTest.
+     */
+    public function findOneByEmail(string $email): ?AppUser;
 
     /**
-     * ÚNICO lookup cross-tenant autorizado en toda la capa de
-     * repositorio — no agregar otro sin un ADR que lo justifique.
+     * ÚNICO lookup cross-tenant de la capa de repositorio (ADR-0015) —
+     * no agregar otro sin un ADR que lo justifique.
      *
      * Existe exclusivamente para AppUserProvider::refreshUser(): en cada
-     * request autenticado hay que recargar el usuario de la sesión por
-     * id, y en ese punto el TenantFilter está deshabilitado a propósito
-     * (el usuario de sesión declara su tenant, no hay request de login
-     * del que leerlo). Por eso el id solo no alcanza: refreshUser()
-     * COMPARA el tenant persistido contra el que declara la sesión y
-     * termina en UnsupportedUserException si difieren, de modo que el
-     * resultado jamás llega a usarse para otro tenant.
+     * request autenticada hay que recargar el usuario de la sesión por
+     * id, y ese lookup corre con el TenantFilter deshabilitado porque
+     * llega ANTES de que la request tenga un tenant activo en la sesión
+     * (o sin él, en /select-tenant y /onboarding). Es inofensivo: el
+     * resultado solo se usa como usuario autenticado; el aislamiento de
+     * datos de negocio lo aporta TenantFilter + RequireTenantListener.
      *
      * Verificado por test: AppUserRepositoryInterfaceTest (reflexión).
      */
     public function findById(int $id): ?AppUser;
-
-    public function findOneByEmailAndTenant(string $email, int $tenantId): ?AppUser;
-
-    /**
-     * @return AppUser[]
-     */
-    public function findActiveByTenant(int $tenantId): array;
 }

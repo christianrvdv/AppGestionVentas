@@ -109,12 +109,14 @@ final class ProductIndexTest extends FunctionalTestCase
         $otherTenant->setName('Otro');
         $otherTenant->setSlug('otro');
         $otherUser = new AppUser();
-        $otherUser->setTenant($otherTenant);
         $otherUser->setEmail('admin@otro.local');
         $otherUser->setRoles(['ROLE_ADMIN']);
         $otherUser->setPasswordHash('x');
+        $otherMembership = new \App\Entity\TenantMembership($otherUser, $otherTenant);
+        $otherUser->addMembership($otherMembership);
         $this->em->persist($otherTenant);
         $this->em->persist($otherUser);
+        $this->em->persist($otherMembership);
         $this->em->flush();
 
         $this->seedProduct($otherTenant, 'Producto ajeno', 'AJENO-1');

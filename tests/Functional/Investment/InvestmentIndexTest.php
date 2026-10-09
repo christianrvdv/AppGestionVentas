@@ -7,6 +7,7 @@ namespace App\Tests\Functional\Investment;
 use App\Entity\AppUser;
 use App\Entity\Investment;
 use App\Entity\Tenant;
+use App\Entity\TenantMembership;
 use App\Service\Investment\InvestmentStateMachine;
 use App\Tests\Functional\FunctionalTestCase;
 
@@ -48,7 +49,7 @@ final class InvestmentIndexTest extends FunctionalTestCase
         $cancelled = $this->seedInvestment($user, null, 'Cancelada para filtro');
 
         $context = $client->getContainer()->get(\App\Service\TenantContext::class);
-        $context->setTenantId($user->getTenant()->getId());
+        $context->setTenantId($this->tenantIdOf($user));
         $client->getContainer()->get(InvestmentStateMachine::class)->cancel($cancelled, 'No procede');
         $this->em->flush();
         $context->clear();
@@ -71,12 +72,14 @@ final class InvestmentIndexTest extends FunctionalTestCase
         $otherTenant->setName('Otro');
         $otherTenant->setSlug('otro');
         $otherUser = new AppUser();
-        $otherUser->setTenant($otherTenant);
         $otherUser->setEmail('admin@otro.local');
         $otherUser->setRoles(['ROLE_ADMIN']);
         $otherUser->setPasswordHash('x');
+        $otherMembership = new TenantMembership($otherUser, $otherTenant);
+        $otherUser->addMembership($otherMembership);
         $this->em->persist($otherTenant);
         $this->em->persist($otherUser);
+        $this->em->persist($otherMembership);
         $this->em->flush();
 
         $this->seedInvestment($otherUser, null, 'Inversión ajena');

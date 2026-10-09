@@ -300,7 +300,6 @@ final class CustomerCrudTest extends FunctionalTestCase
         $tenant->setSlug('ajeno');
 
         $user = new AppUser();
-        $user->setTenant($tenant);
         $user->setEmail('admin@ajeno.local');
         $user->setRoles(['ROLE_ADMIN']);
         $user->setPasswordHash('x');

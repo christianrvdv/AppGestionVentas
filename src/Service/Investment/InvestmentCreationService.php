@@ -8,6 +8,7 @@ use App\Entity\AppUser;
 use App\Entity\Investment;
 use App\Entity\Tenant;
 use App\Repository\Contract\InvestmentRepositoryInterface;
+use App\Service\ActiveTenantProvider;
 use App\Service\SettingsService;
 use App\Service\UsdRateService;
 
@@ -26,6 +27,7 @@ final class InvestmentCreationService
 {
     public function __construct(
         private readonly InvestmentRepositoryInterface $investmentRepository,
+        private readonly ActiveTenantProvider $activeTenantProvider,
         private readonly SettingsService $settingsService,
         private readonly UsdRateService $usdRateService
     ) {}
@@ -44,7 +46,7 @@ final class InvestmentCreationService
         \DateTimeImmutable $date,
         ?string $description = null
     ): Investment {
-        $tenant = $user->getTenant();
+        $tenant = $this->activeTenantProvider->requireTenant();
         $tenantId = $tenant->getId();
 
         // Genera código único: INV-YYYYMMDD-NNN

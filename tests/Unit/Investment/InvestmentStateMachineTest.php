@@ -224,7 +224,6 @@ final class InvestmentStateMachineTest extends TestCase
         $user = new AppUser();
         $user->setEmail('test@example.com');
         $user->setPasswordHash('hash');
-        $user->setTenant($tenant);
 
         $investment = new Investment();
         $investment->setTenant($tenant);

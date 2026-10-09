@@ -1,0 +1,43 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Crear negocio · Gestión de Negocio{% endblock %}
+
+{% block body %}
+    <div class="mx-auto mt-12 w-full max-w-md">
+        <h1 class="mb-2 text-2xl font-semibold text-foreground">Creá tu negocio</h1>
+        <p class="mb-8 text-sm text-muted">
+            Para empezar a registrar inversiones necesitás un negocio. Después podés crear más
+            desde acá y alternar entre ellos.
+        </p>
+
+        {{ form_start(form, { attr: { class: 'space-y-5' } }) }}
+            <div>
+                {{ form_label(form.name, null, { label_attr: { class: 'mb-1 block text-sm font-medium text-foreground' } }) }}
+                {{ form_widget(form.name, { attr: {
+                    class: 'w-full rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand',
+                    autofocus: true,
+                } }) }}
+                {{ form_errors(form.name, { error_attr: { class: 'mt-1 text-sm text-danger' } }) }}
+            </div>
+
+            <div>
+                {{ form_label(form.slug, null, { label_attr: { class: 'mb-1 block text-sm font-medium text-foreground' } }) }}
+                {{ form_widget(form.slug, { attr: {
+                    class: 'w-full rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand',
+                    placeholder: 'ej: mi-negocio',
+                } }) }}
+                {% if form.slug.vars.help is defined and form.slug.vars.help %}
+                    <p class="mt-1 text-xs text-muted">{{ form.slug.vars.help }}</p>
+                {% endif %}
+                {{ form_errors(form.slug, { error_attr: { class: 'mt-1 text-sm text-danger' } }) }}
+            </div>
+
+            {{ form_rest(form) }}
+
+            <button
+                type="submit"
+                class="w-full rounded bg-brand px-4 py-2 font-medium text-white hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+            >Crear negocio</button>
+        {{ form_end(form) }}
+    </div>
+{% endblock %}

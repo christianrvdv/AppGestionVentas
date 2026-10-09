@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
-use App\Entity\AppUser;
 use App\Entity\Product;
+use App\Entity\Tenant;
 use App\Form\ProductFormType;
 use App\Repository\Contract\ProductRepositoryInterface;
+use App\Service\ActiveTenantProvider;
 use App\Service\TenantContext;
 use Doctrine\ORM\EntityManagerInterface;
 use Knp\Component\Pager\PaginatorInterface;
@@ -28,6 +29,7 @@ final class ProductController extends AbstractController
 
     public function __construct(
         private readonly TenantContext $tenantContext,
+        private readonly ActiveTenantProvider $activeTenantProvider,
         private readonly ProductRepositoryInterface $productRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly PaginatorInterface $paginator,
@@ -55,7 +57,7 @@ final class ProductController extends AbstractController
     public function new(Request $request): Response
     {
         $product = new Product();
-        $product->setTenant($this->requireAppUser()->getTenant());
+        $product->setTenant($this->requireTenant());
 
         $form = $this->createForm(ProductFormType::class, $product);
         $form->handleRequest($request);
@@ -153,14 +155,18 @@ final class ProductController extends AbstractController
         return $tenantId;
     }
 
-    private function requireAppUser(): AppUser
+    /**
+     * Tenant activo de la sesión (ADR-0015): el usuario ya no es dueño de
+     * un tenant, el negocio se elige al hacer login y queda en la sesión.
+     */
+    private function requireTenant(): Tenant
     {
-        $user = $this->getUser();
+        $tenant = $this->activeTenantProvider->getTenant();
 
-        if (!$user instanceof AppUser) {
-            throw $this->createAccessDeniedException('Sesión inválida.');
+        if (null === $tenant) {
+            throw $this->createAccessDeniedException('La sesión no tiene un negocio activo.');
         }
 
-        return $user;
+        return $tenant;
     }
 }

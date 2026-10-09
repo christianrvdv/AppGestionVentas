@@ -16,6 +16,7 @@ use App\Exception\Domain\TenantMismatchException;
 use App\Repository\Contract\CustomerRepositoryInterface;
 use App\Repository\Contract\InvestmentRepositoryInterface;
 use App\Repository\Contract\SaleRepositoryInterface;
+use App\Service\ActiveTenantProvider;
 use App\Service\UsdRateService;
 
 /**
@@ -45,6 +46,7 @@ final class PaymentService
         private readonly InvestmentRepositoryInterface $investmentRepository,
         private readonly CustomerRepositoryInterface   $customerRepository,
         private readonly SaleRepositoryInterface       $saleRepository,
+        private readonly ActiveTenantProvider          $activeTenantProvider,
         private readonly UsdRateService                $usdRateService
     )
     {
@@ -63,8 +65,12 @@ final class PaymentService
      */
     public function register(PaymentCommand $cmd, AppUser $user): Payment
     {
+        // 0. Tenant activo de la sesión (ADR-0015): el usuario es global,
+        //    el negocio no se deduce de él sino del tenant activo.
+        $tenantId = $this->activeTenantProvider->requireTenant()->getId();
+
         // 1. Obtener inversión (para moneda base)
-        $investment = $this->investmentRepository->findByIdAndTenant($cmd->investmentId, $user->getTenant()->getId());
+        $investment = $this->investmentRepository->findByIdAndTenant($cmd->investmentId, $tenantId);
         if ($investment === null) {
             throw new \LogicException(sprintf('Inversión %d no encontrada.', $cmd->investmentId));
         }
@@ -74,7 +80,7 @@ final class PaymentService
         //    pasaba null a findByIdAndTenant(int, int) → TypeError en runtime).
         $customer = null;
         if ($cmd->customerId !== null) {
-            $customer = $this->customerRepository->findByIdAndTenant($cmd->customerId, $user->getTenant()->getId());
+            $customer = $this->customerRepository->findByIdAndTenant($cmd->customerId, $tenantId);
             if ($customer === null) {
                 throw new \LogicException(sprintf('Cliente %d no encontrado.', $cmd->customerId));
             }
@@ -91,7 +97,7 @@ final class PaymentService
         // 3. Validar venta si está seteada
         $sale = null;
         if ($cmd->saleId !== null) {
-            $sale = $this->saleRepository->findByIdAndTenant($cmd->saleId, $user->getTenant()->getId());
+            $sale = $this->saleRepository->findByIdAndTenant($cmd->saleId, $tenantId);
             if ($sale === null) {
                 throw new \LogicException(sprintf('Venta %d no encontrada.', $cmd->saleId));
             }
@@ -141,7 +147,7 @@ final class PaymentService
 
         // 7. Crear Payment
         $payment = new Payment();
-        $payment->setTenant($user->getTenant());
+        $payment->setTenant($this->activeTenantProvider->requireTenant());
         $payment->setCustomer($customer);
         $payment->setSale($sale);
         $payment->setAmount($cmd->amount);

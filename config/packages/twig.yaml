@@ -1,5 +1,10 @@
 twig:
     file_name_pattern: '*.twig'
+    globals:
+        # Negocio activo de la sesión para el nav (ADR-0015). Es el
+        # servicio (no un valor ya resuelto): su nombre se pide en el
+        # render, y devuelve null cuando no hay negocio activo.
+        active_tenant: '@App\Service\ActiveTenantProvider'
 
 when@test:
     twig:

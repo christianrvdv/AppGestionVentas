@@ -21,6 +21,15 @@ class TenantRepository extends ServiceEntityRepository implements TenantReposito
         parent::__construct($registry, Tenant::class);
     }
 
+    public function findById(int $id): ?Tenant
+    {
+        return $this->createQueryBuilder('t')
+            ->andWhere('t.id = :id')
+            ->setParameter('id', $id)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     public function findBySlug(string $slug): ?Tenant
     {
         return $this->createQueryBuilder('t')

@@ -16,8 +16,9 @@ use Symfony\Component\Routing\Attribute\Route;
  * Dashboard mínimo (Fase 1): totales consolidados, tasa USD vigente
  * e inversiones activas del tenant autenticado.
  *
- * El tenant activo lo popula TenantFilterListener desde el AppUser de la
- * sesión; este controller no resuelve tenants por su cuenta.
+ * El tenant activo lo puebla TenantFilterListener desde la clave de
+ * sesión active_tenant_id (ADR-0015); este controller no resuelve
+ * tenants por su cuenta.
  */
 #[Route('/')]
 final class DashboardController extends AbstractController

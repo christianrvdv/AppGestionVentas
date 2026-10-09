@@ -1,7 +1,9 @@
 # ADR-0009: Tenant resuelto por slug en el formulario de login (Opción B)
 
 ## Estado
-Aceptado (Fase 1 UI).
+**Reemplazado por [ADR-0015](ADR-0015-login-global-con-seleccion-de-tenant.md)** (Fase 3.5).
+Ver "Consecuencias" de ese ADR para el detalle de por qué el slug dejó de
+tener sentido cuando el usuario pasó a ser identidad global.
 
 ## Contexto
 La aplicación es multi-tenant: cada AppUser pertenece a un Tenant y el email

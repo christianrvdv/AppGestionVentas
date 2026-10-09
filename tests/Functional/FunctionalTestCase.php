@@ -10,6 +10,7 @@ use App\Entity\Investment;
 use App\Entity\InvestmentItem;
 use App\Entity\Product;
 use App\Entity\Tenant;
+use App\Entity\TenantMembership;
 use App\Service\Investment\InvestmentCreationService;
 use App\Service\Investment\InvestmentItemService;
 use App\Service\TenantContext;
@@ -92,7 +93,12 @@ abstract class FunctionalTestCase extends WebTestCase
      * usando el hasher de la aplicación (barato en test, ver
      * security.yaml when@test).
      *
-     * @return array{tenant: Tenant, user: AppUser}
+     * El usuario es global (ADR-0015): la pertenencia al tenant Demo
+     * vive en la TenantMembership (ROLE_ADMIN, negocio por defecto), que
+     * es lo que permite loguearse sin slug y que la sesión termine con
+     * el tenant Demo activo.
+     *
+     * @return array{tenant: Tenant, user: AppUser, membership: TenantMembership}
      */
     protected function seedDemoTenantAndAdmin(): array
     {
@@ -101,34 +107,68 @@ abstract class FunctionalTestCase extends WebTestCase
         $tenant->setSlug('demo');
 
         $user = new AppUser();
-        $user->setTenant($tenant);
         $user->setEmail('admin@demo.local');
         $user->setRoles(['ROLE_ADMIN']);
 
         $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
         $user->setPasswordHash($hasher->hashPassword($user, 'demo'));
 
+        $membership = new TenantMembership($user, $tenant);
+        $membership->setRole(TenantMembership::ROLE_ADMIN);
+        $membership->setIsDefault(true);
+        $user->addMembership($membership);
+
         $this->em->persist($tenant);
         $this->em->persist($user);
+        $this->em->persist($membership);
         $this->em->flush();
 
-        return ['tenant' => $tenant, 'user' => $user];
+        return ['tenant' => $tenant, 'user' => $user, 'membership' => $membership];
     }
 
     /**
      * Autentica vía el formulario real de /login (flujo completo:
      * CSRF, provider, checker, sesión).
+     *
+     * Sin tenant_slug: el login es global (ADR-0015). Con una sola
+     * membresía, TenantSessionListener activa ese negocio en la sesión
+     * y el redirect cae en el dashboard.
      */
     protected function loginAsDemoAdmin(KernelBrowser $client): void
+    {
+        $this->loginAs($client, 'admin@demo.local', 'demo');
+    }
+
+    /**
+     * Login genérico con credenciales arbitrarias (para usuarios sin
+     * membresías u otros escenarios que no son el admin demo).
+     */
+    protected function loginAs(KernelBrowser $client, string $email, string $password): void
     {
         $crawler = $client->request('GET', '/login');
         $form = $crawler->selectButton('Iniciar sesión')->form();
 
         $client->submit($form, [
-            'tenant_slug' => 'demo',
-            'email' => 'admin@demo.local',
-            'password' => 'demo',
+            'email' => $email,
+            'password' => $password,
         ]);
+    }
+
+    /**
+     * Tenant de prueba al que pertenece un usuario: su primera membresía
+     * (los seeds de esta clase crean usuarios con una sola). Sirve para
+     * arrancar el TenantContext en helpers, como antes hacía
+     * $user->getTenant().
+     */
+    protected function tenantIdOf(AppUser $user): int
+    {
+        $membership = $user->getMemberships()->first();
+
+        if (false === $membership) {
+            throw new \LogicException(sprintf('El usuario %s no tiene membresías.', $user->getEmail()));
+        }
+
+        return $membership->getTenant()->getId();
     }
 
     /**
@@ -140,7 +180,7 @@ abstract class FunctionalTestCase extends WebTestCase
     {
         $context = static::getContainer()->get(TenantContext::class);
         $previous = $context->getTenantId();
-        $context->setTenantId($user->getTenant()->getId());
+        $context->setTenantId($this->tenantIdOf($user));
 
         try {
             $investment = static::getContainer()

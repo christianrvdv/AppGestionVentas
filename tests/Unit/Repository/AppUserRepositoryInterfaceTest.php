@@ -8,74 +8,75 @@ use App\Repository\Contract\AppUserRepositoryInterface;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Invariante multi-tenant de AppUserRepositoryInterface: todo método
- * recibe $tenantId explícito, salvo findById() (el único lookup
- * cross-tenant permitido, reservado a AppUserProvider::refreshUser).
+ * Invariante de identidad global de AppUserRepositoryInterface
+ * (ADR-0015): el email es único en todo el sistema, así que NINGÚN
+ * método de este repositorio recibe $tenantId.
  *
- * Test de reflexión a propósito: si alguien agrega un método sin
- * $tenantId, o le quita la documentación que justifica la excepción a
- * findById(), la suite falla antes de que el dato pueda filtrarse.
+ * Antes de la Fase 3.5 la regla era la contraria (todo lookup era por
+ * tenant); el test se invirtió junto con el modelo. Si alguien
+ * reintroduce un método parametrizado por tenant, la suite falla antes
+ * de que el dato pueda aislarse mal.
+ *
+ * Test de reflexión a propósito: no ejecuta Doctrine, vive en la suite
+ * Unit y no necesita kernel.
  */
 final class AppUserRepositoryInterfaceTest extends TestCase
 {
-    public function testEveryPublicMethodReceivesIntTenantIdExceptFindById(): void
+    /** @var string[] */
+    private const EXPECTED_METHODS = ['findOneByEmail', 'findById'];
+
+    public function testExposesExactlyTheGlobalIdentityLookups(): void
     {
         $interface = new \ReflectionClass(AppUserRepositoryInterface::class);
 
         $this->assertTrue($interface->isInterface());
 
+        $names = array_map(
+            static fn (\ReflectionMethod $method): string => $method->getName(),
+            $interface->getMethods(\ReflectionMethod::IS_PUBLIC)
+        );
+        sort($names);
+        $expected = self::EXPECTED_METHODS;
+        sort($expected);
+
+        $this->assertSame(
+            $expected,
+            $names,
+            'El contrato de usuarios es global: exactamente findOneByEmail + findById. '
+            .'Si hace otro lookup, abrir un ADR antes de agregarlo.'
+        );
+    }
+
+    public function testNoMethodReceivesTenantId(): void
+    {
+        $interface = new \ReflectionClass(AppUserRepositoryInterface::class);
+
         foreach ($interface->getMethods(\ReflectionMethod::IS_PUBLIC) as $method) {
-            if ($method->getName() === 'findById') {
-                $this->assertFalse(
-                    $this->hasTenantIdParameter($method),
-                    'findById() es la ÚNICA excepción autorizada: no debe recibir $tenantId. '
-                    . 'Si hace falta otro lookup cross-tenant, abrir un ADR antes de agregarlo.'
+            foreach ($method->getParameters() as $parameter) {
+                $this->assertStringNotContainsString(
+                    'tenant',
+                    $parameter->getName(),
+                    sprintf(
+                        '%s() no debe recibir nada relacionado con tenant: el usuario es global (ADR-0015).',
+                        $method->getName()
+                    )
                 );
-
-                continue;
             }
+        }
+    }
 
-            $this->assertTrue(
-                $this->hasTenantIdParameter($method),
-                sprintf(
-                    '%s() debe recibir int $tenantId: todo lookup de usuarios es por tenant.',
-                    $method->getName()
-                )
+    public function testLookupsAreDocumentedAsGlobalIdentity(): void
+    {
+        foreach (self::EXPECTED_METHODS as $name) {
+            $method = new \ReflectionMethod(AppUserRepositoryInterface::class, $name);
+            $doc = (string) $method->getDocComment();
+
+            $this->assertNotSame('', $doc, sprintf('%s() debe llevar docblock: justifica por qué no recibe tenant.', $name));
+            $this->assertStringContainsString(
+                'ADR-0015',
+                $doc,
+                sprintf('El docblock de %s() debe remitir al ADR que define la identidad global.', $name)
             );
         }
-    }
-
-    public function testFindByIdIsDocumentedAsTheOnlyCrossTenantLookup(): void
-    {
-        $method = new \ReflectionMethod(AppUserRepositoryInterface::class, 'findById');
-
-        $doc = (string) $method->getDocComment();
-
-        $this->assertNotSame('', $doc, 'findById() debe llevar docblock: es la excepción al invariante.');
-        $this->assertStringContainsString(
-            'refreshUser',
-            $doc,
-            'El docblock de findById() debe explicar que la usa AppUserProvider::refreshUser.'
-        );
-        $this->assertTrue(
-            str_contains($doc, 'cross-tenant') || str_contains($doc, 'SIN filtro de tenant'),
-            'El docblock de findById() debe declararlo como lookup cross-tenant.'
-        );
-    }
-
-    private function hasTenantIdParameter(\ReflectionMethod $method): bool
-    {
-        foreach ($method->getParameters() as $parameter) {
-            if ($parameter->getName() !== 'tenantId') {
-                continue;
-            }
-
-            $type = $parameter->getType();
-
-            return $type instanceof \ReflectionNamedType
-                && $type->getName() === 'int';
-        }
-
-        return false;
     }
 }

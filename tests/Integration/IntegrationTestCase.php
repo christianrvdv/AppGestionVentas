@@ -7,6 +7,7 @@ use App\Entity\Customer;
 use App\Entity\Investment;
 use App\Entity\Product;
 use App\Entity\Tenant;
+use App\Entity\TenantMembership;
 use App\Service\Investment\InvestmentConfirmationService;
 use App\Service\TenantContext;
 use App\Tests\Support\TestSchema;
@@ -75,14 +76,25 @@ abstract class IntegrationTestCase extends KernelTestCase
         return $tenant;
     }
 
+    /**
+     * Crea un usuario global (ADR-0015: email único en todo el sistema)
+     * con una membresía ROLE_ADMIN en el tenant indicado. La membresía
+     * es lo que hace que el usuario "pertenezca" al negocio: sin ella,
+     * el login lo mandaría al onboarding.
+     */
     protected function createAppUser(Tenant $tenant, string $email = 'admin@example.com'): AppUser
     {
         $user = new AppUser();
-        $user->setTenant($tenant);
         $user->setEmail($email);
         $user->setPasswordHash('hash-test');
 
+        $membership = new TenantMembership($user, $tenant);
+        $membership->setRole(TenantMembership::ROLE_ADMIN);
+        $membership->setIsDefault(true);
+        $user->addMembership($membership);
+
         $this->em->persist($user);
+        $this->em->persist($membership);
         $this->em->flush();
 
         return $user;

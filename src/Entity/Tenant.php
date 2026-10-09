@@ -35,9 +35,9 @@ class Tenant
     #[ORM\Column(name: 'updated_at', type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $updatedAt;
 
-    /** @var Collection<int, AppUser> */
-    #[ORM\OneToMany(mappedBy: 'tenant', targetEntity: AppUser::class)]
-    private Collection $users;
+    /** @var Collection<int, TenantMembership> */
+    #[ORM\OneToMany(mappedBy: 'tenant', targetEntity: TenantMembership::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
+    private Collection $memberships;
 
     /** @var Collection<int, AppSetting> */
     #[ORM\OneToMany(mappedBy: 'tenant', targetEntity: AppSetting::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
@@ -69,7 +69,7 @@ class Tenant
 
     public function __construct()
     {
-        $this->users = new ArrayCollection();
+        $this->memberships = new ArrayCollection();
         $this->settings = new ArrayCollection();
         $this->usdRates = new ArrayCollection();
         $this->products = new ArrayCollection();
@@ -142,24 +142,23 @@ class Tenant
         return $this->updatedAt;
     }
 
-    /** @return Collection<int, AppUser> */
-    public function getUsers(): Collection
+    /** @return Collection<int, TenantMembership> */
+    public function getMemberships(): Collection
     {
-        return $this->users;
+        return $this->memberships;
     }
 
-    public function addUser(AppUser $user): self
+    public function addMembership(TenantMembership $membership): self
     {
-        if (!$this->users->contains($user)) {
-            $this->users->add($user);
-            $user->setTenant($this);
+        if (!$this->memberships->contains($membership)) {
+            $this->memberships->add($membership);
         }
         return $this;
     }
 
-    public function removeUser(AppUser $user): self
+    public function removeMembership(TenantMembership $membership): self
     {
-        $this->users->removeElement($user);
+        $this->memberships->removeElement($membership);
         return $this;
     }
 

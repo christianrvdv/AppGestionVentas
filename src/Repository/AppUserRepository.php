@@ -21,26 +21,24 @@ class AppUserRepository extends ServiceEntityRepository implements AppUserReposi
         parent::__construct($registry, AppUser::class);
     }
 
-    public function findByIdAndTenant(int $id, int $tenantId): ?AppUser
+    public function findOneByEmail(string $email): ?AppUser
     {
         return $this->createQueryBuilder('u')
-            ->andWhere('u.id = :id')
-            ->andWhere('u.tenant = :tenantId')
-            ->setParameter('id', $id)
-            ->setParameter('tenantId', $tenantId)
+            ->andWhere('u.email = :email')
+            ->setParameter('email', $email)
             ->getQuery()
             ->getOneOrNullResult();
     }
 
     /**
-     * ÚNICO lookup sin filtro de tenant de todo el repositorio.
+     * ÚNICO lookup sin filtro de tenant de todo el repositorio
+     * (ADR-0015; ver AppUserRepositoryInterface).
      *
      * NO filtra por tenant a propósito: lo usa únicamente
      * AppUserProvider::refreshUser(), que recarga el usuario de la
-     * sesión por id con el TenantFilter apagado y después COMPARA el
-     * tenant persistido con el que declara la sesión, rechazando con
-     * UnsupportedUserException si difieren. Nunca devuelve datos de
-     * otro tenant: el mismatch muere antes de usarse.
+     * sesión por id. Nunca se usa para leer datos de negocio: el
+     * aislamiento entre tenants lo aportan el TenantFilter (pobulado
+     * desde la sesión) y RequireTenantListener.
      *
      * Si aparece un caso "parecido", es un bug de diseño — abrir un ADR
      * antes de tocar esta firma. Ver AppUserRepositoryInterfaceTest.
@@ -52,31 +50,5 @@ class AppUserRepository extends ServiceEntityRepository implements AppUserReposi
             ->setParameter('id', $id)
             ->getQuery()
             ->getOneOrNullResult();
-    }
-
-    public function findOneByEmailAndTenant(string $email, int $tenantId): ?AppUser
-    {
-        return $this->createQueryBuilder('u')
-            ->andWhere('u.email = :email')
-            ->andWhere('u.tenant = :tenantId')
-            ->setParameter('email', $email)
-            ->setParameter('tenantId', $tenantId)
-            ->getQuery()
-            ->getOneOrNullResult();
-    }
-
-    /**
-     * @return AppUser[]
-     */
-    public function findActiveByTenant(int $tenantId): array
-    {
-        return $this->createQueryBuilder('u')
-            ->andWhere('u.tenant = :tenantId')
-            ->andWhere('u.isActive = :active')
-            ->setParameter('tenantId', $tenantId)
-            ->setParameter('active', true)
-            ->orderBy('u.email', 'ASC')
-            ->getQuery()
-            ->getResult();
     }
 }
