@@ -20,6 +20,13 @@
       <directory>tests/Functional</directory>
     </testsuite>
   </testsuites>
+  <!-- DAMA: BEGIN antes de cada test y ROLLBACK al terminarlo, sobre la
+       conexión estática (StaticDriver). Reemplaza al recreateSchema()
+       por test: el esquema se crea una vez en tests/bootstrap.php y cada
+       test solo deshace sus datos. -->
+  <extensions>
+    <bootstrap class="DAMA\DoctrineTestBundle\PHPUnit\PHPUnitExtension"/>
+  </extensions>
   <source>
     <include>
       <directory>src</directory>

@@ -9,8 +9,8 @@ use App\Entity\Product;
 use App\Entity\Tenant;
 use App\Service\Investment\InvestmentConfirmationService;
 use App\Service\TenantContext;
+use App\Tests\Support\TestSchema;
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\ORM\Tools\SchemaTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
@@ -18,16 +18,15 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
  * driver de test: PostgreSQL, app_control_ventas_test — ver .env.test;
  * ADR-0011 unificó dev/test/prod en PostgreSQL).
  *
- * Cada test arranca con un esquema recién creado y limpio: se dropean
- * todas las tablas (con CASCADE, por las FKs de PostgreSQL) y se vuelven
- * a crear desde los metadatos de Doctrine. Así los tests son
- * independientes de migraciones y del orden de ejecución, y de paso
- * validan que el mapping completo es creable.
+ * El esquema se crea UNA vez por corrida en tests/bootstrap.php, antes
+ * de que DAMA abra su transacción. A partir de ahí cada test corre
+ * dentro de BEGIN/ROLLBACK (extensión PHPUnit de DAMA, registrada en
+ * phpunit.dist.xml), así que los datos que deja no llegan al test
+ * siguiente: no hace falta dropear y recrear tablas en setUp().
  *
- * ATENCIÓN: el bundle DAMA doctrine-test-bundle NO tiene su extensión
- * PHPUnit activa en phpunit.dist.xml, por lo que NO hay rollback
- * automático entre tests. Cualquier test debe partir de esquema limpio
- * (garantizado por setUp()) y no asumir datos de tests anteriores.
+ * ATENCIÓN: recreateSchema() sigue disponible como escape hatch para un
+ * test que necesite DDL explícito (validar el mapping creándolo, por
+ * ejemplo). No es la vía normal de aislamiento; para eso está DAMA.
  */
 abstract class IntegrationTestCase extends KernelTestCase
 {
@@ -44,30 +43,18 @@ abstract class IntegrationTestCase extends KernelTestCase
         $container = static::getContainer();
         $this->em = $container->get(EntityManagerInterface::class);
         $this->tenantContext = $container->get(TenantContext::class);
-
-        $this->recreateSchema();
     }
 
     /**
      * Dropea todas las tablas del esquema de test y las crea de nuevo
      * a partir de los metadatos de las entidades.
+     *
+     * Solo para tests que necesiten schema limpio EXPLÍCITAMENTE; el
+     * aislamiento normal lo aporta la transacción de DAMA.
      */
-    private function recreateSchema(): void
+    protected function recreateSchema(): void
     {
-        $connection = $this->em->getConnection();
-        $schemaManager = $connection->createSchemaManager();
-
-        // DROP ... CASCADE porque las tablas tienen FKs entre sí y el
-        // orden alfabético de listTableNames() no respeta las
-        // dependencias (en SQLite eso no hacía falta).
-        foreach ($schemaManager->listTableNames() as $tableName) {
-            $connection->executeStatement(
-                'DROP TABLE IF EXISTS '.$connection->quoteSingleIdentifier($tableName).' CASCADE'
-            );
-        }
-
-        $tool = new SchemaTool($this->em);
-        $tool->createSchema($this->em->getMetadataFactory()->getAllMetadata());
+        TestSchema::recreate($this->em);
     }
 
     /**

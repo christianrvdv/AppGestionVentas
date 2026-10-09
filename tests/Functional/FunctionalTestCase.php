@@ -12,8 +12,8 @@ use App\Entity\Tenant;
 use App\Service\Investment\InvestmentCreationService;
 use App\Service\Investment\InvestmentItemService;
 use App\Service\TenantContext;
+use App\Tests\Support\TestSchema;
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\ORM\Tools\SchemaTool;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -28,8 +28,9 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  *
  * En esta versión del framework, WebTestCase::createClient() arranca
  * el kernel él mismo (no se puede bootKernel() antes), así que el
- * client se crea primero y el esquema se recrea después sobre su
- * contenedor.
+ * client se crea primero y sobre su contenedor se resuelven los
+ * servicios. El esquema lo crea tests/bootstrap.php una vez por
+ * corrida; el aislamiento entre tests es la transacción de DAMA.
  *
  * ATENCIÓN: al compartir kernel entre peticiones, el TenantFilter
  * puede quedar habilitado entre requests (en producción el kernel se
@@ -42,8 +43,8 @@ abstract class FunctionalTestCase extends WebTestCase
 
     /**
      * Client que NO reboota el kernel entre peticiones: conserva la
-     * conexión SQLite in-memory (y su contenido) durante el test.
-     * El esquema queda limpio y vacío listo para sembrar datos.
+     * conexión estática de DAMA (y su contenido) durante el test.
+     * El esquema ya está creado por tests/bootstrap.php.
      */
     protected function createSharedKernelClient(): KernelBrowser
     {
@@ -51,27 +52,18 @@ abstract class FunctionalTestCase extends WebTestCase
         $client->disableReboot();
 
         $this->em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->recreateSchema();
 
         return $client;
     }
 
-    private function recreateSchema(): void
+    /**
+     * Dropea y recrea el esquema completo. Solo para tests que lo
+     * necesiten EXPLÍCITAMENTE: el aislamiento normal lo aporta la
+     * transacción de DAMA (BEGIN/ROLLBACK por test).
+     */
+    protected function recreateSchema(): void
     {
-        $connection = $this->em->getConnection();
-        $schemaManager = $connection->createSchemaManager();
-
-        // DROP ... CASCADE porque las tablas tienen FKs entre sí y el
-        // orden alfabético de listTableNames() no respeta las
-        // dependencias (en SQLite eso no hacía falta).
-        foreach ($schemaManager->listTableNames() as $tableName) {
-            $connection->executeStatement(
-                'DROP TABLE IF EXISTS '.$connection->quoteSingleIdentifier($tableName).' CASCADE'
-            );
-        }
-
-        $tool = new SchemaTool($this->em);
-        $tool->createSchema($this->em->getMetadataFactory()->getAllMetadata());
+        TestSchema::recreate($this->em);
     }
 
     /**

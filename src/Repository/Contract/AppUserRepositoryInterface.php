@@ -26,8 +26,19 @@ interface AppUserRepositoryInterface
     public function findByIdAndTenant(int $id, int $tenantId): ?AppUser;
 
     /**
-     * Lookup por id SIN filtro de tenant — solo para validación de
-     * sesión en AppUserProvider::refreshUser (ver nota de la interfaz).
+     * ÚNICO lookup cross-tenant autorizado en toda la capa de
+     * repositorio — no agregar otro sin un ADR que lo justifique.
+     *
+     * Existe exclusivamente para AppUserProvider::refreshUser(): en cada
+     * request autenticado hay que recargar el usuario de la sesión por
+     * id, y en ese punto el TenantFilter está deshabilitado a propósito
+     * (el usuario de sesión declara su tenant, no hay request de login
+     * del que leerlo). Por eso el id solo no alcanza: refreshUser()
+     * COMPARA el tenant persistido contra el que declara la sesión y
+     * termina en UnsupportedUserException si difieren, de modo que el
+     * resultado jamás llega a usarse para otro tenant.
+     *
+     * Verificado por test: AppUserRepositoryInterfaceTest (reflexión).
      */
     public function findById(int $id): ?AppUser;
 

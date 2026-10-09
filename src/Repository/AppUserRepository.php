@@ -29,6 +29,19 @@ class AppUserRepository extends ServiceEntityRepository implements AppUserReposi
             ->getOneOrNullResult();
     }
 
+    /**
+     * ÚNICO lookup sin filtro de tenant de todo el repositorio.
+     *
+     * NO filtra por tenant a propósito: lo usa únicamente
+     * AppUserProvider::refreshUser(), que recarga el usuario de la
+     * sesión por id con el TenantFilter apagado y después COMPARA el
+     * tenant persistido con el que declara la sesión, rechazando con
+     * UnsupportedUserException si difieren. Nunca devuelve datos de
+     * otro tenant: el mismatch muere antes de usarse.
+     *
+     * Si aparece un caso "parecido", es un bug de diseño — abrir un ADR
+     * antes de tocar esta firma. Ver AppUserRepositoryInterfaceTest.
+     */
     public function findById(int $id): ?AppUser
     {
         return $this->createQueryBuilder('u')
