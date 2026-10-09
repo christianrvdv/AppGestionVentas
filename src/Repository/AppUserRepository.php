@@ -29,6 +29,15 @@ class AppUserRepository extends ServiceEntityRepository implements AppUserReposi
             ->getOneOrNullResult();
     }
 
+    public function findById(int $id): ?AppUser
+    {
+        return $this->createQueryBuilder('u')
+            ->andWhere('u.id = :id')
+            ->setParameter('id', $id)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     public function findOneByEmailAndTenant(string $email, int $tenantId): ?AppUser
     {
         return $this->createQueryBuilder('u')

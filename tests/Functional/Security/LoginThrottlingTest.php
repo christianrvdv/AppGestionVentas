@@ -38,7 +38,16 @@ final class LoginThrottlingTest extends FunctionalTestCase
             'password' => 'demo',
         ]);
 
-        $this->assertResponseRedirects('/login');
+        // El bloqueo responde 429 con mensaje genérico.
+        $this->assertResponseStatusCodeSame(429);
+
+        $body = $client->getResponse()->getContent();
+        $this->assertIsString($body);
+        $this->assertStringContainsString('Demasiados intentos fallidos', $body);
+
+        // No filtra información: ni la excepción cruda ni el email.
+        $this->assertStringNotContainsString('TooManyLoginAttempts', $body);
+        $this->assertStringNotContainsString('admin@demo.local', $body);
 
         // No quedó autenticado: / sigue exigiendo sesión.
         $client->request('GET', '/');

@@ -29,11 +29,15 @@ security:
                 failure_path: /login
                 post_only: true
 
-            # Fuerza bruta: 5 intentos fallidos / 5 minutos (por usuario+IP,
+            # Fuerza bruta: 5 intentos fallidos / 15 minutos (por usuario+IP,
             # con techo global). LoginThrottlingListener del SecurityBundle.
+            # 15 minutos es el intervalo estándar para endpoints de auth:
+            # menos agresivo que 5 para usuarios con problemas de tipeo,
+            # suficiente para disuadir fuerza bruta. El bloqueo responde
+            # 429 con mensaje genérico (LoginThrottlingResponseListener).
             login_throttling:
                 max_attempts: 5
-                interval: 5 minutes
+                interval: 15 minutes
 
             logout:
                 path: /logout

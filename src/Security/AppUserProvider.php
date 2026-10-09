@@ -23,8 +23,10 @@ use Symfony\Component\Security\Core\User\UserProviderInterface;
  * (el provider no recibe el request de otra forma; es el patrón estándar
  * para form_login multi-tenant).
  *
- * Flujo de sesión (refreshUser): se recarga por id + tenantId, sin depender
- * del request.
+ * Flujo de sesión (refreshUser): se recarga por id y se VALIDA que el
+ * tenant persistido coincida con el que declara el usuario de la sesión;
+ * un mismatch lanza UnsupportedUserException (cierre de sesión) en lugar
+ * de confiar en el claim de la sesión. No depende del request.
  *
  * ATENCIÓN: estas dos consultas son las ÚNICAS que deben cruzar tenants
  * (por diseño: el login resuelve el tenant). En workers persistentes
@@ -75,13 +77,21 @@ final class AppUserProvider implements UserProviderInterface
         }
 
         return $this->withoutTenantFilter(function () use ($user): AppUser {
-            $refreshed = $this->userRepository->findByIdAndTenant(
-                $user->getId(),
-                $user->getTenant()->getId()
-            );
+            // Carga por id SIN filtro de tenant y valida contra el tenant
+            // que declara el usuario de la sesión. Si la sesión estuviera
+            // manipulada o desactualizada (tenant ≠ persistido), se
+            // rechaza con UnsupportedUserException y la sesión se cierra,
+            // en lugar de confiar en el claim de la sesión.
+            $refreshed = $this->userRepository->findById($user->getId());
 
             if ($refreshed === null) {
                 throw new UserNotFoundException('Usuario no encontrado.');
+            }
+
+            if ($refreshed->getTenant()->getId() !== $user->getTenant()->getId()) {
+                throw new UnsupportedUserException(
+                    'El usuario de la sesión no pertenece al tenant declarado.'
+                );
             }
 
             return $refreshed;
