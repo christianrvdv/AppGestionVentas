@@ -1,0 +1,57 @@
+{% set input_class = 'w-full rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand' %}
+{% set label_class = 'mb-1 block text-sm font-medium text-foreground' %}
+{% set error_class = 'mt-1 text-sm text-danger' %}
+{% set submit_class = 'rounded bg-brand px-4 py-2 font-medium text-white hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2' %}
+
+{{ form_start(form, {attr: {class: 'space-y-5'}}) }}
+    <div>
+        <label for="{{ form.name.vars.id }}" class="{{ label_class }}">{{ form.name.vars.label }}</label>
+        {{ form_widget(form.name, {attr: {class: input_class}}) }}
+        {% for error in form.name.vars.errors %}
+            <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+        {% endfor %}
+    </div>
+
+    <div>
+        <label for="{{ form.phone.vars.id }}" class="{{ label_class }}">{{ form.phone.vars.label }}</label>
+        {{ form_widget(form.phone, {attr: {class: input_class}}) }}
+        {% for error in form.phone.vars.errors %}
+            <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+        {% endfor %}
+    </div>
+
+    <div>
+        <label for="{{ form.email.vars.id }}" class="{{ label_class }}">{{ form.email.vars.label }}</label>
+        {{ form_widget(form.email, {attr: {class: input_class}}) }}
+        {% for error in form.email.vars.errors %}
+            <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+        {% endfor %}
+    </div>
+
+    <div>
+        <label for="{{ form.address.vars.id }}" class="{{ label_class }}">{{ form.address.vars.label }}</label>
+        {{ form_widget(form.address, {attr: {class: input_class}}) }}
+        {% for error in form.address.vars.errors %}
+            <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+        {% endfor %}
+    </div>
+
+    <div>
+        <label for="{{ form.notes.vars.id }}" class="{{ label_class }}">{{ form.notes.vars.label }}</label>
+        {{ form_widget(form.notes, {attr: {class: input_class, rows: 4}}) }}
+        {% for error in form.notes.vars.errors %}
+            <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+        {% endfor %}
+    </div>
+
+    <div class="flex items-center gap-2">
+        {{ form_widget(form.isActive) }}
+        <label for="{{ form.isActive.vars.id }}" class="text-sm font-medium text-foreground">{{ form.isActive.vars.label }}</label>
+        {% for error in form.isActive.vars.errors %}
+            <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+        {% endfor %}
+    </div>
+
+    {{ form_rest(form) }}
+    <button type="submit" class="{{ submit_class }}">{{ submit_label|default('Guardar') }}</button>
+{{ form_end(form) }}

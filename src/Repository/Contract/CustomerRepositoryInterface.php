@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Repository\Contract;
 
 use App\Entity\Customer;
+use Doctrine\ORM\QueryBuilder;
 
 /**
  * Puerto de persistencia para clientes.
@@ -16,6 +17,13 @@ use App\Entity\Customer;
 interface CustomerRepositoryInterface
 {
     public function findByIdAndTenant(int $id, int $tenantId): ?Customer;
+
+    /**
+     * Query paginable del listado: filtra por tenant y, si $q no está vacío,
+     * por nombre, teléfono o email (case-insensitive). El orden es estable
+     * (name, id) para que la paginación no repita ni salte filas entre páginas.
+     */
+    public function createPaginatedQueryBuilder(int $tenantId, ?string $q): QueryBuilder;
 
     /**
      * @return Customer[]

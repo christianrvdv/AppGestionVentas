@@ -40,8 +40,18 @@
                             >Inversiones</a>
                         </li>
                         <li><span aria-disabled="true" class="cursor-not-allowed text-muted">Ventas</span></li>
-                        <li><span aria-disabled="true" class="cursor-not-allowed text-muted">Productos</span></li>
-                        <li><span aria-disabled="true" class="cursor-not-allowed text-muted">Clientes</span></li>
+                        <li>
+                            <a
+                                href="{{ path('app_product_index') }}"
+                                class="{{ app.request.attributes.get('_route') starts with 'app_product_' ? 'font-semibold text-brand' : 'text-foreground hover:text-brand' }}"
+                            >Productos</a>
+                        </li>
+                        <li>
+                            <a
+                                href="{{ path('app_customer_index') }}"
+                                class="{{ app.request.attributes.get('_route') starts with 'app_customer_' ? 'font-semibold text-brand' : 'text-foreground hover:text-brand' }}"
+                            >Clientes</a>
+                        </li>
                         <li><span aria-disabled="true" class="cursor-not-allowed text-muted">Reportes</span></li>
                         <li><span aria-disabled="true" class="cursor-not-allowed text-muted">Configuración</span></li>
                     </ul>

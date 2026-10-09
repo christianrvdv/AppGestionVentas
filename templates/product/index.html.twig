@@ -1,0 +1,100 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Productos · Gestión de Negocio{% endblock %}
+
+{% block body %}
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <h1 class="text-2xl font-semibold text-foreground">Productos</h1>
+        <a
+            href="{{ path('app_product_new') }}"
+            class="rounded bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+        >Nuevo producto</a>
+    </div>
+
+    <form method="get" action="{{ path('app_product_index') }}" class="mb-6 flex flex-wrap items-end gap-3">
+        <div class="min-w-64 flex-1">
+            <label for="q" class="mb-1 block text-sm font-medium text-foreground">Buscar por nombre o SKU</label>
+            <input
+                type="search"
+                id="q"
+                name="q"
+                value="{{ q ?? '' }}"
+                maxlength="100"
+                class="w-full rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >
+        </div>
+        <button
+            type="submit"
+            class="rounded border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+        >Buscar</button>
+        {% if q %}
+            <a
+                href="{{ path('app_product_index') }}"
+                class="px-2 py-2 text-sm text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >Limpiar filtro</a>
+        {% endif %}
+    </form>
+
+    {% if pagination.items is empty %}
+        <p class="rounded border border-border bg-surface px-4 py-3 text-sm text-muted">
+            {% if q %}
+                No hay productos que coincidan con "{{ q }}".
+            {% else %}
+                No hay productos registrados.
+                <a href="{{ path('app_product_new') }}" class="text-brand hover:underline">Crea el primero</a>.
+            {% endif %}
+        </p>
+    {% else %}
+        <div class="overflow-x-auto rounded border border-border bg-surface">
+            <table class="w-full text-sm">
+                <caption class="sr-only">Listado de productos del negocio</caption>
+                <thead>
+                    <tr class="border-b border-border text-start text-muted">
+                        <th scope="col" class="px-4 py-2 text-start font-medium">Nombre</th>
+                        <th scope="col" class="px-4 py-2 text-start font-medium">SKU</th>
+                        <th scope="col" class="px-4 py-2 text-start font-medium">Categoría</th>
+                        <th scope="col" class="px-4 py-2 text-end font-medium">Margen</th>
+                        <th scope="col" class="px-4 py-2 text-start font-medium">Estado</th>
+                        <th scope="col" class="px-4 py-2 text-end font-medium"><span class="sr-only">Acciones</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in pagination %}
+                        <tr class="border-b border-border last:border-b-0 {{ product.isActive ? '' : 'text-muted' }}">
+                            <td class="px-4 py-2 font-medium text-foreground">{{ product.name }}</td>
+                            <td class="px-4 py-2">{{ product.sku ?? '—' }}</td>
+                            <td class="px-4 py-2">{{ product.category ?? '—' }}</td>
+                            <td class="px-4 py-2 text-end">
+                                {{ product.defaultMarginPct is null ? '—' : product.defaultMarginPct|number_format(2, ',', '.') ~ ' %' }}
+                            </td>
+                            <td class="px-4 py-2">{{ product.isActive ? 'Activo' : 'Inactivo' }}</td>
+                            <td class="px-4 py-2 text-end">
+                                <a
+                                    href="{{ path('app_product_edit', {id: product.id}) }}"
+                                    class="text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                                >Editar</a>
+                                {% if product.isActive %}
+                                    <form
+                                        method="post"
+                                        action="{{ path('app_product_deactivate', {id: product.id}) }}"
+                                        class="ms-3 inline"
+                                    >
+                                        <input type="hidden" name="_csrf_token" value="{{ csrf_token('submit') }}">
+                                        <button
+                                            type="submit"
+                                            class="text-danger hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                                        >Desactivar</button>
+                                    </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <nav aria-label="Paginación de productos" class="mt-4">
+            {{ knp_pagination_render(pagination) }}
+        </nav>
+    {% endif %}
+{% endblock %}

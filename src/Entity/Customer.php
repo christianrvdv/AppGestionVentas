@@ -9,6 +9,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 
 #[ORM\Entity(repositoryClass: CustomerRepository::class)]
 #[ORM\Table(name: 'customer')]
@@ -17,6 +18,19 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\UniqueConstraint(name: 'uniq_customer_tenant_phone', columns: ['tenant_id', 'phone'])]
 #[ORM\UniqueConstraint(name: 'uniq_customer_tenant_email', columns: ['tenant_id', 'email'])]
 #[ORM\HasLifecycleCallbacks]
+// Unicidad de teléfono y email POR TENANTE, espejo de las restricciones de la
+// BD. `ignoreNull` (por defecto true) permite repetir el valor cuando el campo
+// es null, igual que PostgreSQL con los índices únicos. Ver ADR-0014.
+#[UniqueEntity(
+    fields: ['phone', 'tenant'],
+    errorPath: 'phone',
+    message: 'El teléfono {{ value }} ya está en uso en este negocio.',
+)]
+#[UniqueEntity(
+    fields: ['email', 'tenant'],
+    errorPath: 'email',
+    message: 'El email {{ value }} ya está en uso en este negocio.',
+)]
 class Customer
 {
     #[ORM\Id]

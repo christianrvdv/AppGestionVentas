@@ -7,6 +7,7 @@ namespace App\Repository;
 use App\Entity\Product;
 use App\Repository\Contract\ProductRepositoryInterface;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
@@ -30,6 +31,22 @@ class ProductRepository extends ServiceEntityRepository implements ProductReposi
             ->setParameter('tenantId', $tenantId)
             ->getQuery()
             ->getOneOrNullResult();
+    }
+
+    public function createPaginatedQueryBuilder(int $tenantId, ?string $q): QueryBuilder
+    {
+        $qb = $this->createQueryBuilder('p')
+            ->andWhere('p.tenant = :tenantId')
+            ->setParameter('tenantId', $tenantId)
+            ->orderBy('p.name', 'ASC')
+            ->addOrderBy('p.id', 'ASC');
+
+        if (null !== $q && '' !== $q) {
+            $qb->andWhere('(LOWER(p.name) LIKE :term OR LOWER(p.sku) LIKE :term)')
+                ->setParameter('term', '%' . mb_strtolower($q) . '%');
+        }
+
+        return $qb;
     }
 
     /**

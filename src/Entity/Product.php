@@ -9,12 +9,21 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 
 #[ORM\Entity(repositoryClass: ProductRepository::class)]
 #[ORM\Table(name: 'product')]
 #[ORM\UniqueConstraint(name: 'uniq_product_tenant_sku', columns: ['tenant_id', 'sku'])]
 #[ORM\Index(name: 'idx_product_tenant', columns: ['tenant_id'])]
 #[ORM\HasLifecycleCallbacks]
+// Unicidad de SKU POR TENANTE: `tenant` entra en los criterios y `ignoreNull`
+// (por defecto true) salta la comprobación cuando el SKU es null, igual que la
+// restricción `uniq_product_tenant_sku` de la BD. Ver ADR-0014.
+#[UniqueEntity(
+    fields: ['sku', 'tenant'],
+    errorPath: 'sku',
+    message: 'El SKU {{ value }} ya está en uso en este negocio.',
+)]
 class Product
 {
     #[ORM\Id]

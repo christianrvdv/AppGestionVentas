@@ -7,6 +7,7 @@ namespace App\Repository;
 use App\Entity\Customer;
 use App\Repository\Contract\CustomerRepositoryInterface;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
@@ -30,6 +31,22 @@ class CustomerRepository extends ServiceEntityRepository implements CustomerRepo
             ->setParameter('tenantId', $tenantId)
             ->getQuery()
             ->getOneOrNullResult();
+    }
+
+    public function createPaginatedQueryBuilder(int $tenantId, ?string $q): QueryBuilder
+    {
+        $qb = $this->createQueryBuilder('c')
+            ->andWhere('c.tenant = :tenantId')
+            ->setParameter('tenantId', $tenantId)
+            ->orderBy('c.name', 'ASC')
+            ->addOrderBy('c.id', 'ASC');
+
+        if (null !== $q && '' !== $q) {
+            $qb->andWhere('(LOWER(c.name) LIKE :term OR LOWER(c.phone) LIKE :term OR LOWER(c.email) LIKE :term)')
+                ->setParameter('term', '%' . mb_strtolower($q) . '%');
+        }
+
+        return $qb;
     }
 
     /**

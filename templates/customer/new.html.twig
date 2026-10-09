@@ -1,0 +1,15 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Nuevo cliente · Gestión de Negocio{% endblock %}
+
+{% block body %}
+    <div class="mx-auto w-full max-w-lg">
+        <h1 class="mb-6 text-2xl font-semibold text-foreground">Nuevo cliente</h1>
+        <p class="mb-6 text-sm text-muted">
+            El teléfono y el email son opcionales, pero si los usas no pueden
+            repetirse dentro del mismo negocio.
+        </p>
+
+        {% include 'customer/_form.html.twig' with {form: form, submit_label: 'Crear cliente'} %}
+    </div>
+{% endblock %}

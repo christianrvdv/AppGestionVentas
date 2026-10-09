@@ -1,0 +1,15 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Editar {{ product.name }} · Gestión de Negocio{% endblock %}
+
+{% block body %}
+    <div class="mx-auto w-full max-w-lg">
+        <h1 class="mb-6 text-2xl font-semibold text-foreground">Editar producto {{ product.name }}</h1>
+
+        {% include 'product/_form.html.twig' with {form: form, submit_label: 'Guardar cambios'} %}
+
+        <p class="mt-4">
+            <a href="{{ path('app_product_index') }}" class="text-sm text-brand hover:underline">Volver al listado</a>
+        </p>
+    </div>
+{% endblock %}

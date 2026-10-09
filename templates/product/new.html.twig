@@ -1,0 +1,15 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Nuevo producto · Gestión de Negocio{% endblock %}
+
+{% block body %}
+    <div class="mx-auto w-full max-w-lg">
+        <h1 class="mb-6 text-2xl font-semibold text-foreground">Nuevo producto</h1>
+        <p class="mb-6 text-sm text-muted">
+            El producto se agrega a este negocio. El SKU es opcional, pero si lo
+            usas no puede repetirse dentro del mismo negocio.
+        </p>
+
+        {% include 'product/_form.html.twig' with {form: form, submit_label: 'Crear producto'} %}
+    </div>
+{% endblock %}

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Functional;
 
 use App\Entity\AppUser;
+use App\Entity\Customer;
 use App\Entity\Investment;
 use App\Entity\InvestmentItem;
 use App\Entity\Product;
@@ -166,6 +167,20 @@ abstract class FunctionalTestCase extends WebTestCase
         $this->em->flush();
 
         return $product;
+    }
+
+    protected function seedCustomer(Tenant $tenant, string $name, ?string $phone = null, ?string $email = null): Customer
+    {
+        $customer = new Customer();
+        $customer->setTenant($tenant);
+        $customer->setName($name);
+        $customer->setPhone($phone);
+        $customer->setEmail($email);
+
+        $this->em->persist($customer);
+        $this->em->flush();
+
+        return $customer;
     }
 
     protected function addItemToInvestment(Investment $investment, Product $product, int $quantity = 1, string $unitCost = '100.00'): InvestmentItem
