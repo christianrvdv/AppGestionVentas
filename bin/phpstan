@@ -1,0 +1,54 @@
+#!/usr/bin/env php
+<?php
+
+/**
+ * Análisis estático del proyecto completo (ADR-0013).
+ *
+ * Ejecuta las dos configuraciones del proyecto, en este orden:
+ *   - phpstan.neon       nivel 6 sobre src/
+ *   - phpstan.tests.neon nivel 5 sobre tests/
+ *
+ * Uso:
+ *   php bin/phpstan
+ *   php bin/phpstan --memory-limit=1G
+ *   php bin/phpstan --error-format=raw
+ *
+ * Devuelve distinto de cero si falla cualquiera de las dos configuraciones.
+ */
+
+$root = dirname(__DIR__);
+$phpstan = $root.'/vendor/phpstan/phpstan/phpstan';
+
+if (!is_file($phpstan)) {
+    fwrite(STDERR, "No existe {$phpstan}. Ejecute `composer install` primero.\n");
+    exit(1);
+}
+
+$extra = implode(' ', array_map('escapeshellarg', array_slice($argv, 1)));
+
+$configs = [
+    'src (nivel 6)' => $root.'/phpstan.neon',
+    'tests (nivel 5)' => $root.'/phpstan.tests.neon',
+];
+
+$exit = 0;
+
+foreach ($configs as $label => $config) {
+    printf("Analizando %s...\n", $label);
+
+    $command = sprintf(
+        '%s %s analyse -c %s --no-progress %s',
+        escapeshellarg(PHP_BINARY),
+        escapeshellarg($phpstan),
+        escapeshellarg($config),
+        $extra
+    );
+
+    passthru($command, $code);
+
+    if (0 !== $code) {
+        $exit = $code;
+    }
+}
+
+exit($exit);

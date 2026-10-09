@@ -1,0 +1,10 @@
+includes:
+    - phpstan-common.neon
+
+parameters:
+    # Nivel 5 sobre tests (ADR-0013): los tests usan un tipo de dato más
+    # laxo (fixtures, arrays mixtos, stubs de Symfony) y subirlos a 6
+    # solo añade ruido sin encontrar bugs reales.
+    level: 5
+    paths:
+        - tests

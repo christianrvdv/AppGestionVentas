@@ -1,0 +1,22 @@
+includes:
+    - phpstan-common.neon
+
+parameters:
+    # Nivel 6 sobre código de producción (ADR-0013).
+    level: 6
+    paths:
+        - src
+
+    ignoreErrors:
+        -
+            # TODO(ADR-0013): Doctrine escribe el identificador por reflection
+            # durante la hidratación, así que PHPStan nunca ve una escritura de
+            # `$id` en el código de la app y lo reporta como property.onlyRead.
+            # Es un falso positivo de reflection, no código muerto: no se añade
+            # un setter artificial solo para callar al analizador.
+            #
+            # Al instalar phpstan/doctrine (ver ADR-0013) este ignore debe
+            # eliminarse: la extensión entiende el mapeo de identificadores.
+            message: '#Property App\\Entity\\.*::\$id is never written, only read.#'
+            identifier: property.onlyRead
+            path: src/Entity
