@@ -15,12 +15,14 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
  * Base de los tests de integración (capa de dominio sobre BD real del
- * driver de test: SQLite in-memory, ver phpunit.dist.xml).
+ * driver de test: PostgreSQL, app_control_ventas_test — ver .env.test;
+ * ADR-0011 unificó dev/test/prod en PostgreSQL).
  *
  * Cada test arranca con un esquema recién creado y limpio: se dropean
- * todas las tablas y se vuelven a crear desde los metadatos de Doctrine.
- * Así los tests son independientes de migraciones y del orden de
- * ejecución, y de paso validan que el mapping completo es creable.
+ * todas las tablas (con CASCADE, por las FKs de PostgreSQL) y se vuelven
+ * a crear desde los metadatos de Doctrine. Así los tests son
+ * independientes de migraciones y del orden de ejecución, y de paso
+ * validan que el mapping completo es creable.
  *
  * ATENCIÓN: el bundle DAMA doctrine-test-bundle NO tiene su extensión
  * PHPUnit activa en phpunit.dist.xml, por lo que NO hay rollback
@@ -55,8 +57,13 @@ abstract class IntegrationTestCase extends KernelTestCase
         $connection = $this->em->getConnection();
         $schemaManager = $connection->createSchemaManager();
 
+        // DROP ... CASCADE porque las tablas tienen FKs entre sí y el
+        // orden alfabético de listTableNames() no respeta las
+        // dependencias (en SQLite eso no hacía falta).
         foreach ($schemaManager->listTableNames() as $tableName) {
-            $schemaManager->dropTable($tableName);
+            $connection->executeStatement(
+                'DROP TABLE IF EXISTS '.$connection->quoteSingleIdentifier($tableName).' CASCADE'
+            );
         }
 
         $tool = new SchemaTool($this->em);
@@ -165,12 +172,9 @@ abstract class IntegrationTestCase extends KernelTestCase
     }
 
     /**
-     * Compara montos con precisión de 2 decimales.
-     *
-     * En SQLite (motor de tests) las columnas DECIMAL se guardan con
-     * afinidad NUMERIC: '50.00' vuelve como '50' y assertSame falla. En
-     * PostgreSQL los decimales se conservan, así que la comparación se
-     * hace con bccomp y es válida en ambos motores.
+     * Compara montos con precisión de 2 decimales (bccomp): en
+     * PostgreSQL una columna NUMERIC conserva la escala ('50.00'), y
+     * esta comparación es además válida en cualquier otro motor.
      */
     protected function assertDecimalEquals(string $expected, string $actual, string $message = ''): void
     {

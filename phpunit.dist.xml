@@ -5,7 +5,9 @@
     <ini name="error_reporting" value="-1" />
     <server name="APP_ENV" value="test" force="true" />
     <server name="SHELL_VERBOSITY" value="-1" />
-    <server name="DATABASE_URL" value="sqlite:///:memory:" force="true" />
+    <!-- La URL de test viene de .env.test: PostgreSQL (app_control_ventas_test),
+         el MISMO motor que dev y prod (ADR-0011). Antes se forzaba
+         sqlite:///:memory: acá; quitar ese override fue la unificación. -->
   </php>
   <testsuites>
     <testsuite name="Unit Tests">

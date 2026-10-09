@@ -164,7 +164,7 @@ final class InvestmentCrudTest extends FunctionalTestCase
         $this->assertCount(1, $reloaded->getItems());
         $item = $reloaded->getItems()->first();
         $this->assertSame(3, $item->getQuantity());
-        $this->assertSame('250.5', $item->getUnitCost());
+        $this->assertDecimalEquals('250.50', $item->getUnitCost());
     }
 
     public function testAddItemRejectsZeroQuantity(): void
@@ -210,7 +210,7 @@ final class InvestmentCrudTest extends FunctionalTestCase
         $this->em->clear();
         $reloaded = $this->em->getRepository(Investment::class)->find($investment->getId());
         $this->assertNotNull($reloaded->getConfirmedAt());
-        $this->assertSame('200', $reloaded->getTotalInvestment());
+        $this->assertDecimalEquals('200.00', $reloaded->getTotalInvestment());
 
         $summary = $this->em->getRepository(InvestmentSummary::class)->findOneBy(['investment' => $reloaded]);
         $this->assertNotNull($summary);

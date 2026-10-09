@@ -112,3 +112,8 @@ $RECYCLE.BIN/
 ###> tailwind compiled ###
 /assets/styles/app.compiled.css
 ###< tailwind compiled ###
+
+###> artefactos de consola ###
+# Referencia volcada de config (se regenera con config:dump-reference / debug:config)
+/config/reference.php
+###< artefactos de consola ###

@@ -21,10 +21,10 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 /**
  * Base de los tests funcionales (HTTP) de la capa de presentación.
  *
- * Usa el mismo SQLite in-memory que la suite de integración
- * (phpunit.dist.xml fuerza DATABASE_URL). Como cada petición con
- * kernel reboot crearía una conexión nueva (BD vacía), el client
- * comparte el kernel con disableReboot(): misma conexión, misma BD.
+ * Usa la BD de test PostgreSQL (app_control_ventas_test, ver .env.test;
+ *ADR-0011 unificó dev/test/prod en PostgreSQL). Como cada petición con
+ * kernel reboot crearía una conexión nueva, el client comparte el
+ * kernel con disableReboot(): misma conexión, misma BD.
  *
  * En esta versión del framework, WebTestCase::createClient() arranca
  * el kernel él mismo (no se puede bootKernel() antes), así que el
@@ -61,12 +61,37 @@ abstract class FunctionalTestCase extends WebTestCase
         $connection = $this->em->getConnection();
         $schemaManager = $connection->createSchemaManager();
 
+        // DROP ... CASCADE porque las tablas tienen FKs entre sí y el
+        // orden alfabético de listTableNames() no respeta las
+        // dependencias (en SQLite eso no hacía falta).
         foreach ($schemaManager->listTableNames() as $tableName) {
-            $schemaManager->dropTable($tableName);
+            $connection->executeStatement(
+                'DROP TABLE IF EXISTS '.$connection->quoteSingleIdentifier($tableName).' CASCADE'
+            );
         }
 
         $tool = new SchemaTool($this->em);
         $tool->createSchema($this->em->getMetadataFactory()->getAllMetadata());
+    }
+
+    /**
+     * Compara montos con precisión de 2 decimales (bccomp), válida en
+     * PostgreSQL y en cualquier motor: en SQLite una columna DECIMAL con
+     * afinidad NUMERIC puede devolver '50.00' como '50', y en
+     * PostgreSQL se conserva la escala ('50.00').
+     */
+    protected function assertDecimalEquals(string $expected, string $actual, string $message = ''): void
+    {
+        $this->assertSame(
+            0,
+            bccomp($expected, $actual, 2),
+            sprintf(
+                '%sSe esperaba "%s" y se obtuvo "%s".',
+                $message !== '' ? $message.' ' : '',
+                $expected,
+                $actual
+            )
+        );
     }
 
     /**
