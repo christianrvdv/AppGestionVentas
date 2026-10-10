@@ -10,6 +10,7 @@ use App\Exception\Domain\InvestmentAlreadyConfirmedException;
 use App\Service\ExpenseAllocationService;
 use App\Service\Investment\InvestmentItemCalculatorService;
 use App\Service\SettingsService;
+use Doctrine\ORM\EntityManagerInterface;
 
 /**
  * Gestión de gastos de una inversión (agregar, eliminar).
@@ -23,7 +24,8 @@ final class InvestmentExpenseService
     public function __construct(
         private readonly ExpenseAllocationService $allocationService,
         private readonly InvestmentItemCalculatorService $calculatorService,
-        private readonly SettingsService $settingsService
+        private readonly SettingsService $settingsService,
+        private readonly EntityManagerInterface $entityManager
     ) {}
 
     /**
@@ -99,7 +101,11 @@ final class InvestmentExpenseService
     }
 
     /**
-     * Elimina un gasto de la inversión.
+     * Elimina un gasto de la inversión (la fila, no solo la colección).
+     *
+     * La colección $expenses NO tiene orphanRemoval ([PHASE-0]: cascade solo
+     * persist), así que removeElement() por sí solo no borra nada en la base;
+     * el flush lo hace el llamador.
      *
      * @throws InvestmentAlreadyConfirmedException Si la inversión ya está confirmada
      */
@@ -112,6 +118,7 @@ final class InvestmentExpenseService
         }
 
         $investment->removeExpense($expense);
+        $this->entityManager->remove($expense);
 
         // Re-prorratea gastos restantes y recalcula ítems
         $this->allocationService->allocateForInvestment($investment);

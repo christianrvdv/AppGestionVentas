@@ -26,11 +26,10 @@ use Doctrine\Common\Collections\Collection;
  *   6. Actualiza InvestmentItem.allocatedExpense sumando EN MEMORIA.
  *
  * [FIX-2] Idempotencia: en lugar de DQL DELETE (que no ve entidades en memoria),
- *         se usa $expense->getAllocations()->clear(). Con orphanRemoval: true
- *         en InvestmentExpense::$allocations, Doctrine elimina las viejas al
- *         flush. Esto evita duplicados cuando el servicio se invoca dos veces
- *         en el mismo request (ej. addItem → addExpense → allocateForInvestment
- *         dos veces).
+ *         la rama sin base usa $expense->getAllocations()->clear() (orphanRemoval
+ *         las borra en el flush). Evita duplicados cuando el servicio se invoca
+ *         dos veces en el mismo request (ej. addItem -> addExpense ->
+ *         allocateForInvestment).
  *
  * [FIX-3] Claves de array por INSTANCIA, nunca por ID: los ítems de una
  *         inversión en borrador aún no tienen ID (getId() no está inicializado
@@ -39,6 +38,11 @@ use Doctrine\Common\Collections\Collection;
  *         spl_object_id($item), único para cada instancia en memoria.
  *         Vale para allocateForInvestment(), allocateExpense() y
  *         recalculateItemAllocatedExpenses().
+ *
+ * [FIX-4] Re-prorrateo con allocations YA persistidas (un segundo gasto, un ítem
+ *         agregado después): allocateExpense() reutiliza cada fila existente en
+ *         vez de clear() + recrear, porque Doctrine inserta antes de borrar y
+ *         la clave única uniq_allocation_expense_item rechazaría el INSERT.
  */
 final class ExpenseAllocationService
 {
@@ -107,10 +111,19 @@ final class ExpenseAllocationService
     {
         $expenseAmount = $expense->getAmount();
 
-        // [FIX-2] Idempotencia en memoria: clear() + orphanRemoval: true.
-        // NO usar deleteByExpense (DQL DELETE) porque no afecta entidades
-        // cargadas en memoria y produce duplicados en el mismo request.
-        $expense->getAllocations()->clear();
+        // [FIX-4] NO clear() + recrear: Doctrine ejecuta los INSERT antes que
+        // los DELETE (UnitOfWork::commit), así que reemplazar allocations ya
+        // persistidas inserta la fila nueva (expense, item) mientras la vieja
+        // sigue en la tabla y revienta en uniq_allocation_expense_item. Era
+        // latente porque solo se cubrió el caso "todo en el mismo flush".
+        // Se REUTILIZAN las allocations existentes por instancia de ítem
+        // (identity map, igual que en recalculateItemAllocatedExpenses) y solo
+        // se actualizan sus importes; las que sobran sí se retiran y Doctrine
+        // las borra sin colisionar (claves distintas a las insertadas).
+        $reusable = [];
+        foreach ($expense->getAllocations() as $allocation) {
+            $reusable[spl_object_id($allocation->getInvestmentItem())] = $allocation;
+        }
 
         $itemArray = array_values($items->toArray());
         $count = count($itemArray);
@@ -134,6 +147,17 @@ final class ExpenseAllocationService
                 $allocatedSum = bcadd($allocatedSum, $allocatedAmount, $scale);
             }
 
+            $key = spl_object_id($item);
+            $allocation = $reusable[$key] ?? null;
+
+            if ($allocation instanceof ExpenseAllocation) {
+                $allocation->setAllocatedAmount($allocatedAmount);
+                $allocation->setAllocationPct($allocationPct);
+                unset($reusable[$key]);
+
+                continue;
+            }
+
             $allocation = new ExpenseAllocation();
             $allocation->setTenant($expense->getTenant());
             $allocation->setInvestmentExpense($expense);
@@ -142,6 +166,13 @@ final class ExpenseAllocationService
             $allocation->setAllocationPct($allocationPct);
 
             $expense->addAllocation($allocation);
+        }
+
+        // Sobras: allocations de ítems que ya no están en la inversión (o
+        // duplicados heredados). Se insertaron claves para otros ítems, así
+        // que el DELETE no choca con ningún INSERT de este flush.
+        foreach ($reusable as $stale) {
+            $expense->removeAllocation($stale);
         }
     }
 

@@ -23,6 +23,22 @@ class InvestmentExpense
     public const CATEGORY_STORAGE = 'STORAGE';
     public const CATEGORY_OTHER = 'OTHER';
 
+    /**
+     * Etiquetas en español de las categorías (las comparten el form de alta
+     * y el detalle). El set es cerrado por diseño, por eso no hay entidad
+     * de categorías: es una constante.
+     *
+     * @var array<string, string>
+     */
+    public const CATEGORY_LABELS = [
+        self::CATEGORY_TRANSPORT => 'Transporte',
+        self::CATEGORY_FOOD => 'Alimentos',
+        self::CATEGORY_BATHROOM => 'Limpieza y baño',
+        self::CATEGORY_SNACK => 'Snacks',
+        self::CATEGORY_STORAGE => 'Almacenamiento',
+        self::CATEGORY_OTHER => 'Otros',
+    ];
+
     #[ORM\Id]
     #[ORM\GeneratedValue(strategy: 'IDENTITY')]
     #[ORM\Column(type: Types::INTEGER)]

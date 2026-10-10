@@ -6,13 +6,16 @@ namespace App\Controller;
 
 use App\Entity\AppUser;
 use App\Entity\Investment;
+use App\Entity\InvestmentExpense;
 use App\Exception\Domain\DomainException;
 use App\Form\InvestmentCancelFormType;
+use App\Form\InvestmentExpenseFormType;
 use App\Form\InvestmentFormType;
 use App\Form\InvestmentItemFormType;
 use App\Repository\Contract\InvestmentRepositoryInterface;
 use App\Service\Investment\InvestmentConfirmationService;
 use App\Service\Investment\InvestmentCreationService;
+use App\Service\Investment\InvestmentExpenseService;
 use App\Service\Investment\InvestmentItemService;
 use App\Service\Investment\InvestmentStateMachine;
 use App\Service\TenantContext;
@@ -20,6 +23,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Knp\Component\Pager\PaginatorInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\Extension\Core\Type\FormType;
+use Symfony\Component\Form\FormInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -45,6 +49,7 @@ final class InvestmentController extends AbstractController
         private readonly InvestmentRepositoryInterface $investmentRepository,
         private readonly InvestmentCreationService $creationService,
         private readonly InvestmentItemService $itemService,
+        private readonly InvestmentExpenseService $expenseService,
         private readonly InvestmentConfirmationService $confirmationService,
         private readonly InvestmentStateMachine $stateMachine,
         private readonly EntityManagerInterface $entityManager,
@@ -112,24 +117,86 @@ final class InvestmentController extends AbstractController
     #[Route('/{id}', name: 'app_investment_show', requirements: ['id' => '\d+'], methods: ['GET'])]
     public function show(int $id): Response
     {
+        return $this->renderShow($this->findInvestment($id), $this->createExpenseForm());
+    }
+
+    #[Route('/{id}/gastos', name: 'app_investment_add_expense', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function addExpense(int $id, Request $request): Response
+    {
         $investment = $this->findInvestment($id);
+        $this->assertValidCsrf($request, 'investment_expense_form');
 
-        $itemForm = $this->createForm(InvestmentItemFormType::class, [
-            'product' => null,
-            'quantity' => 1,
-            'unitCost' => null,
-        ]);
-        $cancelForm = $this->createForm(InvestmentCancelFormType::class, ['reason' => null]);
-        $confirmForm = $this->createForm(FormType::class);
+        if (!$this->canModify($investment)) {
+            $this->addFlash('error', 'Solo las inversiones abiertas sin confirmar pueden recibir gastos.');
 
-        return $this->render('investment/show.html.twig', [
-            'investment' => $investment,
-            'item_form' => $itemForm->createView(),
-            'cancel_form' => $cancelForm->createView(),
-            'confirm_form' => $confirmForm->createView(),
-            'status_labels' => self::statusLabels(),
-            'can_modify' => $investment->getStatus() === Investment::STATUS_OPEN && !$investment->isConfirmed(),
-        ]);
+            return $this->redirectToRoute('app_investment_show', ['id' => $id]);
+        }
+
+        $form = $this->createExpenseForm();
+        $form->handleRequest($request);
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            /** @var array{category: string, amount: string, expenseDate: \DateTimeImmutable, description: ?string, isAllocated: bool} $data */
+            $data = $form->getData();
+
+            try {
+                $this->expenseService->addExpense(
+                    $investment,
+                    $data['category'],
+                    number_format((float) $data['amount'], 2, '.', ''),
+                    $data['expenseDate'],
+                    $data['description'] ?? null,
+                    (bool) $data['isAllocated'],
+                );
+                $this->entityManager->flush();
+
+                $this->addFlash('success', 'Gasto agregado.');
+            } catch (DomainException|\InvalidArgumentException $e) {
+                $this->addFlash('error', $e->getMessage());
+            }
+
+            return $this->redirectToRoute('app_investment_show', ['id' => $id]);
+        }
+
+        // Form inválido (validación de campos): se re-renderiza el detalle
+        // con los errores en su sitio; un redirect los perdería.
+        return $this->renderShow($investment, $form);
+    }
+
+    #[Route('/{id}/gastos/{expenseId}/eliminar', name: 'app_investment_remove_expense', requirements: ['id' => '\d+', 'expenseId' => '\d+'], methods: ['POST'])]
+    public function removeExpense(int $id, int $expenseId, Request $request): Response
+    {
+        $investment = $this->findInvestment($id);
+        $this->assertValidCsrf($request, null);
+
+        if (!$this->canModify($investment)) {
+            $this->addFlash('error', 'Solo las inversiones abiertas sin confirmar pueden modificar sus gastos.');
+
+            return $this->redirectToRoute('app_investment_show', ['id' => $id]);
+        }
+
+        $expense = null;
+        foreach ($investment->getExpenses() as $candidate) {
+            if ($candidate->getId() === $expenseId) {
+                $expense = $candidate;
+                break;
+            }
+        }
+
+        if (!$expense instanceof InvestmentExpense) {
+            throw $this->createNotFoundException('El gasto no existe.');
+        }
+
+        try {
+            $this->expenseService->removeExpense($expense);
+            $this->entityManager->flush();
+
+            $this->addFlash('success', 'Gasto eliminado.');
+        } catch (DomainException|\InvalidArgumentException $e) {
+            $this->addFlash('error', $e->getMessage());
+        }
+
+        return $this->redirectToRoute('app_investment_show', ['id' => $id]);
     }
 
     #[Route('/{id}/items', name: 'app_investment_add_item', requirements: ['id' => '\d+'], methods: ['POST'])]
@@ -175,7 +242,7 @@ final class InvestmentController extends AbstractController
     {
         $investment = $this->findInvestment($id);
 
-        if ($investment->getStatus() !== Investment::STATUS_OPEN || $investment->isConfirmed()) {
+        if (!$this->canModify($investment)) {
             $this->addFlash('error', 'Solo las inversiones abiertas sin confirmar pueden editarse.');
 
             return $this->redirectToRoute('app_investment_show', ['id' => $id]);
@@ -269,6 +336,76 @@ final class InvestmentController extends AbstractController
         }
 
         return $investment;
+    }
+
+    /**
+     * Detalle de la inversión (GET) o re-render del detalle cuando el form
+     * de gastos vuelve inválido: el mismo FormInterface permite conservar
+     * lo enviado y mostrar los errores de campo en su sitio.
+     */
+    private function renderShow(Investment $investment, FormInterface $expenseForm): Response
+    {
+        $itemForm = $this->createForm(InvestmentItemFormType::class, [
+            'product' => null,
+            'quantity' => 1,
+            'unitCost' => null,
+        ]);
+        $cancelForm = $this->createForm(InvestmentCancelFormType::class, ['reason' => null]);
+        $confirmForm = $this->createForm(FormType::class);
+
+        return $this->render('investment/show.html.twig', [
+            'investment' => $investment,
+            'item_form' => $itemForm->createView(),
+            'cancel_form' => $cancelForm->createView(),
+            'confirm_form' => $confirmForm->createView(),
+            'expense_form' => $expenseForm->createView(),
+            'status_labels' => self::statusLabels(),
+            'expense_category_labels' => InvestmentExpense::CATEGORY_LABELS,
+            'can_modify' => $this->canModify($investment),
+        ]);
+    }
+
+    /**
+     * Form de gasto vacío con los defaults de la UI (fecha de hoy y
+     * gasto prorrateable, que es el caso habitual).
+     */
+    private function createExpenseForm(): FormInterface
+    {
+        return $this->createForm(InvestmentExpenseFormType::class, [
+            'category' => null,
+            'amount' => null,
+            'expenseDate' => new \DateTimeImmutable('today'),
+            'description' => null,
+            'isAllocated' => true,
+        ]);
+    }
+
+    /**
+     * Solo una inversión abierta y no confirmada admite cambios (ítems,
+     * gastos, edición de cabecera).
+     */
+    private function canModify(Investment $investment): bool
+    {
+        return Investment::STATUS_OPEN === $investment->getStatus() && !$investment->isConfirmed();
+    }
+
+    /**
+     * CSRF plano con el token id "submit" (stateless, ver
+     * config/packages/csrf.yaml): sirve igual para los forms embebidos y
+     * para los POST sueltos. Un token inválido responde 403, no un
+     * redirect con flash, para no confundir un ataque con un error de datos.
+     *
+     * @param string|null $formName Nombre del form (su campo _token) o null
+     *                              para un POST con campo _csrf_token plano
+     */
+    private function assertValidCsrf(Request $request, ?string $formName): void
+    {
+        $payload = null !== $formName ? $request->request->all($formName) : $request->request->all();
+        $token = null !== $formName ? ($payload['_token'] ?? null) : ($payload['_csrf_token'] ?? null);
+
+        if (!\is_string($token) || !$this->isCsrfTokenValid('submit', $token)) {
+            throw $this->createAccessDeniedException('CSRF inválido.');
+        }
     }
 
     private function requireTenantId(): int
