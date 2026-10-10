@@ -26,6 +26,17 @@ use Symfony\Component\Security\Core\User\UserInterface;
 #[ORM\HasLifecycleCallbacks]
 class AppUser implements UserInterface, PasswordAuthenticatedUserInterface
 {
+    /**
+     * Rol GLOBAL de administración del sistema (ADR-0016).
+     *
+     * No es un rol de membresía: otorga visión de todo el sistema
+     * (usuarios, tenants y datos de cualquier negocio) sin necesidad de
+     * pertenecer a ningún tenant. El super_admin no requiere tenant
+     * activo (TenantFilterListener deshabilita el filtro para él y
+     * RequireTenantListener no lo redirige a /select-tenant).
+     */
+    public const ROLE_SUPER_ADMIN = 'ROLE_SUPER_ADMIN';
+
     #[ORM\Id]
     #[ORM\GeneratedValue(strategy: 'IDENTITY')]
     #[ORM\Column(type: Types::INTEGER)]
@@ -132,6 +143,18 @@ class AppUser implements UserInterface, PasswordAuthenticatedUserInterface
         $roles = $this->roles;
         $roles[] = 'ROLE_USER';
         return array_unique($roles);
+    }
+
+    /**
+     * ¿Tiene el rol global de administración del sistema (ADR-0016)?
+     *
+     * Comprueba los roles GUARDADOS (no getRoles(), que añade
+     * ROLE_USER por convención): el super_admin es quien lo tiene
+     * declarado explícitamente.
+     */
+    public function isSuperAdmin(): bool
+    {
+        return \in_array(self::ROLE_SUPER_ADMIN, $this->roles, true);
     }
 
     /**

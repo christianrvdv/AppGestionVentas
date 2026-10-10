@@ -59,6 +59,13 @@ final class TenantSessionListener
         // otro usuario (o del remember_me de otro browser).
         $this->activeTenantSession->clear();
 
+        // super_admin (ADR-0016): no requiere tenant activo ni
+        // membresías. Se sigue al destino normal del form_login (/),
+        // cuyo RequireTenantListener también lo deja pasar.
+        if ($user->isSuperAdmin()) {
+            return;
+        }
+
         $memberships = $this->membershipRepository->findByUser($user);
 
         if ([] === $memberships) {

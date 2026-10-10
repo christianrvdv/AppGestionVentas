@@ -15,10 +15,16 @@ use App\Entity\AppUser;
  * este repositorio recibe $tenantId. La pertenencia a negocios vive en
  * TenantMembership (ver TenantMembershipRepositoryInterface).
  *
- * Los dos métodos son, por diseño, los ÚNICOS lookups de la capa de
- * repositorio que ignoran el tenant activo: los ejecuta exclusivamente
- * AppUserProvider (login y refresco de sesión), con el TenantFilter
- * deshabilitado y nunca para leer datos de negocio.
+ * Los métodos findOneByEmail y findById son, por diseño, los ÚNICOS
+ * lookups de login de la capa de repositorio que ignoran el tenant
+ * activo: los ejecuta exclusivamente AppUserProvider (login y refresco
+ * de sesión), con el TenantFilter deshabilitado y nunca para leer datos
+ * de negocio.
+ *
+ * findAll() es distinto: existe para la VISIÓN GLOBAL del super_admin
+ * (ADR-0016) vía el comando CLI app:user:list. Lista identidades, no
+ * datos de negocio, y su consumidor es el panel de administración, no
+ * el flujo web por tenant.
  */
 interface AppUserRepositoryInterface
 {
@@ -45,4 +51,17 @@ interface AppUserRepositoryInterface
      * Verificado por test: AppUserRepositoryInterfaceTest (reflexión).
      */
     public function findById(int $id): ?AppUser;
+
+    /**
+     * Todos los usuarios del sistema, para la visión global del
+     * super_admin (ADR-0016; comando app:user:list).
+     *
+     * Lista identidades de aplicación — no datos de negocio — y su
+     * único consumidor es el panel de administración (CLI en la Fase
+     * 3.6, vistas /admin en una posterior). Los lookups de negocio
+     * siguen amarrados a su tenant vía TenantFilter.
+     *
+     * @return AppUser[]
+     */
+    public function findAll(): array;
 }

@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Doctrine\EventListener;
 
 use App\Doctrine\Filter\TenantFilter;
+use App\Entity\AppUser;
 use App\Security\ActiveTenantSession;
 use App\Service\TenantContext;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 
 /**
  * Habilita y configura el TenantFilter al inicio de cada request HTTP.
@@ -36,6 +38,14 @@ use Symfony\Component\HttpKernel\KernelEvents;
  * toda entidad con asociación `tenant` queda fuera. Es el default
  * seguro: sin negocio activo no se lee ni se escribe un solo dato.
  *
+ * EXCEPCIÓN super_admin (ADR-0016): si el usuario autenticado tiene
+ * ROLE_SUPER_ADMIN, el filtro se DESHABILITA y TenantContext se limpia.
+ * El super_admin ve y opera sobre todos los tenants por diseño (la
+ * revisión de datos de todos los negocios es su función); no tiene ni
+ * requiere tenant activo, así que el filtro "tenantId 0" lo dejaría sin
+ * ver nada. Al deshabilitarlo, sus consultas (vistas /admin, fase
+ * posterior) no llevan la cláusula del filtro.
+ *
  * Para comandos CLI:
  *   - Si no quieren filtrado, no pasa nada: el filtro queda deshabilitado
  *     porque este listener solo corre en kernel.request.
@@ -49,12 +59,28 @@ final class TenantFilterListener
         private readonly EntityManagerInterface $em,
         private readonly ActiveTenantSession $activeTenantSession,
         private readonly TenantContext $tenantContext,
+        private readonly TokenStorageInterface $tokenStorage,
     ) {
     }
 
     public function __invoke(RequestEvent $event): void
     {
         if (!$event->isMainRequest()) {
+            return;
+        }
+
+        // super_admin (ADR-0016): sin filtro de tenant y sin contexto.
+        // El firewall (prioridad 8) ya autenticó, así que el token está
+        // disponible aquí (prioridad 5).
+        if ($this->isSuperAdmin()) {
+            $this->tenantContext->clear();
+
+            $filters = $this->em->getFilters();
+
+            if ($filters->isEnabled(TenantFilter::NAME)) {
+                $filters->disable(TenantFilter::NAME);
+            }
+
             return;
         }
 
@@ -79,5 +105,12 @@ final class TenantFilterListener
             (string)($tenantId ?? 0),
             'integer'
         );
+    }
+
+    private function isSuperAdmin(): bool
+    {
+        $user = $this->tokenStorage->getToken()?->getUser();
+
+        return $user instanceof AppUser && $user->isSuperAdmin();
     }
 }

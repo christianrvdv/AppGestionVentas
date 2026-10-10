@@ -27,6 +27,14 @@ use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInt
  *   - sin membresías → /onboarding (crear su primer negocio);
  *   - con una o más   → /select-tenant (elegir cuál usar).
  *
+ * EXCEPCIÓN super_admin (ADR-0016): el rol global no requiere tenant
+ * activo ni membresías. Sin este bypass, un super_admin sin membresías
+ * quedaría atrapado en un loop de redirecciones (cualquier ruta no
+ * blanqueada lo mandaría a /onboarding, que a su vez lo dejaría crear
+ * un negocio que no necesita). Con él, el super_admin navega por / y
+ * /admin con TenantContext limpio (TenantFilterListener se encarga del
+ * filtro).
+ *
  * Orden en kernel.request: el firewall corre a 8 (autentica y despacha
  * LoginSuccessEvent, que ya redirige con el tenant correcto), este
  * listener corre a 6 (después del firewall y de access_control, antes
@@ -34,8 +42,10 @@ use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInt
  * conocido).
  *
  * Los caminos permitidos son de "antes de elegir negocio": login,
- * logout, el selector, el alta de negocio y las herramientas del
- * framework (profiler, assets), que no tocan datos de negocio.
+ * logout, el selector, el alta de negocio, el panel de administración
+ * (/admin, que exige ROLE_SUPER_ADMIN vía access_control y por diseño
+ * no opera con un tenant concreto) y las herramientas del framework
+ * (profiler, assets), que no tocan datos de negocio.
  */
 #[AsEventListener(event: KernelEvents::REQUEST, priority: 6)]
 final class RequireTenantListener
@@ -48,10 +58,11 @@ final class RequireTenantListener
 
     /**
      * Prefijos (no rutas exactas) que no dependen de un negocio activo:
-     * infraestructura del framework (profiler, assets) y el selector de
-     * negocio, que además tiene la subruta POST /select-tenant/{id} — si
+     * infraestructura del framework (profiler, assets), el selector de
+     * negocio — que además tiene la subruta POST /select-tenant/{id}, si
      * solo se blanqueara la ruta exacta, el propio cambio de negocio
-     * rebotaría contra este listener.
+     * rebotaría contra este listener — y el panel /admin, de alcance
+     * global (ADR-0016).
      */
     private const ALLOWED_PREFIXES = [
         '/_profiler',
@@ -60,6 +71,7 @@ final class RequireTenantListener
         '/assets',
         '/build',
         '/select-tenant',
+        '/admin',
     ];
 
     public function __construct(
@@ -89,6 +101,12 @@ final class RequireTenantListener
         $user = $this->tokenStorage->getToken()?->getUser();
 
         if (!$user instanceof AppUser) {
+            return;
+        }
+
+        // super_admin (ADR-0016): el rol global no opera con un negocio
+        // concreto, así que nunca se le exige tenant activo.
+        if ($user->isSuperAdmin()) {
             return;
         }
 

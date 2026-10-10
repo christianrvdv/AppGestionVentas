@@ -57,7 +57,11 @@ security:
 
     access_control:
         - { path: ^/login, roles: PUBLIC_ACCESS }
-        - { path: ^/admin, roles: ROLE_ADMIN }
+        # Panel de administración global (ADR-0016): exige el rol
+        # GLOBAL ROLE_SUPER_ADMIN, no un rol de membresía. A diferencia
+        # de ^/ (ROLE_USER), aquí la membresía no alcanza: solo un
+        # super_admin pasa.
+        - { path: ^/admin, roles: ROLE_SUPER_ADMIN }
         - { path: ^/, roles: ROLE_USER }
 
 when@test:

@@ -51,4 +51,20 @@ class AppUserRepository extends ServiceEntityRepository implements AppUserReposi
             ->getQuery()
             ->getOneOrNullResult();
     }
+
+    /**
+     * Todos los usuarios del sistema (ADR-0016): visión global del
+     * super_admin vía app:user:list. Lista identidades, no datos de
+     * negocio; el filtro de tenant no aplica a app_user (no tiene
+     * asociación `tenant`).
+     *
+     * @return AppUser[]
+     */
+    public function findAll(): array
+    {
+        return $this->createQueryBuilder('u')
+            ->orderBy('u.email', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
 }

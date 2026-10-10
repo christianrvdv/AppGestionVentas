@@ -1,0 +1,19 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Administración · Gestión de Negocio{% endblock %}
+
+{% block body %}
+    <h1 class="mb-6 text-2xl font-semibold text-foreground">Administración</h1>
+
+    <section aria-labelledby="titulo-panel" class="mb-10">
+        <h2 id="titulo-panel" class="mb-4 text-lg font-medium text-foreground">Panel global</h2>
+
+        <div class="rounded border border-border bg-surface px-4 py-3 text-sm text-muted">
+            Panel en construcción: la administración de usuarios y
+            negocios del sistema se gestiona hoy desde la CLI
+            (<code class="font-mono">app:user:list</code>,
+            <code class="font-mono">app:user:create</code>,
+            <code class="font-mono">app:user:change-password</code>).
+        </div>
+    </section>
+{% endblock %}

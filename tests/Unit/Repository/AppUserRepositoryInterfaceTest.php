@@ -17,13 +17,25 @@ use PHPUnit\Framework\TestCase;
  * reintroduce un método parametrizado por tenant, la suite falla antes
  * de que el dato pueda aislarse mal.
  *
+ * La Fase 3.6 (ADR-0016) agregó findAll(): la visión global del
+ * super_admin lista IDENTIDADES de aplicación (no datos de negocio) y
+ * tampoco recibe $tenantId — el invariante de "sin tenant en la firma"
+ * se mantiene intacto.
+ *
  * Test de reflexión a propósito: no ejecuta Doctrine, vive en la suite
  * Unit y no necesita kernel.
  */
 final class AppUserRepositoryInterfaceTest extends TestCase
 {
     /** @var string[] */
-    private const EXPECTED_METHODS = ['findOneByEmail', 'findById'];
+    private const EXPECTED_METHODS = ['findAll', 'findById', 'findOneByEmail'];
+
+    /**
+     * Lookups de login/identidad, definidos por ADR-0015.
+     *
+     * @var string[]
+     */
+    private const IDENTITY_LOOKUPS = ['findById', 'findOneByEmail'];
 
     public function testExposesExactlyTheGlobalIdentityLookups(): void
     {
@@ -42,8 +54,8 @@ final class AppUserRepositoryInterfaceTest extends TestCase
         $this->assertSame(
             $expected,
             $names,
-            'El contrato de usuarios es global: exactamente findOneByEmail + findById. '
-            .'Si hace otro lookup, abrir un ADR antes de agregarlo.'
+            'El contrato de usuarios es global: findOneByEmail + findById (ADR-0015) '
+            .'y findAll (ADR-0016). Si hace otro lookup, abrir un ADR antes de agregarlo.'
         );
     }
 
@@ -67,7 +79,7 @@ final class AppUserRepositoryInterfaceTest extends TestCase
 
     public function testLookupsAreDocumentedAsGlobalIdentity(): void
     {
-        foreach (self::EXPECTED_METHODS as $name) {
+        foreach (self::IDENTITY_LOOKUPS as $name) {
             $method = new \ReflectionMethod(AppUserRepositoryInterface::class, $name);
             $doc = (string) $method->getDocComment();
 
@@ -78,5 +90,18 @@ final class AppUserRepositoryInterfaceTest extends TestCase
                 sprintf('El docblock de %s() debe remitir al ADR que define la identidad global.', $name)
             );
         }
+    }
+
+    public function testFindAllIsDocumentedBySuperAdminAdr(): void
+    {
+        $method = new \ReflectionMethod(AppUserRepositoryInterface::class, 'findAll');
+        $doc = (string) $method->getDocComment();
+
+        $this->assertNotSame('', $doc, 'findAll() debe llevar docblock: justifica la visión global.');
+        $this->assertStringContainsString(
+            'ADR-0016',
+            $doc,
+            'El docblock de findAll() debe remitir al ADR que autoriza la visión global del super_admin.'
+        );
     }
 }
