@@ -27,6 +27,21 @@
         <a href="{{ path('app_investment_index') }}" class="text-sm text-brand hover:underline">Volver al listado</a>
     </div>
 
+    {% if investment.status == 'CLOSED' %}
+        <div class="mb-6 rounded border border-brand/30 bg-brand/10 p-4" role="status" aria-live="polite">
+            <div class="flex items-center gap-2 text-brand">
+                <svg class="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <strong>Inversión cerrada</strong>
+            </div>
+            <p class="mt-1 text-sm text-foreground">
+                Esta inversión fue cerrada el {{ investment.closedAt|date('d/m/Y H:i') }}.
+                No se esperan más operaciones, pero el historial permanece consultable.
+            </p>
+        </div>
+    {% endif %}
+
     <section aria-labelledby="titulos-cabecera" class="mb-10">
         <h2 id="titulos-cabecera" class="mb-4 text-lg font-medium text-foreground">Resumen</h2>
         <dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -319,6 +334,24 @@
             </div>
         {% endif %}
     </section>
+
+    {% if can_close %}
+        <section aria-labelledby="titulos-cerrar" class="mb-6">
+            <h2 id="titulos-cerrar" class="mb-4 text-lg font-medium text-foreground">Cerrar inversión</h2>
+            <div class="space-y-4 rounded border border-warning/30 bg-warning/10 p-4">
+                <p class="text-sm text-foreground">
+                    Al cerrar la inversión, no se permitirán más operaciones (ítems, gastos, ventas).
+                    El historial permanece consultable. Esta acción es irreversible.
+                </p>
+                {{ form_start(close_form, {action: path('app_investment_close', {id: investment.id}), method: 'POST', attr: {class: 'inline', onsubmit: "return confirm('¿Estás seguro de cerrar esta inversión? No se podrán agregar más ítems, gastos ni ventas.');"}}) }}
+                    <button
+                        type="submit"
+                        class="rounded border border-warning/40 bg-surface px-4 py-2 text-sm font-medium text-warning hover:bg-warning/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning"
+                    >Cerrar inversión</button>
+                {{ form_end(close_form) }}
+            </div>
+        </section>
+    {% endif %}
 
     {% if can_modify %}
         <section aria-labelledby="titulos-cancelar" class="mb-6">

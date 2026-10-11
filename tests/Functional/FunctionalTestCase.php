@@ -456,7 +456,7 @@ abstract class FunctionalTestCase extends WebTestCase
      * @param callable(): T $fn
      * @return T
      */
-    private function runAsTenant(int $tenantId, callable $fn): mixed
+    protected function runAsTenant(int $tenantId, callable $fn): mixed
     {
         $context = static::getContainer()->get(TenantContext::class);
         $previous = $context->getTenantId();

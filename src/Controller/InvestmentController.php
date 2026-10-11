@@ -327,6 +327,26 @@ final class InvestmentController extends AbstractController
         return $this->redirectToRoute('app_investment_show', ['id' => $id]);
     }
 
+    #[Route('/{id}/cerrar', name: 'app_investment_close', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function close(int $id, Request $request): Response
+    {
+        $investment = $this->findInvestment($id);
+
+        // CSRF plano con token ID "form" (coincide con el formulario renderizado en la plantilla)
+        $this->assertValidCsrf($request, 'form');
+
+        try {
+            $this->stateMachine->close($investment);
+            $this->entityManager->flush();
+
+            $this->addFlash('success', 'Inversión cerrada.');
+        } catch (DomainException $e) {
+            $this->addFlash('error', $e->getMessage());
+        }
+
+        return $this->redirectToRoute('app_investment_show', ['id' => $id]);
+    }
+
     private function findInvestment(int $id): Investment
     {
         $investment = $this->investmentRepository->findByIdAndTenant($id, $this->requireTenantId());
@@ -352,16 +372,19 @@ final class InvestmentController extends AbstractController
         ]);
         $cancelForm = $this->createForm(InvestmentCancelFormType::class, ['reason' => null]);
         $confirmForm = $this->createForm(FormType::class);
+        $closeForm = $this->createForm(FormType::class);
 
         return $this->render('investment/show.html.twig', [
             'investment' => $investment,
             'item_form' => $itemForm->createView(),
             'cancel_form' => $cancelForm->createView(),
             'confirm_form' => $confirmForm->createView(),
+            'close_form' => $closeForm->createView(),
             'expense_form' => $expenseForm->createView(),
             'status_labels' => self::statusLabels(),
             'expense_category_labels' => InvestmentExpense::CATEGORY_LABELS,
             'can_modify' => $this->canModify($investment),
+            'can_close' => $this->canClose($investment),
         ]);
     }
 
@@ -387,6 +410,21 @@ final class InvestmentController extends AbstractController
     private function canModify(Investment $investment): bool
     {
         return Investment::STATUS_OPEN === $investment->getStatus() && !$investment->isConfirmed();
+    }
+
+    /**
+     * Una inversión se puede cerrar desde OPEN, PARTIAL o RECOVERED.
+     * No se puede cerrar desde CLOSED (idempotente) ni CANCELLED (error).
+     */
+    private function canClose(Investment $investment): bool
+    {
+        $status = $investment->getStatus();
+
+        return \in_array($status, [
+            Investment::STATUS_OPEN,
+            Investment::STATUS_PARTIAL,
+            Investment::STATUS_RECOVERED,
+        ], true);
     }
 
     /**
