@@ -40,4 +40,9 @@ interface UsdRateRepositoryInterface
         \DateTimeImmutable $from,
         \DateTimeImmutable $to
     ): array;
+
+    /**
+     * QueryBuilder para paginación, ordenado rateDate DESC, createdAt DESC.
+     */
+    public function createPaginatedQueryBuilder(int $tenantId): \Doctrine\ORM\QueryBuilder;
 }

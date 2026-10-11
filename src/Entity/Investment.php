@@ -134,6 +134,9 @@ class Investment
     #[ORM\OneToMany(mappedBy: 'investment', targetEntity: Sale::class)]
     private Collection $sales;
 
+    #[ORM\OneToOne(mappedBy: 'investment', targetEntity: InvestmentSummary::class, cascade: ['persist'])]
+    private ?InvestmentSummary $summary = null;
+
     public function __construct()
     {
         $this->items = new ArrayCollection();
@@ -141,6 +144,22 @@ class Investment
         $this->sales = new ArrayCollection();
         $this->createdAt = new \DateTimeImmutable();
         $this->updatedAt = new \DateTimeImmutable();
+    }
+
+    public function getSummary(): ?InvestmentSummary
+    {
+        return $this->summary;
+    }
+
+    public function setSummary(?InvestmentSummary $summary): self
+    {
+        $this->summary = $summary;
+
+        if ($summary !== null && $summary->getInvestment() !== $this) {
+            $summary->setInvestment($this);
+        }
+
+        return $this;
     }
 
     #[ORM\PrePersist]

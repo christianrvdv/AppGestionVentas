@@ -79,7 +79,14 @@
                                 <a href="{{ path('app_report_profit') }}" class="block px-4 py-2 text-sm text-foreground hover:bg-muted {% if app.request.attributes.get('_route') == 'app_report_profit' %}font-semibold text-brand{% endif %}" role="menuitem">Ganancias</a>
                                 <a href="{{ path('app_report_investment') }}" class="block px-4 py-2 text-sm text-foreground hover:bg-muted {% if app.request.attributes.get('_route') == 'app_report_investment' %}font-semibold text-brand{% endif %}" role="menuitem">Inversiones</a>
                                 <a href="{{ path('app_report_product') }}" class="block px-4 py-2 text-sm text-foreground hover:bg-muted {% if app.request.attributes.get('_route') == 'app_report_product' %}font-semibold text-brand{% endif %}" role="menuitem">Productos</a>
+                                <a href="{{ path('app_report_revaluation') }}" class="block px-4 py-2 text-sm text-foreground hover:bg-muted {% if app.request.attributes.get('_route') == 'app_report_revaluation' %}font-semibold text-brand{% endif %}" role="menuitem">Revaluación USD</a>
                             </div>
+                        </li>
+                        <li>
+                            <a
+                                href="{{ path('app_usd_rate_index') }}"
+                                class="{{ app.request.attributes.get('_route') starts with 'app_usd_rate_' ? 'font-semibold text-brand' : 'text-foreground hover:text-brand' }}"
+                            >Tasas USD</a>
                         </li>
                         <li><span aria-disabled="true" class="cursor-not-allowed text-muted">Configuración</span></li>
                     </ul>

@@ -7,6 +7,7 @@ namespace App\Controller;
 use App\DTO\Report\InvestmentReportFilters;
 use App\DTO\Report\ProductRankingFilters;
 use App\DTO\Report\ProfitReportFilters;
+use App\DTO\Report\RevaluationReportFilters;
 use App\Service\Report\InvestmentReportService;
 use App\Service\Report\ProductRankingService;
 use App\Service\Report\ProfitReportService;
@@ -30,6 +31,7 @@ final class ReportController extends AbstractController
         private readonly ProfitReportService $profitReportService,
         private readonly InvestmentReportService $investmentReportService,
         private readonly ProductRankingService $productRankingService,
+        private readonly \App\Repository\Contract\ItemCostRevaluationRepositoryInterface $revaluationRepository,
     ) {
     }
 
@@ -61,6 +63,65 @@ final class ReportController extends AbstractController
         $data = $this->productRankingService->generate($tenantId, $filters);
 
         return $this->render('report/product.html.twig', $data);
+    }
+
+    #[Route('/revaluacion', name: 'app_report_revaluation', methods: ['GET'])]
+    public function revaluation(Request $request): Response
+    {
+        $tenantId = $this->requireTenantId();
+        $filters = $this->buildRevaluationFilters($request);
+        $data = $this->buildRevaluationData($tenantId, $filters);
+
+        return $this->render('report/revaluation.html.twig', $data);
+    }
+
+    private function buildRevaluationFilters(Request $request): RevaluationReportFilters
+    {
+        $from = $request->query->get('from') ? new \DateTimeImmutable($request->query->get('from')) : null;
+        $to = $request->query->get('to') ? new \DateTimeImmutable($request->query->get('to')) : null;
+
+        return new RevaluationReportFilters(from: $from, to: $to);
+    }
+
+    /**
+     * @return array{revaluations: array<int, \App\Entity\ItemCostRevaluation>, total_gain_loss: string, filters: RevaluationReportFilters}
+     */
+    private function buildRevaluationData(int $tenantId, RevaluationReportFilters $filters): array
+    {
+        $from = $filters->from ?? new \DateTimeImmutable('-30 days');
+        $to = $filters->to ?? new \DateTimeImmutable('today 23:59:59');
+
+        $revaluations = $this->revaluationRepository->findByDateRange($tenantId, $from, $to);
+
+        // Agrupar por inversión para totales
+        $totalsByInvestment = [];
+        foreach ($revaluations as $rev) {
+            $investmentId = $rev->getInvestmentItem()->getInvestment()->getId();
+            if (!isset($totalsByInvestment[$investmentId])) {
+                $totalsByInvestment[$investmentId] = [
+                    'investment' => $rev->getInvestmentItem()->getInvestment(),
+                    'total_gain_loss' => '0.00',
+                ];
+            }
+            $totalsByInvestment[$investmentId]['total_gain_loss'] = bcadd(
+                $totalsByInvestment[$investmentId]['total_gain_loss'],
+                $rev->getRevaluationGainLoss(),
+                2
+            );
+        }
+
+        // Total general
+        $totalGainLoss = '0.00';
+        foreach ($revaluations as $rev) {
+            $totalGainLoss = bcadd($totalGainLoss, $rev->getRevaluationGainLoss(), 2);
+        }
+
+        return [
+            'revaluations' => $revaluations,
+            'totals_by_investment' => $totalsByInvestment,
+            'total_gain_loss' => $totalGainLoss,
+            'filters' => $filters,
+        ];
     }
 
     private function buildProfitFilters(Request $request): ProfitReportFilters

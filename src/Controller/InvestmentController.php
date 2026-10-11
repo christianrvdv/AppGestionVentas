@@ -17,8 +17,10 @@ use App\Service\Investment\InvestmentConfirmationService;
 use App\Service\Investment\InvestmentCreationService;
 use App\Service\Investment\InvestmentExpenseService;
 use App\Service\Investment\InvestmentItemService;
+use App\Service\Investment\InvestmentRevaluationService;
 use App\Service\Investment\InvestmentStateMachine;
 use App\Service\TenantContext;
+use App\Service\UsdRateService;
 use Doctrine\ORM\EntityManagerInterface;
 use Knp\Component\Pager\PaginatorInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -51,7 +53,9 @@ final class InvestmentController extends AbstractController
         private readonly InvestmentItemService $itemService,
         private readonly InvestmentExpenseService $expenseService,
         private readonly InvestmentConfirmationService $confirmationService,
+        private readonly InvestmentRevaluationService $revaluationService,
         private readonly InvestmentStateMachine $stateMachine,
+        private readonly UsdRateService $usdRateService,
         private readonly EntityManagerInterface $entityManager,
         private readonly PaginatorInterface $paginator,
     ) {
@@ -347,6 +351,54 @@ final class InvestmentController extends AbstractController
         return $this->redirectToRoute('app_investment_show', ['id' => $id]);
     }
 
+    #[Route('/{id}/revaluar', name: 'app_investment_revalue', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function revalue(int $id, Request $request): Response
+    {
+        $investment = $this->findInvestment($id);
+        $this->assertValidCsrf($request, 'form');
+
+        $user = $this->requireAppUser();
+
+        // Obtener la tasa vigente
+        $currentRate = $this->usdRateService->getCurrent();
+        if ($currentRate === null) {
+            $this->addFlash('error', 'No hay tasa USD vigente registrada. Registre una tasa antes de revaluar.');
+
+            return $this->redirectToRoute('app_investment_show', ['id' => $id]);
+        }
+
+        try {
+            $oldRate = $investment->getCurrentUsdRate();
+            $this->revaluationService->revalue($investment, $currentRate, $user);
+            $this->entityManager->flush();
+
+            $newRate = $investment->getCurrentUsdRate();
+            $impact = $this->calculateRevaluationImpact($investment);
+
+            $this->addFlash('success', sprintf('Inversión revaluada. Impacto: %s%s', $impact >= 0 ? '+' : '', $impact));
+        } catch (\LogicException|\InvalidArgumentException $e) {
+            $this->addFlash('error', $e->getMessage());
+        }
+
+        return $this->redirectToRoute('app_investment_show', ['id' => $id]);
+    }
+
+    /**
+     * Calcula el impacto total de la revaluación (diferencia entre totalInvestmentCurrent y totalInvestment).
+     */
+    private function calculateRevaluationImpact(\App\Entity\Investment $investment): string
+    {
+        $summary = $investment->getSummary();
+        if ($summary === null) {
+            return '0.00';
+        }
+
+        $current = $summary->getTotalInvestmentCurrent();
+        $historical = $summary->getTotalInvestment();
+
+        return bcsub($current, $historical, 2);
+    }
+
     private function findInvestment(int $id): Investment
     {
         $investment = $this->investmentRepository->findByIdAndTenant($id, $this->requireTenantId());
@@ -373,6 +425,7 @@ final class InvestmentController extends AbstractController
         $cancelForm = $this->createForm(InvestmentCancelFormType::class, ['reason' => null]);
         $confirmForm = $this->createForm(FormType::class);
         $closeForm = $this->createForm(FormType::class);
+        $revalueForm = $this->createForm(FormType::class);
 
         return $this->render('investment/show.html.twig', [
             'investment' => $investment,
@@ -380,6 +433,7 @@ final class InvestmentController extends AbstractController
             'cancel_form' => $cancelForm->createView(),
             'confirm_form' => $confirmForm->createView(),
             'close_form' => $closeForm->createView(),
+            'revalue_form' => $revalueForm->createView(),
             'expense_form' => $expenseForm->createView(),
             'status_labels' => self::statusLabels(),
             'expense_category_labels' => InvestmentExpense::CATEGORY_LABELS,

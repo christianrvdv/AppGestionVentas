@@ -1,124 +1,116 @@
-# Implementation Plan: Fase 4.1 — Reportes Básicos
+# Implementation Plan: Fase 5.1 — Gestión de tasas USD en UI
 
-## Overview
-Construir 3 reportes básicos (Ganancias, Inversiones, Productos) con sus rutas, controladores, servicios, templates y tests. Añadir navegación "Reportes" al menú principal. Commit único al final.
+## Module Dependency Graph
+```
+usd-rate-crud (independent)
+    ↓
+investment-revaluation (needs current rate from usd-rate-crud)
+    ↓
+usd-exposure-indicator (reads InvestmentSummary updated by revaluation)
+    ↓
+revaluation-report (reads ItemCostRevaluation created by revaluation)
+```
 
-## Architecture Decisions
-- **Chart.js**: NO incluido en esta fase (solo tabla). Justificación: cumple DoD, más rápido, chart en fase posterior si se pide.
-- **Granularity weekly/monthly**: Agrupación en PHP reutilizando `SaleRepository::dailyTotals()` + merge en service. Evita SQL complejo y reutiliza código existente.
-- **Services**: Un service por reporte (ProfitReportService, InvestmentReportService, ProductRankingService) para mantener controllers thin.
-- **DTOs**: Filtros tipados con `readonly class` + constructor promotion.
-- **Nav**: Submenú dropdown en base.html.twig (pestañas dentro de cada reporte si se prefiere, pero dropdown es más estándar).
+## Phase 1: usd-rate-crud (CRUD tasas USD)
 
-## Task List
+### Tasks
+- [ ] **Task 1.1**: Create `UsdRateFormType` form
+  - Acceptance: Form with date (default today), rate (decimal > 0), note (optional)
+  - Verify: `php bin/phpunit --filter=UsdRateFormType`
+  - Files: `src/Form/UsdRateFormType.php`
 
-### Phase 1: Foundation — Services & DTOs
-- [ ] Task 1: Crear DTOs de filtros (ProfitReportFilters, InvestmentReportFilters, ProductRankingFilters)
-  - Acceptance: 3 clases readonly en `src/DTO/Report/` con campos tipados
-  - Verify: `php bin/phpstan` pasa, sintaxis correcta
-  - Files: `src/DTO/Report/ProfitReportFilters.php`, `src/DTO/Report/InvestmentReportFilters.php`, `src/DTO/Report/ProductRankingFilters.php`
-  - Scope: S (3 archivos)
+- [ ] **Task 1.2**: Create `UsdRateController` with index action
+  - Acceptance: GET `/tasas-usd` renders table with all columns, ordering, current rate badge, date filter
+  - Verify: `php bin/phpunit --filter=UsdRateControllerTest::test_index`
+  - Files: `src/Controller/UsdRateController.php`, `templates/usd_rate/index.html.twig`
 
-- [ ] Task 2: Crear ProfitReportService con lógica de ganancias por período
-  - Acceptance: Service usa SaleRepository::sumSalesByPeriod, sumProfitByPeriod, sumRecognizedProfitByPeriod; agrupa por día/semana/mes en PHP
-  - Verify: `php bin/phpstan` pasa, tests unitarios si se añaden
-  - Files: `src/Service/Report/ProfitReportService.php`
-  - Scope: M (1 archivo + lógica)
+- [ ] **Task 1.3**: Create `UsdRateController` new/create actions
+  - Acceptance: GET/POST `/tasas-usd/nueva` creates rate; same date → correction + flash
+  - Verify: `php bin/phpunit --filter=UsdRateControllerTest::test_new_and_create`
+  - Files: `src/Controller/UsdRateController.php`, `templates/usd_rate/new.html.twig`
 
-- [ ] Task 3: Crear InvestmentReportService con lógica de lista de inversiones
-  - Acceptance: Service usa InvestmentSummaryRepository + InvestmentRepository; calcula % recuperación, ordena, filtra
-  - Verify: `php bin/phpstan` pasa
-  - Files: `src/Service/Report/InvestmentReportService.php`
-  - Scope: M (1 archivo)
-
-- [ ] Task 4: Crear ProductRankingService con lógica de ranking
-  - Acceptance: Service usa ProductRepository::findMostProfitable; devuelve datos para tabla
-  - Verify: `php bin/phpstan` pasa
-  - Files: `src/Service/Report/ProductRankingService.php`
-  - Scope: S (1 archivo)
-
-### Checkpoint: Foundation Services
-- [ ] `composer ci` verde (lint + tests existentes)
-
-### Phase 2: Controllers & Routes
-- [ ] Task 5: Crear ReportController con 3 acciones (profit, investment, product)
-  - Acceptance: 3 rutas GET /reportes/ganancias, /reportes/inversiones, /reportes/productos; cada una delega a su service y renderiza template
-  - Verify: `php bin/console debug:router` muestra las 3 rutas; `php bin/phpstan` pasa
-  - Files: `src/Controller/ReportController.php`
-  - Scope: M (1 archivo)
-
-### Phase 3: Templates
-- [ ] Task 6: Crear template base report/base.html.twig (extiende base.html.twig)
-  - Acceptance: Layout común con título, breadcrumbs, área de filtros
-  - Verify: Render sin errores
-  - Files: `templates/report/base.html.twig`
-  - Scope: S (1 archivo)
-
-- [ ] Task 7: Crear template report/profit.html.twig (tabla ganancias + totales)
-  - Acceptance: Tabla con columnas: período, ventas, ganancia bruta, ganancia reconocida; fila total al pie; formulario filtros (from, to, granularity, investment, customer)
-  - Verify: Render con datos de prueba
-  - Files: `templates/report/profit.html.twig`
-  - Scope: M (1 archivo)
-
-- [ ] Task 8: Crear template report/investment.html.twig (tabla inversiones + barra progreso)
-  - Acceptance: Tabla: código, fecha, estado, total invertido, total recuperado, % recuperación (barra), ganancia reconocida, pendiente; formulario filtros (estado, from, to); ordenable por % recuperación y pendiente
-  - Verify: Render con datos de prueba
-  - Files: `templates/report/investment.html.twig`
-  - Scope: M (1 archivo)
-
-- [ ] Task 9: Crear template report/product.html.twig (tabla ranking productos)
-  - Acceptance: Tabla: producto, unidades vendidas, ingreso total, ganancia bruta, margen; formulario filtros (from, to, límite); top 10 por defecto
-  - Verify: Render con datos de prueba
-  - Files: `templates/report/product.html.twig`
-  - Scope: M (1 archivo)
-
-### Checkpoint: Templates Render
-- [ ] Navegación manual: las 3 páginas cargan sin errores 500
-
-### Phase 4: Navigation
-- [ ] Task 10: Añadir "Reportes" al nav en base.html.twig (dropdown con 3 enlaces)
-  - Acceptance: Dropdown funcional con enlaces a las 3 rutas; estado activo resaltado
-  - Verify: Navegación manual funciona
+- [ ] **Task 1.4**: Add route to navigation (Reportes dropdown or main nav)
+  - Acceptance: Link accessible from main navigation
+  - Verify: Manual check in browser
   - Files: `templates/base.html.twig`
-  - Scope: XS (1 archivo)
 
-### Phase 5: Tests
-- [ ] Task 11: Test de integración ProfitReportTest (smoke: render + filtros + datos sembrados)
-  - Acceptance: Test crea tenant, investment, items, sales; GET /reportes/ganancias con filtros; verifica 200 + datos en respuesta
-  - Verify: `php bin/phpunit tests/Integration/Report/ProfitReportTest.php` pasa
-  - Files: `tests/Integration/Report/ProfitReportTest.php`
-  - Scope: M (1 archivo)
+## Phase 2: investment-revaluation (Revaluar desde UI)
 
-- [ ] Task 12: Test de integración InvestmentReportTest (smoke: render + filtros + datos sembrados)
-  - Acceptance: Test crea tenant, investments con summaries; GET /reportes/inversiones con filtros; verifica 200 + datos
-  - Verify: `php bin/phpunit tests/Integration/Report/InvestmentReportTest.php` pasa
-  - Files: `tests/Integration/Report/InvestmentReportTest.php`
-  - Scope: M (1 archivo)
+### Tasks
+- [ ] **Task 2.1**: Add revalue action to `InvestmentController`
+  - Acceptance: POST `/inversiones/{id}/revaluar` calls service, shows flash with impact
+  - Verify: `php bin/phpunit --filter=InvestmentRevaluationControllerTest::test_revalue_open`
+  - Files: `src/Controller/InvestmentController.php`
 
-- [ ] Task 13: Test de integración ProductRankingTest (smoke: render + filtros + datos sembrados)
-  - Acceptance: Test crea tenant, products, sales; GET /reportes/productos con filtros; verifica 200 + datos
-  - Verify: `php bin/phpunit tests/Integration/Report/ProductRankingTest.php` pasa
-  - Files: `tests/Integration/Report/ProductRankingTest.php`
-  - Scope: M (1 archivo)
+- [ ] **Task 2.2**: Add revaluation section to `investment/show.html.twig`
+  - Acceptance: Section visible only for OPEN/PARTIAL; shows snapshot, current, last reval, history, button
+  - Verify: `php bin/phpunit --filter=InvestmentRevaluationControllerTest::test_revaluation_section_visibility`
+  - Files: `templates/investment/show.html.twig`
 
-### Checkpoint: Tests
-- [ ] `php bin/phpunit` pasa completo
-- [ ] `composer ci` verde
+- [ ] **Task 2.3**: Handle domain errors (CLOSED, no current rate)
+  - Acceptance: CLOSED → flash error; no current rate → clear error flash
+  - Verify: `php bin/phpunit --filter=InvestmentRevaluationControllerTest::test_revalue_closed` + `test_revalue_no_rate`
+  - Files: `src/Controller/InvestmentController.php`
 
-### Phase 6: Final Polish
-- [ ] Task 14: Verificación final `composer ci` y commit único
-  - Acceptance: CI verde; commit con mensaje convencional
-  - Verify: `git status` limpio, `composer ci` pasa
-  - Files: —
-  - Scope: XS
+## Phase 3: usd-exposure-indicator (Indicador exposición USD)
 
-## Risks and Mitigations
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| SaleRepository no tiene métodos semanales/mensuales | Medium | Agrupar en PHP desde dailyTotals (ya implementado) |
-| InvestmentSummaryRepository no expone todos los campos necesarios | Low | Verificado: tiene totalInvestment, totalRecovered, recoveryPct, totalPending, totalRecognizedProfit |
-| Tests lentos por DAMA | Low | Un test por reporte, datos mínimos |
-| PHPStan errores en DTOs readonly | Low | Usar PHP 8.4 readonly class correctamente |
+### Tasks
+- [ ] **Task 3.1**: Add exposure indicator to investment detail
+  - Acceptance: Shows "Valor actualizado: $X (histórico: $Y)" with colored delta
+  - Verify: `php bin/phpunit --filter=InvestmentRevaluationControllerTest::test_exposure_indicator`
+  - Files: `templates/investment/show.html.twig`
 
-## Open Questions
-- Resueltas en SPEC: solo tabla, agrupación PHP, sin Chart.js
+## Phase 4: revaluation-report (Reporte impacto revaluación)
+
+### Tasks
+- [ ] **Task 4.1**: Create `RevaluationReportFilters` DTO
+  - Acceptance: DTO with from/to dates, validation
+  - Verify: `php bin/phpunit --filter=RevaluationReportFiltersTest`
+  - Files: `src/DTO/Report/RevaluationReportFilters.php`
+
+- [ ] **Task 4.2**: Add revaluation action to `ReportController`
+  - Acceptance: GET `/reportes/revaluacion` with date filter, table with all columns, totals
+  - Verify: `php bin/phpunit --filter=RevaluationReportControllerTest::test_report`
+  - Files: `src/Controller/ReportController.php`, `templates/report/revaluation.html.twig`
+
+## Phase 5: Tests & Quality Gates
+
+### Tasks
+- [ ] **Task 5.1**: Write integration tests for all 7 scenarios
+  - Acceptance: All 7 test methods pass
+  - Verify: `php bin/phpunit --filter="UsdRate|InvestmentRevaluation|RevaluationReport"`
+  - Files: `tests/Integration/UsdRate/UsdRateControllerTest.php`, `tests/Integration/Investment/InvestmentRevaluationControllerTest.php`, `tests/Integration/Report/RevaluationReportControllerTest.php`
+
+- [ ] **Task 5.2**: Run full test suite with random order
+  - Acceptance: `php bin/phpunit --order-by=random` exits 0
+  - Verify: Command output
+
+- [ ] **Task 5.3**: Run composer ci
+  - Acceptance: `composer ci` exits 0 (PHPStan, CS, tests)
+  - Verify: Command output
+
+- [ ] **Task 5.4**: Create single commit with message
+  - Acceptance: `git commit -m "feat(web): gestión de tasas USD y revaluación en UI (Fase 5.1)"`
+  - Verify: `git log --oneline -1`
+
+---
+
+## Risk Mitigation
+
+| Risk | Mitigation |
+|------|------------|
+| Tenant isolation bugs | Every repository query includes tenantId; tests verify isolation |
+| Flash message not showing | Use `addFlash()` after redirect; test asserts flash bag |
+| Correction detection | Service returns entity; controller checks `isCorrection()` |
+| Date handling | Always normalize to `DateTimeImmutable` date-only in service |
+| CSRF on POST | Use `FormType` with CSRF or explicit `assertValidCsrf()` |
+
+---
+
+## Verification Checkpoints
+
+1. **After Phase 1**: `php bin/phpunit tests/Integration/UsdRate/UsdRateControllerTest.php` — all green
+2. **After Phase 2**: `php bin/phpunit tests/Integration/Investment/InvestmentRevaluationControllerTest.php` — all green
+3. **After Phase 3**: Manual verification of exposure indicator on investment show
+4. **After Phase 4**: `php bin/phpunit tests/Integration/Report/RevaluationReportControllerTest.php` — all green
+5. **Final**: `php bin/phpunit --order-by=random && composer ci` — all green

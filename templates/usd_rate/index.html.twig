@@ -1,0 +1,104 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Tasas USD · Gestión de Negocio{% endblock %}
+
+{% block body %}
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <h1 class="text-2xl font-semibold text-foreground">Tasas USD</h1>
+        <a
+            href="{{ path('app_usd_rate_new') }}"
+            class="rounded bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+        >Registrar tasa</a>
+    </div>
+
+    <form method="get" action="{{ path('app_usd_rate_index') }}" class="mb-6 flex flex-wrap items-end gap-3">
+        <div>
+            <label for="from" class="mb-1 block text-sm font-medium text-foreground">Desde</label>
+            <input
+                type="date"
+                id="from"
+                name="from"
+                value="{{ filter_from ?? '' }}"
+                class="rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >
+        </div>
+        <div>
+            <label for="to" class="mb-1 block text-sm font-medium text-foreground">Hasta</label>
+            <input
+                type="date"
+                id="to"
+                name="to"
+                value="{{ filter_to ?? '' }}"
+                class="rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >
+        </div>
+        <button type="submit" class="rounded border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">Filtrar</button>
+        {% if filter_from or filter_to %}
+            <a href="{{ path('app_usd_rate_index') }}" class="px-2 py-2 text-sm text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">Limpiar filtro</a>
+        {% endif %}
+    </form>
+
+    {% if pagination.items is empty %}
+        <p class="rounded border border-border bg-surface px-4 py-3 text-sm text-muted">
+            No hay tasas registradas.
+            <a href="{{ path('app_usd_rate_new') }}" class="text-brand hover:underline">Registra la primera</a>.
+        </p>
+    {% else %}
+        <div class="overflow-x-auto rounded border border-border bg-surface">
+            <table class="w-full text-sm">
+                <caption class="sr-only">Listado de tasas USD del negocio</caption>
+                <thead>
+                    <tr class="border-b border-border text-start text-muted">
+                        <th scope="col" class="px-4 py-2 text-start font-medium">Fecha</th>
+                        <th scope="col" class="px-4 py-2 text-start font-medium">Tasa</th>
+                        <th scope="col" class="px-4 py-2 text-start font-medium">Corrección</th>
+                        <th scope="col" class="px-4 py-2 text-start font-medium">Supersede a</th>
+                        <th scope="col" class="px-4 py-2 text-start font-medium">Registrado por</th>
+                        <th scope="col" class="px-4 py-2 text-start font-medium">Cuándo</th>
+                        <th scope="col" class="px-4 py-2 text-start font-medium">Nota</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for rate in pagination %}
+                        <tr class="border-b border-border last:border-b-0 {% if rate.id == current_rate_id %}bg-brand/5{% endif %}">
+                            <td class="px-4 py-2 font-medium text-foreground">{{ rate.rateDate|date('d/m/Y') }}</td>
+                            <td class="px-4 py-2 tabular-nums text-foreground">{{ rate.rate|number_format(4, ',', '.') }}</td>
+                            <td class="px-4 py-2 text-start">
+                                {% if rate.isCorrection %}
+                                    <span class="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800" aria-label="Esta tasa es una corrección de una tasa anterior para la misma fecha">
+                                        <svg class="h-3.5 w-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                        Corrección
+                                    </span>
+                                {% else %}
+                                    <span class="text-muted">No</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-2 text-start">
+                                {% if rate.supersedes %}
+                                    <span class="text-muted text-sm">
+                                        {{ rate.supersedes.rateDate|date('d/m/Y') }} ({{ rate.supersedes.rate|number_format(4, ',', '.') }})
+                                    </span>
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-2 text-start">
+                                {% if rate.createdBy %}
+                                    {{ rate.createdBy.email }}
+                                {% else %}
+                                    <span class="text-muted">Sistema</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-2 text-start">{{ rate.createdAt|date('d/m/Y H:i') }}</td>
+                            <td class="px-4 py-2 text-start">{{ rate.sourceNote ?? '—' }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <nav aria-label="Paginación de tasas USD" class="mt-4">
+            {{ knp_pagination_render(pagination) }}
+        </nav>
+    {% endif %}
+{% endblock %}

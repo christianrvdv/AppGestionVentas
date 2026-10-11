@@ -79,6 +79,19 @@
                 <dt class="text-sm text-muted">Total inversión</dt>
                 <dd id="total-inversion" class="mt-1 text-xl font-semibold text-foreground">{{ total_inversion|number_format(2, ',', '.') }}</dd>
             </div>
+            {% if investment.summary and investment.summary.totalInvestmentCurrent != investment.summary.totalInvestment %}
+                <div class="rounded border border-border bg-surface p-4">
+                    <dt class="text-sm text-muted">Valor actualizado a tasa vigente</dt>
+                    <dd class="mt-1 flex flex-wrap items-center gap-2 text-xl font-semibold">
+                        <span class="text-foreground">{{ investment.summary.totalInvestmentCurrent|number_format(2, ',', '.') }}</span>
+                        <span class="text-muted">(histórico: {{ investment.summary.totalInvestment|number_format(2, ',', '.') }})</span>
+                        {% set delta = investment.summary.totalInvestmentCurrent - investment.summary.totalInvestment %}
+                        <span class="{% if delta > 0 %}text-danger{% elseif delta < 0 %}text-success{% else %}text-muted{% endif %} text-sm font-medium">
+                            ({% if delta > 0 %}+{% endif %}{{ delta|number_format(2, ',', '.') }})
+                        </span>
+                    </dd>
+                </div>
+            {% endif %}
             <div class="rounded border border-border bg-surface p-4">
                 <dt class="text-sm text-muted">Confirmada</dt>
                 <dd class="mt-1 text-foreground">
@@ -121,6 +134,127 @@
                     {% endif %}
                 {{ form_end(confirm_form) }}
             </div>
+        {% endif %}
+    </section>
+
+    {# --- Revaluación USD --- #}
+    {% set current_rate = investment.currentUsdRate ?? investment.usdRateSnapshot %}
+    {% set can_revalue = investment.status in ['OPEN', 'PARTIAL'] and investment.confirmedAt is not null %}
+    {% set revaluation_impact = investment.summary is not null ? (investment.summary.totalInvestmentCurrent - investment.summary.totalInvestment) : 0 %}
+    <section aria-labelledby="titulos-revaluacion" class="mb-10">
+        <h2 id="titulos-revaluacion" class="mb-4 text-lg font-medium text-foreground">Revaluación USD</h2>
+
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+            <div class="rounded border border-border bg-surface p-4">
+                <dt class="text-sm text-muted">Tasa al confirmar (snapshot)</dt>
+                <dd class="mt-1 text-foreground">
+                    {% if investment.usdRateSnapshot %}
+                        {{ investment.usdRateSnapshot|number_format(4, ',', '.') }}
+                    {% else %}
+                        <span class="text-muted">—</span>
+                    {% endif %}
+                </dd>
+            </div>
+            <div class="rounded border border-border bg-surface p-4">
+                <dt class="text-sm text-muted">Tasa vigente actual</dt>
+                <dd class="mt-1 text-foreground">
+                    {% if current_rate %}
+                        {{ current_rate|number_format(4, ',', '.') }}
+                    {% else %}
+                        <span class="text-muted">Sin tasa registrada</span>
+                    {% endif %}
+                </dd>
+            </div>
+            <div class="rounded border border-border bg-surface p-4">
+                <dt class="text-sm text-muted">Última revaluación</dt>
+                <dd class="mt-1 text-foreground">
+                    {% if investment.lastRevaluedAt %}
+                        {{ investment.lastRevaluedAt|date('d/m/Y H:i') }}
+                    {% else %}
+                        <span class="text-muted">Nunca</span>
+                    {% endif %}
+                </dd>
+            </div>
+            <div class="rounded border border-border bg-surface p-4">
+                <dt class="text-sm text-muted">Impacto estimado</dt>
+                <dd class="mt-1 text-foreground">
+                    {% if investment.summary %}
+                        <span class="{% if revaluation_impact > 0 %}text-danger{% elseif revaluation_impact < 0 %}text-success{% else %}text-muted{% endif %} font-semibold">
+                            {% if revaluation_impact != 0 %}{% if revaluation_impact > 0 %}+{% endif %}{{ revaluation_impact|number_format(2, ',', '.') }}{% else %}—{% endif %}
+                        </span>
+                    {% else %}
+                        <span class="text-muted">—</span>
+                    {% endif %}
+                </dd>
+            </div>
+        </div>
+
+        {% if can_revalue %}
+            {% if current_rate %}
+                {{ form_start(revalue_form, {action: path('app_investment_revalue', {id: investment.id}), method: 'POST', attr: {class: 'inline', onsubmit: "return confirm('¿Revaluar la inversión con la tasa actual? Esto actualizará los costos reales y precios sugeridos de todos los ítems con stock.');"}}) }}
+                    <button
+                        type="submit"
+                        class="rounded bg-brand px-4 py-2 font-medium text-white hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                    >Revaluar con tasa actual</button>
+                {{ form_end(revalue_form) }}
+            {% else %}
+                <p class="text-sm text-muted">No hay tasa USD vigente. <a href="{{ path('app_usd_rate_new') }}" class="text-brand hover:underline">Registre una tasa</a> para poder revaluar.</p>
+            {% endif %}
+        {% elseif investment.status not in ['OPEN', 'PARTIAL'] %}
+            <p class="text-sm text-muted">La revaluación solo está disponible para inversiones en estado Abierta o Parcial.</p>
+        {% elseif investment.confirmedAt is null %}
+            <p class="text-sm text-muted">La inversión debe estar confirmada para poder revaluar.</p>
+        {% endif %}
+
+        {# Historial de revaluaciones (colapsable) #}
+        {% set all_revaluations = [] %}
+        {% for item in investment.items %}
+            {% for rev in item.revaluations %}
+                {% set all_revaluations = all_revaluations|merge([{item: item, rev: rev}]) %}
+            {% endfor %}
+        {% endfor %}
+        {% if all_revaluations|length > 0 %}
+            <details class="mt-6 rounded border border-border bg-surface">
+                <summary class="p-4 cursor-pointer font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
+                    Historial de revaluaciones ({{ all_revaluations|length }})
+                </summary>
+                <div class="p-4 border-t border-border">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-border text-start text-muted">
+                                    <th scope="col" class="px-4 py-2 text-start font-medium">Fecha</th>
+                                    <th scope="col" class="px-4 py-2 text-start font-medium">Ítem</th>
+                                    <th scope="col" class="px-4 py-2 text-end font-medium">Tasa anterior</th>
+                                    <th scope="col" class="px-4 py-2 text-end font-medium">Tasa nueva</th>
+                                    <th scope="col" class="px-4 py-2 text-end font-medium">Costo anterior</th>
+                                    <th scope="col" class="px-4 py-2 text-end font-medium">Costo nuevo</th>
+                                    <th scope="col" class="px-4 py-2 text-end font-medium">Delta</th>
+                                    <th scope="col" class="px-4 py-2 text-end font-medium">Qty snapshot</th>
+                                    <th scope="col" class="px-4 py-2 text-start font-medium">Motivo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entry in all_revaluations|sort((a, b) => b.rev.createdAt <=> a.rev.createdAt) %}
+                                    <tr class="border-b border-border last:border-b-0">
+                                        <td class="px-4 py-2 text-foreground">{{ entry.rev.createdAt|date('d/m/Y H:i') }}</td>
+                                        <td class="px-4 py-2 text-foreground">{{ entry.item.product.name }}</td>
+                                        <td class="px-4 py-2 text-end tabular-nums">{{ entry.rev.oldRate|number_format(4, ',', '.') }}</td>
+                                        <td class="px-4 py-2 text-end tabular-nums">{{ entry.rev.newRate|number_format(4, ',', '.') }}</td>
+                                        <td class="px-4 py-2 text-end tabular-nums">{{ entry.rev.oldRealUnitCost|number_format(2, ',', '.') }}</td>
+                                        <td class="px-4 py-2 text-end tabular-nums">{{ entry.rev.newRealUnitCost|number_format(2, ',', '.') }}</td>
+                                        <td class="px-4 py-2 text-end tabular-nums {% if entry.rev.revaluationGainLoss > 0 %}text-danger{% elseif entry.rev.revaluationGainLoss < 0 %}text-success{% endif %}">
+                                            {% if entry.rev.revaluationGainLoss > 0 %}+{% endif %}{{ entry.rev.revaluationGainLoss|number_format(2, ',', '.') }}
+                                        </td>
+                                        <td class="px-4 py-2 text-end">{{ entry.rev.quantitySnapshot }}</td>
+                                        <td class="px-4 py-2 text-muted">{{ entry.rev.reason ?? '—' }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </details>
         {% endif %}
     </section>
 

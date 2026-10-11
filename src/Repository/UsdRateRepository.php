@@ -96,4 +96,14 @@ class UsdRateRepository extends ServiceEntityRepository implements UsdRateReposi
             ->getQuery()
             ->getResult();
     }
+
+    public function createPaginatedQueryBuilder(int $tenantId): \Doctrine\ORM\QueryBuilder
+    {
+        return $this->createQueryBuilder('r')
+            ->andWhere('r.tenant = :tenantId')
+            ->setParameter('tenantId', $tenantId)
+            ->orderBy('r.rateDate', 'DESC')
+            ->addOrderBy('r.createdAt', 'DESC')
+            ->addOrderBy('r.id', 'DESC');
+    }
 }
