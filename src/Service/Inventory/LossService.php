@@ -17,6 +17,13 @@ use Doctrine\ORM\EntityManagerInterface;
  * Crea InventoryMovement tipo LOSS con snapshots de costos.
  * Clave idempotente: InventoryMovement::generateLossKey($itemId, $uuid)
  * Recalcula InvestmentSummary.
+ *
+ * POLÍTICA DE FLUSH (ADR-0017): hace un flush ANTES de recalcular, porque
+ * recompute() lee el stock con SUM() DQL (getStockByInvestment y
+ * getLostQuantityByInvestment) y Doctrine no autocommitea antes de una
+ * consulta: sin ese flush la merma recién creada es invisible para su
+ * propio recálculo. Hace otro flush DESPUÉS para persistir el summary que
+ * la recompute acaba de mutar.
  */
 final class LossService
 {
@@ -42,7 +49,7 @@ final class LossService
      * @param \DateTimeImmutable   $date     Fecha de la merma
      * @param string|null          $notes    Notas opcionales
      *
-     * @return InventoryMovement Movimiento creado (listo para persistir)
+     * @return InventoryMovement Movimiento creado y ya persistido
      *
      * @throws InsufficientStockException Si stock insuficiente
      * @throws \InvalidArgumentException  Si reason inválido o quantity <= 0
@@ -100,9 +107,16 @@ final class LossService
         $this->entityManager->persist($movement);
         $item->addInventoryMovement($movement);
 
+        // Flush previo: sin él, recompute() calcula el stock SIN la merma
+        // (los SUM() corren contra la BD, no contra la Unit of Work).
+        $this->entityManager->flush();
+
         // Recalcular summary de la inversión
         $investment = $item->getInvestment();
         $this->summaryService->recompute($investment);
+
+        // Flush final: deja el summary recalculado en la base (ADR-0017).
+        $this->entityManager->flush();
 
         return $movement;
     }

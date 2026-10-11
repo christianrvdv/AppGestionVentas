@@ -26,11 +26,16 @@ use Doctrine\ORM\EntityManagerInterface;
  *   - Recalcula InvestmentSummary.
  *   - Actualiza estado de inversión (puede volver a OPEN/PARTIAL).
  *
- * POLÍTICA DE FLUSH: hace UN flush intermedio después de marcar la
- * anulación y antes de recalcular el summary. El summary se calcula con
+ * POLÍTICA DE FLUSH (ADR-0017): hace UN flush intermedio después de marcar
+ * la anulación y antes de recalcular el summary. El summary se calcula con
  * consultas SQL: si la anulación siguiera solo en memoria, esas consultas
- * verían la venta como activa y la recuperación no bajaría. El llamador
- * debe completar el flush (summary y estado de la inversión).
+ * verían la venta como activa y la recuperación no bajaría. Y hace un
+ * flush FINAL para persistir el resultado de la recompute y el cambio de
+ * estado de la inversión: recompute() muta una entidad ya existente y
+ * setStatus() marca sucia otra, y ninguna de las dos llega a la base sin
+ * flush. No se lo puede pedir al llamador porque no sabe que hubo una
+ * recompute (ni que hubo dos), y la siguiente request leería un summary
+ * viejo.
  */
 final class SaleVoidService
 {
@@ -86,6 +91,11 @@ final class SaleVoidService
 
         // 7. Actualizar estado de inversión (puede retroceder a OPEN/PARTIAL)
         $this->updateInvestmentState($investment);
+
+        // 8. Flush final: el summary recalculado y el estado de la inversión
+        //    siguen solo en memoria (ADR-0017). Sin este flush, la siguiente
+        //    request leería un summary con la venta todavía como vendida.
+        $this->entityManager->flush();
     }
 
     /**
