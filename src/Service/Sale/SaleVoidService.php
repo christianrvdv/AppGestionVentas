@@ -34,8 +34,14 @@ use Doctrine\ORM\EntityManagerInterface;
  * estado de la inversión: recompute() muta una entidad ya existente y
  * setStatus() marca sucia otra, y ninguna de las dos llega a la base sin
  * flush. No se lo puede pedir al llamador porque no sabe que hubo una
- * recompute (ni que hubo dos), y la siguiente request leería un summary
- * viejo.
+ * recompute, y la siguiente request leería un summary viejo.
+ *
+ * UNA SOLA RECOMPUTE: void() delega el recálculo en updateInvestmentState(),
+ * que es quien lo llama. Recalcular dos veces (una en void() y otra en
+ * updateInvestmentState()) no es solo redundante: si el summary no existe,
+ * las dos llamadas crean y persisten cada una una InvestmentSummary nueva
+ * y el flush final revienta contra el índice único uniq_summary_investment
+ * (ver SaleVoidVoidWithoutSummaryTest).
  */
 final class SaleVoidService
 {
@@ -80,19 +86,18 @@ final class SaleVoidService
         $sale->setVoidReason($reason);
         $sale->setVoidedBy($user);
 
-        // 5. Flush intermedio: sin él, el summary de abajo se recalcula
+        // 5. Flush intermedio: sin él, la recompute de abajo se recalcula
         //    contra una BD donde la venta todavía figura como activa
         //    (voided_at está solo en memoria) y la recuperación no baja.
         $this->entityManager->flush();
 
-        // 6. Recalcular summary de la inversión
+        // 6. Recalcular summary y, con ese resultado, actualizar el estado
+        //    de la inversión (puede retroceder a OPEN/PARTIAL). Una única
+        //    recompute, dentro de updateInvestmentState().
         $investment = $sale->getInvestment();
-        $this->summaryService->recompute($investment);
-
-        // 7. Actualizar estado de inversión (puede retroceder a OPEN/PARTIAL)
         $this->updateInvestmentState($investment);
 
-        // 8. Flush final: el summary recalculado y el estado de la inversión
+        // 7. Flush final: el summary recalculado y el estado de la inversión
         //    siguen solo en memoria (ADR-0017). Sin este flush, la siguiente
         //    request leería un summary con la venta todavía como vendida.
         $this->entityManager->flush();
@@ -125,6 +130,12 @@ final class SaleVoidService
 
     /**
      * Actualiza estado de inversión tras anulación.
+     *
+     * Es el ÚNICO punto en el que se recalcula el summary: recompute() se
+     * llama una sola vez por anulación y el resultado alimenta la decisión
+     * de estado. Si void() también llamara a recompute(), con un summary
+     * inexistente se encolarían dos INSERT y el flush final violaría
+     * uniq_summary_investment.
      */
     private function updateInvestmentState(Investment $investment): void
     {

@@ -3,85 +3,81 @@
 ## Contexto
 Durante la implementación de la capa de servicios se identificaron decisiones que requieren seguimiento futuro (migraciones, tests, ajustes de esquema, wiring de dependencias).
 
-## Ítems pendientes
+## Ítems pendientes (actualizado en cierre post-Fase 3d)
 
-### 1. Inyección de repositorios faltantes en servicios
-**Servicios afectados:**
-- `SaleService::loadInvestment()` requiere `InvestmentRepositoryInterface`
-- `SaleVoidService::updateInvestmentState()` requiere `InvestmentSummaryRepositoryInterface`
-- `InvestmentConfirmationService` usa `ExpenseAllocationRepositoryInterface` (inyectado OK)
+### 1. Inyección de repositorios faltantes en servicios ✅ **Resuelto en Fase 3d**
+Todos los servicios inyectan sus repositorios vía autowiring + `#[AsAlias]`. No hay wiring manual en `services.yaml` necesario.
 
-**Acción:** Inyectar repositorios faltantes en constructores y actualizar `services.yaml`.
+### 2. Método `InvestmentRepositoryInterface::countByCodePrefix` ✅ **Resuelto**
+Añadido a interfaz e implementación. Tests de creación de inversión (`InvestmentCrudTest`) lo cubren.
 
-### 2. Método `InvestmentRepositoryInterface::countByCodePrefix`
-**Estado:** Añadido a interfaz e implementación (ver commit).
-**Pendiente:** Verificar que no rompe tests existentes.
-
-### 3. Relación `Investment <-> InvestmentSummary`
+### 3. Relación `Investment <-> InvestmentSummary` ⏳ **Pendiente**
 **Actual:** Unidireccional (`InvestmentSummary -> Investment`).
 **Necesario:** Bidireccional para navegación fácil (`$investment->getSummary()`).
 **Migración:** Añadir `#[ORM\OneToOne(mappedBy: 'investment', cascade: ['persist'])]` en `Investment::$summary`.
 
-### 4. Tests unitarios e integración
-**Alcance:**
-- `Money`: operaciones bcmath, redondeo, comparaciones.
-- `ExpenseAllocationService`: prorrateo, remanente último ítem, idempotencia.
+### 4. Tests unitarios e integración 🟡 **Mayormente resuelto**
+**Existen y pasan:**
+- `Money` ✅
+- `ExpenseAllocationService` ✅
+- `InvestmentConfirmationService` ✅
+- `SaleService` ✅
+- `SaleVoidService` ✅
+- `LossService` ✅
+- `PaymentService` ✅
+- `RecoveryRecognitionService` ✅
+- `InvestmentStateMachine` ✅
+
+**Faltan tests dedicados:**
 - `InvestmentItemCalculatorService`: cascada márgenes, current* init.
-- `InvestmentConfirmationService`: validaciones, movimientos, totales.
-- `SaleService`: stock, profit recognition ambos modos, idempotencia.
-- `SaleVoidService`: bloqueo por pagos, reversión profit.
-- `LossService`: stock, revaluación summary.
 - `InvestmentRevaluationService`: gain/loss signo, current* update.
-- `PaymentService`: validación cliente/venta.
 
-**Framework:** `symfony/test-pack` + `phpunit`. Extender `KernelTestCase` para servicios con BD.
+### 5. Event Listeners para side effects automáticos ✅ **Decisión: explícito en servicios**
+Candidatos revisados:
+- `UsdRate` postPersist -> actualiza setting: **resuelto** en `UsdRateService::setRate()` (líneas 91-103).
+- `Investment` postPersist (confirmada) -> crea `InvestmentSummary`: **resuelto** en `InvestmentConfirmationService::confirm()`.
+- `Sale` postPersist -> recalcula summary: **resuelto** en `SaleService::register()` y `SaleVoidService::void()`.
+- `Payment` postPersist -> actualiza saldo cliente: **no necesario** (pagos no mueven recovery).
 
-### 5. Event Listeners para side effects automáticos
-**Candidatos:**
-- `UsdRate` postPersist -> actualiza `AppSetting::KEY_USD_RATE_CURRENT`
-- `Investment` postPersist (confirmada) -> crea `InvestmentSummary` inicial
-- `Sale` postPersist -> recalcula summary, actualiza estado
-- `Payment` postPersist -> actualiza saldo cliente
+**Política:** side effects explícitos en el servicio (controlador llama). Migrar a listeners solo si crece complejidad.
 
-**Decisión:** Por ahora side effects explícitos en servicios (controlador llama). Migrar a listeners si crece complejidad.
-
-### 6. Validación de `PaymentCommand::currency`
+### 6. Validación de `PaymentCommand::currency` ⏳ **Pendiente (bajo riesgo)**
 **Actual:** `PaymentCommand` no tiene `currency`; se toma de `investment.baseCurrency`.
 **Futuro:** Si se permite pago en moneda distinta, añadir `currency` al comando y validar.
 
-### 7. `InvestmentStateMachine::updateInvestmentState` en servicios
-**Actual:** `SaleService` y `SaleVoidService` delegan al controlador.
-**Mejora:** Inyectar `InvestmentSummaryRepositoryInterface` y hacerlo automático en el servicio.
+### 7. `InvestmentStateMachine::updateInvestmentState` en servicios ✅ **Resuelto en Fase 3d**
+`SaleService::updateInvestmentState()` y `SaleVoidService::updateInvestmentState()` lo hacen internamente. El controlador ya no necesita invocarlo.
 
-### 8. `SaleService::register` - carga de ítems
+### 8. `SaleService::register` - carga de ítems ⏳ **Pendiente (N+1)**
 **Actual:** Busca ítems uno a uno (`findByIdAndTenant`) -> N+1 potencial.
-**Mejora:** Añadir `InvestmentItemRepositoryInterface::findByIds(array $ids, int $tenantId)` y cargar en batch.
+**Mejora:** `InvestmentItemRepositoryInterface::findByIdsAndTenant(array $ids, int $tenantId)` ya existe (commit Fase 3c). Falta usarla en `SaleService::preloadRemainingStock` / `createSaleLine`.
 
-### 9. `UsdRateService::setRate` - actualización de setting
-**Actual:** Comentario dice "controlador actualiza setting post-flush".
-**Mejora:** EventListener `postPersist` en `UsdRate` que actualice `AppSetting`.
+### 9. `UsdRateService::setRate` - actualización de setting ✅ **Resuelto en Fase 3d**
+El servicio actualiza `AppSetting::KEY_USD_RATE_CURRENT` inline (líneas 91-106) + invalida cache de `SettingsService`. No usa listener.
 
-### 10. Soft deletes vs hard deletes
+### 10. Soft deletes vs hard deletes ⏳ **Pendiente (consistencia)**
 **Actual:** Entidades usan `cancelledAt` / `voidedAt` / `closedAt` (soft delete lógico).
-**Pendiente:** Filtrar consistentemente en repositorios (algunos usan `status != CANCELLED`, otros no).
+**Pendiente:** Filtrar consistentemente en repositorios (algunos usan `status != CANCELLED`, otros no, `includeVoided` / `includeCancelled` opcionales).
 
-### 11. Índices BD para consultas frecuentes
-**Revisar:** `SaleLineRepository::findByInvestment` con `includeVoided` - indice optimo?
-**Revisar:** `InventoryMovementRepository::getStockByInvestment` - query eficiente?
+### 11. Índices BD para consultas frecuentes ✅ **Revisados y cubiertos**
+- `SaleLineRepository::findByInvestment` con `includeVoided`: índice `idx_saleline_tenant_item` + `idx_saleline_tenant_created`.
+- `InventoryMovementRepository::getStockByInvestment`: índice `idx_movement_tenant_item`.
+- `InvestmentSummary` dashboard: índice `idx_summary_tenant_pending`.
 
-### 12. Documentación OpenAPI / Swagger
-**Pendiente:** Generar spec para endpoints de la API cuando se creen controladores.
+### 12. Documentación OpenAPI / Swagger ⏳ **Pendiente**
+Pendiente hasta que existan controladores API. UI actual usa Turbo/Stimulus con renderizado server-side.
 
 ## Priorización sugerida
-1. **Tests** (critico para refactoring seguro)
-2. **Wiring repositorios faltantes** (blockers para tests)
-3. **Relación Investment-Summary bidireccional** (limpieza de API)
-4. **Event Listeners** (reduccion acoplamiento controlador)
-5. **Optimizaciones N+1 e indices** (rendimiento)
+1. **Tests faltantes** (`InvestmentItemCalculatorService`, `InvestmentRevaluationService`).
+2. **Relación Investment-Summary bidireccional** (limpieza de API).
+3. **Optimización N+1 en SaleService** (usar `findByIdsAndTenant` ya existente).
+4. **Consistencia soft deletes** en repositorios.
+5. **OpenAPI** cuando haya API expuesta.
 
 ## Estado
-Documentado. Seguimiento en backlog tecnico.
+Actualizado en cierre post-Fase 3d (commit 69621c1). Ítems 1, 2, 5, 7, 9, 11 resueltos; 3, 6, 8, 10, 12 pendientes; 4 mayormente resuelto.
 
 ## Referencias
-- `services.yaml` (wiring real)
-- `migrations/` (proximas migraciones)
+- `services.yaml` (autowiring + `#[AsAlias]` en repositorios).
+- `migrations/` (esquema actual).
+- `docs/adr/ADR-0017-flush-y-recompute-de-investment-summary.md` (política de flush).

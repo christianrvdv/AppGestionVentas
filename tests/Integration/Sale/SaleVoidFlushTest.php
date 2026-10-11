@@ -24,8 +24,8 @@ use App\Tests\Integration\IntegrationTestCase;
  * viven solo en memoria: la siguiente petición (otro EM) lee una fila vieja.
  *
  * El llamador no puede ser responsable de eso porque no siempre sabe que hubo
- * una recompute — y SaleVoidService hace DOS (una en void() y otra en
- * updateInvestmentState()), intercaladas con cambios de estado.
+ * una recompute — SaleVoidService la delega en updateInvestmentState(), que
+ * es su único punto de recálculo (una sola recompute por anulación).
  *
  * Estos tests anulan una venta y registran una merma SIN flush del lado del
  * test y limpian el EntityManager antes de leer: solo pasa lo que quedó
@@ -101,6 +101,50 @@ final class SaleVoidFlushTest extends IntegrationTestCase
             $investment->getStatus(),
             'Sin ventas activas la inversión vuelve a OPEN (STATUS_PARTIAL es viejo).'
         );
+    }
+
+    /**
+     * Regresión del doble recompute: con el summary INEXISTENTE, void() debe
+     * crearlo UNA sola vez. Si además de updateInvestmentState() void()
+     * llamara a recompute(), las dos llamadas crearían y persistirían cada
+     * una su InvestmentSummary y el flush final reventaría contra el índice
+     * único uniq_summary_investment.
+     */
+    public function test_anular_sin_summary_previo_lo_crea_una_vez_y_no_viola_unicidad(): void
+    {
+        $seed = $this->seedConfirmedInvestmentWithSale();
+        $tenantId = $this->tenantContext->getTenantId();
+        $this->assertNotNull($tenantId);
+
+        // Borrar el summary que creó confirm() y descartar la Unit of Work.
+        $this->em->clear();
+        $summary = $this->summaryRepository->findByInvestment($seed['investmentId'], $tenantId);
+        $this->assertNotNull($summary, 'Precondición: confirm() creó el summary.');
+        $this->em->remove($summary);
+        $this->em->flush();
+        $this->em->clear();
+
+        $this->assertNull(
+            $this->summaryRepository->findByInvestment($seed['investmentId'], $tenantId),
+            'Precondición: no hay summary en BD antes de anular.'
+        );
+
+        $this->voidSale($seed);
+
+        // Lectura SIN flush del lado del test y con la Unit of Work limpia:
+        // solo se ve lo que quedó realmente en la base.
+        $this->em->clear();
+        $this->assertCount(
+            1,
+            $this->em->getRepository(InvestmentSummary::class)->findAll(),
+            'Una sola InvestmentSummary: la recompute ocurre una vez por anulación.'
+        );
+
+        $after = $this->summaryFromDatabase($seed['investmentId']);
+        $this->assertSame(0, $after->getUnitsSold(), 'El summary recreado no cuenta la venta anulada.');
+        $this->assertSame(10, $after->getUnitsRemaining());
+        $this->assertDecimalEquals('0.00', $after->getTotalRecovered());
+        $this->assertDecimalEquals('50.00', $after->getTotalPending());
     }
 
     /**

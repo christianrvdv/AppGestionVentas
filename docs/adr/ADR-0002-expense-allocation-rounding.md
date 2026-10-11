@@ -25,9 +25,23 @@ Cada `InvestmentExpense` con `isAllocated = true` debe distribuirse entre los `I
 - `allocatedExpense` de ítems se pone a 0.
 
 ## IDEMPOTENCIA
-`allocateForInvestment()` es idempotente:
-- `deleteByExpense()` antes de recrear allocations del gasto.
-- `deleteByItem()` + recálculo suma al actualizar `allocatedExpense` en ítems.
+`allocateForInvestment()` es idempotente, y lo es **en memoria**, sin DELETE
+por DQL (ver FIX-2 y FIX-4 en el servicio):
+- Gasto sin base de prorrateo: `$expense->getAllocations()->clear()`;
+  `orphanRemoval: true` se encarga del DELETE en el flush.
+- Re-prorrateo con allocations ya persistidas: cada fila existente se
+  REUTILIZA por instancia de ítem y solo se le actualiza el importe; las
+  que sobran se retiran con `removeAllocation()`. Doctrine inserta antes de
+  borrar, así que un clear() + recrear chocaría con
+  `uniq_allocation_expense_item`.
+- `InvestmentItem.allocatedExpense` se recalcula sumando en memoria.
+
+> **Actualización (cierre post-Fase 3d):** el repositorio de allocations
+> (`App\Repository\ExpenseAllocationRepository` y su interfaz
+> `Contract\ExpenseAllocationRepositoryInterface`) existía solo para el
+> prorrateo por DQL que FIX-2/FIX-4 reemplazaron. Sin consumidores desde
+> entonces, se eliminó junto con su `repositoryClass` en la entidad.
+> La idempotencia descrita arriba es la única vía hoy.
 
 ## ESCALA
 Redondeo a la escala de la moneda del tenant (`SettingsService::getCurrencyScale()`, default 2).
@@ -44,4 +58,10 @@ Aceptado. Implementado en `App\Service\ExpenseAllocationService`.
 
 ## REFERENCIAS
 - `App\Service\ExpenseAllocationService::allocateExpense()`
-- `App\Repository\Contract\ExpenseAllocationRepositoryInterface::deleteByExpense()`, `::deleteByItem()`
+- `App\Entity\ExpenseAllocation` (índice único `uniq_allocation_expense_item`)
+
+> Los métodos `deleteByExpense()` / `deleteByItem()` que este ADR citaba en
+> su versión original pertenecían a `ExpenseAllocationRepositoryInterface`,
+> eliminada en el cierre post-Fase 3d: la idempotencia pasó a manejarse en
+> memoria (FIX-2 / FIX-4) y la interfaz quedó sin consumidores.
+

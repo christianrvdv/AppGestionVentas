@@ -75,7 +75,11 @@ huecos de dominio previo a Fase 3e**:
   **no tenía llamadores**: el hueco FUEL/FIX-4 ya estaba migrado a memoria en
   `InvestmentConfirmationService::validateExpenseAllocations()`. Eliminado
   junto con `ExpenseAllocationRepository::sumByItem()` y su firma en la
-  interfaz: sin uso hoy, era código muerto.
+  interfaz: sin uso hoy, era código muerto. (Posteriormente se eliminó el
+  repositorio completo — `ExpenseAllocationRepository` y
+  `Contract\ExpenseAllocationRepositoryInterface` — al confirmar que no
+  tenía ningún consumidor: el prorrateo vive entero en memoria, en
+  `ExpenseAllocationService`.)
 - `InvestmentSummaryService::recompute()` ante un summary inexistente crea
   `new InvestmentSummary()` **y ahora lo persiste, pero solo si la inversión
   está confirmada** (`$investment->isConfirmed()`). Un borrador no genera

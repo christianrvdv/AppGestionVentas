@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace App\Entity;
 
-use App\Repository\ExpenseAllocationRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
-#[ORM\Entity(repositoryClass: ExpenseAllocationRepository::class)]
+#[ORM\Entity]
 #[ORM\Table(name: 'expense_allocation')]
 #[ORM\UniqueConstraint(name: 'uniq_allocation_expense_item', columns: ['investment_expense_id', 'investment_item_id'])]
 #[ORM\HasLifecycleCallbacks]
