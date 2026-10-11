@@ -128,4 +128,71 @@ class ProductRepository extends ServiceEntityRepository implements ProductReposi
             $rows
         );
     }
+
+    /**
+     * Ranking detallado de productos para reporte.
+     * Devuelve: id, name, unitsSold, totalRevenue, grossProfit, margin.
+     *
+     * @return array<int, array{id: int, name: string, unitsSold: int, totalRevenue: string, grossProfit: string, margin: string}>
+     */
+    public function findRankingDetails(
+        int                $tenantId,
+        \DateTimeImmutable $from,
+        \DateTimeImmutable $to,
+        int                $limit = 10,
+        bool               $includeVoided = false
+    ): array {
+        $qb = $this->createQueryBuilder('p')
+            ->select(
+                'p.id AS id',
+                'p.name AS name',
+                'SUM(sl.quantity) AS unitsSold',
+                'SUM(sl.totalLine) AS totalRevenue',
+                'SUM(sl.grossProfitLine) AS grossProfit'
+            )
+            ->innerJoin('p.investmentItems', 'ii')
+            ->innerJoin('ii.saleLines', 'sl')
+            ->innerJoin('sl.sale', 's')
+            ->andWhere('p.tenant = :tenantId')
+            ->andWhere('s.saleDate >= :from')
+            ->andWhere('s.saleDate <= :to')
+            ->setParameter('tenantId', $tenantId)
+            ->setParameter('from', $from)
+            ->setParameter('to', $to);
+
+        if (!$includeVoided) {
+            $qb->andWhere('s.voidedAt IS NULL');
+        }
+
+        $rows = $qb
+            ->groupBy('p.id')
+            ->addGroupBy('p.name')
+            ->orderBy('grossProfit', 'DESC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getArrayResult();
+
+        return array_map(
+            fn(array $row): array => [
+                'id' => (int)$row['id'],
+                'name' => (string)$row['name'],
+                'unitsSold' => (int)($row['unitsSold'] ?? 0),
+                'totalRevenue' => (string)($row['totalRevenue'] ?? '0.00'),
+                'grossProfit' => (string)($row['grossProfit'] ?? '0.00'),
+                'margin' => $this->calculateMargin(
+                    (string)($row['totalRevenue'] ?? '0.00'),
+                    (string)($row['grossProfit'] ?? '0.00')
+                ),
+            ],
+            $rows
+        );
+    }
+
+    private function calculateMargin(string $revenue, string $profit): string
+    {
+        if (bccomp($revenue, '0.00', 2) === 0) {
+            return '0.00';
+        }
+        return bcdiv(bcmul($profit, '100.00', 2), $revenue, 2);
+    }
 }

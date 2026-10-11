@@ -49,4 +49,18 @@ interface ProductRepositoryInterface
         int                $limit = 10,
         bool               $includeVoided = false
     ): array;
+
+    /**
+     * Ranking detallado de productos para reporte.
+     * Devuelve: id, name, unitsSold, totalRevenue, grossProfit, margin.
+     *
+     * @return array<int, array{id: int, name: string, unitsSold: int, totalRevenue: string, grossProfit: string, margin: string}>
+     */
+    public function findRankingDetails(
+        int                $tenantId,
+        \DateTimeImmutable $from,
+        \DateTimeImmutable $to,
+        int                $limit = 10,
+        bool               $includeVoided = false
+    ): array;
 }

@@ -1,0 +1,69 @@
+{% extends 'report/base.html.twig' %}
+
+{% set title = 'Ranking de Productos' %}
+{% set description = 'Productos más rentables por ganancia bruta, con unidades, ingresos y margen' %}
+
+{% block filter_fields %}
+    <div>
+        <label for="from" class="block text-xs font-medium text-muted mb-1">Desde</label>
+        <input type="date" id="from" name="from" value="{{ filters.from.format('Y-m-d') }}" class="input-sm">
+    </div>
+    <div>
+        <label for="to" class="block text-xs font-medium text-muted mb-1">Hasta</label>
+        <input type="date" id="to" name="to" value="{{ filters.to.format('Y-m-d') }}" class="input-sm">
+    </div>
+    <div>
+        <label for="limit" class="block text-xs font-medium text-muted mb-1">Límite</label>
+        <select id="limit" name="limit" class="input-sm">
+            <option value="5" {% if filters.limit == 5 %}selected{% endif %}>Top 5</option>
+            <option value="10" {% if filters.limit == 10 %}selected{% endif %}>Top 10</option>
+            <option value="20" {% if filters.limit == 20 %}selected{% endif %}>Top 20</option>
+            <option value="50" {% if filters.limit == 50 %}selected{% endif %}>Top 50</option>
+        </select>
+    </div>
+{% endblock %}
+
+{% block content %}
+    <div class="overflow-x-auto rounded border">
+        <table class="w-full text-sm">
+            <thead class="bg-muted/50">
+                <tr>
+                    <th class="px-4 py-3 text-left font-medium text-foreground">#</th>
+                    <th class="px-4 py-3 text-left font-medium text-foreground">Producto</th>
+                    <th class="px-4 py-3 text-right font-medium text-foreground">Unidades</th>
+                    <th class="px-4 py-3 text-right font-medium text-foreground">Ingreso Total</th>
+                    <th class="px-4 py-3 text-right font-medium text-foreground">Ganancia Bruta</th>
+                    <th class="px-4 py-3 text-right font-medium text-foreground">Margen %</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-border">
+                {% for row in rows %}
+                    <tr class="hover:bg-muted/30">
+                        <td class="px-4 py-3 text-muted">{{ loop.index }}</td>
+                        <td class="px-4 py-3 font-medium text-foreground">{{ row.name }}</td>
+                        <td class="px-4 py-3 text-right tabular-nums text-foreground">{{ row.unitsSold }}</td>
+                        <td class="px-4 py-3 text-right tabular-nums text-foreground">{{ row.totalRevenue|number_format(2, ',', '.') }}</td>
+                        <td class="px-4 py-3 text-right tabular-nums text-success">{{ row.grossProfit|number_format(2, ',', '.') }}</td>
+                        <td class="px-4 py-3 text-right tabular-nums
+                            {% if row.margin >= 30 %}text-success
+                            {% elseif row.margin >= 15 %}text-warning
+                            {% else %}text-danger{% endif %}">
+                            {{ row.margin|number_format(2, ',', '.') }}%
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="6" class="px-4 py-8 text-center text-muted">Sin datos para el período seleccionado</td>
+                    </tr>
+                {% endfor %}
+                <tr class="bg-muted/50 font-semibold">
+                    <td class="px-4 py-3 text-foreground" colspan="2">Totales</td>
+                    <td class="px-4 py-3 text-right tabular-nums text-foreground">{{ totals.totalUnits }}</td>
+                    <td class="px-4 py-3 text-right tabular-nums text-foreground">{{ totals.totalRevenue|number_format(2, ',', '.') }}</td>
+                    <td class="px-4 py-3 text-right tabular-nums text-success">{{ totals.totalGrossProfit|number_format(2, ',', '.') }}</td>
+                    <td class="px-4 py-3 text-right tabular-nums text-primary">{{ totals.avgMargin|number_format(2, ',', '.') }}%</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+{% endblock %}

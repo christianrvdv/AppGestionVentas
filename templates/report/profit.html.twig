@@ -1,0 +1,76 @@
+{% extends 'report/base.html.twig' %}
+
+{% set title = 'Ganancias por Período' %}
+{% set description = 'Ventas, ganancia bruta y ganancia reconocida agrupadas por día, semana o mes' %}
+
+{% block filter_fields %}
+    <div>
+        <label for="from" class="block text-xs font-medium text-muted mb-1">Desde</label>
+        <input type="date" id="from" name="from" value="{{ filters.from.format('Y-m-d') }}" class="input-sm">
+    </div>
+    <div>
+        <label for="to" class="block text-xs font-medium text-muted mb-1">Hasta</label>
+        <input type="date" id="to" name="to" value="{{ filters.to.format('Y-m-d') }}" class="input-sm">
+    </div>
+    <div>
+        <label for="granularity" class="block text-xs font-medium text-muted mb-1">Granularidad</label>
+        <select id="granularity" name="granularity" class="input-sm">
+            {% for key, label in granularityLabels %}
+                <option value="{{ key }}" {% if key == filters.granularity %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div>
+        <label for="investment" class="block text-xs font-medium text-muted mb-1">Inversión</label>
+        <select id="investment" name="investment" class="input-sm">
+            <option value="">Todas</option>
+            {% for inv in investments %}
+                <option value="{{ inv.id }}" {% if inv.id == filters.investmentId %}selected{% endif %}>{{ inv.code }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div>
+        <label for="customer" class="block text-xs font-medium text-muted mb-1">Cliente</label>
+        <select id="customer" name="customer" class="input-sm">
+            <option value="">Todos</option>
+            {% for cust in customers %}
+                <option value="{{ cust.id }}" {% if cust.id == filters.customerId %}selected{% endif %}>{{ cust.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+{% endblock %}
+
+{% block content %}
+    <div class="overflow-x-auto rounded border">
+        <table class="w-full text-sm">
+            <thead class="bg-muted/50">
+                <tr>
+                    <th class="px-4 py-3 text-left font-medium text-foreground">Período</th>
+                    <th class="px-4 py-3 text-right font-medium text-foreground">Ventas</th>
+                    <th class="px-4 py-3 text-right font-medium text-foreground">Ganancia Bruta</th>
+                    <th class="px-4 py-3 text-right font-medium text-foreground">Ganancia Reconocida</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-border">
+                {% for row in rows %}
+                    <tr class="hover:bg-muted/30">
+                        <td class="px-4 py-3 text-foreground">{{ row.period }}</td>
+                        <td class="px-4 py-3 text-right tabular-nums text-foreground">{{ row.sales|number_format(2, ',', '.') }}</td>
+                        <td class="px-4 py-3 text-right tabular-nums text-success">{{ row.grossProfit|number_format(2, ',', '.') }}</td>
+                        <td class="px-4 py-3 text-right tabular-nums text-primary">{{ row.recognizedProfit|number_format(2, ',', '.') }}</td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="4" class="px-4 py-8 text-center text-muted">Sin datos para el período seleccionado</td>
+                    </tr>
+                {% endfor %}
+                <tr class="bg-muted/50 font-semibold">
+                    <td class="px-4 py-3 text-foreground">Total</td>
+                    <td class="px-4 py-3 text-right tabular-nums text-foreground">{{ totals.totalSales|number_format(2, ',', '.') }}</td>
+                    <td class="px-4 py-3 text-right tabular-nums text-success">{{ totals.totalGrossProfit|number_format(2, ',', '.') }}</td>
+                    <td class="px-4 py-3 text-right tabular-nums text-primary">{{ totals.totalRecognizedProfit|number_format(2, ',', '.') }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+{% endblock %}

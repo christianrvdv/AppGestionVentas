@@ -151,4 +151,18 @@ interface SaleRepositoryInterface
         \DateTimeImmutable $to,
         bool               $includeVoided = false
     ): array;
+
+    /**
+     * Totales diarios con filtros opcionales por inversión y cliente.
+     *
+     * @return array<int, array{date: string, total: string, profit: string}>
+     */
+    public function dailyTotalsWithFilters(
+        int                $tenantId,
+        \DateTimeImmutable $from,
+        \DateTimeImmutable $to,
+        ?int               $investmentId = null,
+        ?int               $customerId = null,
+        bool               $includeVoided = false
+    ): array;
 }

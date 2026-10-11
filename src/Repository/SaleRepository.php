@@ -391,4 +391,75 @@ class SaleRepository extends ServiceEntityRepository implements SaleRepositoryIn
         }
         return (string)$date;
     }
+
+    /**
+     * Totales diarios con filtros opcionales por inversión y cliente.
+     *
+     * @return array<int, array{date: string, total: string, profit: string}>
+     */
+    public function dailyTotalsWithFilters(
+        int                $tenantId,
+        \DateTimeImmutable $from,
+        \DateTimeImmutable $to,
+        ?int               $investmentId = null,
+        ?int               $customerId = null,
+        bool               $includeVoided = false
+    ): array {
+        $base = function () use ($tenantId, $from, $to, $investmentId, $customerId, $includeVoided) {
+            $qb = $this->createQueryBuilder('s')
+                ->andWhere('s.tenant = :tenantId')
+                ->andWhere('s.saleDate >= :from')
+                ->andWhere('s.saleDate <= :to')
+                ->setParameter('tenantId', $tenantId)
+                ->setParameter('from', $from)
+                ->setParameter('to', $to);
+
+            if ($investmentId !== null && $investmentId > 0) {
+                $qb->andWhere('s.investment = :investmentId')
+                    ->setParameter('investmentId', $investmentId);
+            }
+
+            if ($customerId !== null && $customerId > 0) {
+                $qb->andWhere('s.customer = :customerId')
+                    ->setParameter('customerId', $customerId);
+            }
+
+            if (!$includeVoided) {
+                $qb->andWhere('s.voidedAt IS NULL');
+            }
+            return $qb;
+        };
+
+        $totals = $base()
+            ->select('s.saleDate AS dayKey, SUM(s.totalAmount) AS total')
+            ->groupBy('s.saleDate')
+            ->orderBy('s.saleDate', 'ASC')
+            ->getQuery()
+            ->getArrayResult();
+
+        $profits = $base()
+            ->select('s.saleDate AS dayKey, SUM(sl.grossProfitLine) AS profit')
+            ->innerJoin('s.lines', 'sl')
+            ->groupBy('s.saleDate')
+            ->orderBy('s.saleDate', 'ASC')
+            ->getQuery()
+            ->getArrayResult();
+
+        $profitByDate = [];
+        foreach ($profits as $row) {
+            $profitByDate[$this->formatDateKey($row['dayKey'])] = (string)($row['profit'] ?? '0.00');
+        }
+
+        $formatted = [];
+        foreach ($totals as $row) {
+            $key = $this->formatDateKey($row['dayKey']);
+            $formatted[] = [
+                'date' => $key,
+                'total' => (string)($row['total'] ?? '0.00'),
+                'profit' => $profitByDate[$key] ?? '0.00',
+            ];
+        }
+
+        return $formatted;
+    }
 }
