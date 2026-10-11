@@ -1,0 +1,128 @@
+{% extends 'base.html.twig' %}
+
+{% set input_class = 'w-full rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand' %}
+{% set label_class = 'mb-1 block text-sm font-medium text-foreground' %}
+{% set error_class = 'mt-1 text-sm text-danger' %}
+{% set help_class = 'mt-1 text-xs text-muted' %}
+{% set section_class = 'mb-8 rounded border border-border bg-surface p-6' %}
+{% set section_title_class = 'mb-4 text-lg font-semibold text-foreground' %}
+
+{% block title %}Configuración · Gestión de Negocio{% endblock %}
+
+{% block body %}
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <h1 class="text-2xl font-semibold text-foreground">Configuración del tenant</h1>
+        <span class="text-sm text-muted">Tenant: {{ tenant.name }} ({{ tenant.slug }})</span>
+    </div>
+
+    {{ form_start(form, {attr: {class: 'space-y-8', novalidate: 'novalidate'}}) }}
+
+        {# SECCIÓN: NEGOCIO #}
+        <div class="{{ section_class }}">
+            <h2 class="{{ section_title_class }}">Negocio</h2>
+
+            <div class="space-y-6">
+                <div>
+                    <label for="{{ form.tenant_name.vars.id }}" class="{{ label_class }}">{{ form.tenant_name.vars.label }}</label>
+                    {{ form_widget(form.tenant_name, {attr: {class: input_class}}) }}
+                    {% for error in form.tenant_name.vars.errors %}
+                        <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+                    {% endfor %}
+                </div>
+
+                <div>
+                    <label for="{{ form.tenant_slug.vars.id }}" class="{{ label_class }}">{{ form.tenant_slug.vars.label }}</label>
+                    {{ form_widget(form.tenant_slug, {attr: {class: input_class ~ ' bg-muted/50'}}) }}
+                    {% if form.tenant_slug.vars.help is defined %}
+                        <p class="{{ help_class }}">{{ form.tenant_slug.vars.help }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {# SECCIÓN: MONEDA #}
+        <div class="{{ section_class }}">
+            <h2 class="{{ section_title_class }}">Moneda</h2>
+
+            <div class="grid gap-6 md:grid-cols-2">
+                <div>
+                    <label for="{{ form.base_currency.vars.id }}" class="{{ label_class }}">{{ form.base_currency.vars.label }}</label>
+                    {{ form_widget(form.base_currency, {attr: {class: input_class}}) }}
+                    {% for error in form.base_currency.vars.errors %}
+                        <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+                    {% endfor %}
+                    {% if form.base_currency.vars.help is defined %}
+                        <p class="{{ help_class }}">{{ form.base_currency.vars.help }}</p>
+                    {% endif %}
+                </div>
+
+                <div>
+                    <label for="{{ form.currency_scale.vars.id }}" class="{{ label_class }}">{{ form.currency_scale.vars.label }}</label>
+                    {{ form_widget(form.currency_scale, {attr: {class: input_class}}) }}
+                    {% for error in form.currency_scale.vars.errors %}
+                        <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+                    {% endfor %}
+                    {% if form.currency_scale.vars.help is defined %}
+                        <p class="{{ help_class }}">{{ form.currency_scale.vars.help }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {# SECCIÓN: MÁRGENES #}
+        <div class="{{ section_class }}">
+            <h2 class="{{ section_title_class }}">Márgenes</h2>
+
+            <div>
+                <label for="{{ form.default_margin_pct.vars.id }}" class="{{ label_class }}">{{ form.default_margin_pct.vars.label }}</label>
+                {{ form_widget(form.default_margin_pct, {attr: {class: input_class}}) }}
+                {% for error in form.default_margin_pct.vars.errors %}
+                    <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+                {% endfor %}
+                {% if form.default_margin_pct.vars.help is defined %}
+                    <p class="{{ help_class }}">{{ form.default_margin_pct.vars.help }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        {# SECCIÓN: RECUPERACIÓN #}
+        <div class="{{ section_class }}">
+            <h2 class="{{ section_title_class }}">Recuperación</h2>
+
+            <div>
+                <label for="{{ form.recovery_mode.vars.id }}" class="{{ label_class }}">{{ form.recovery_mode.vars.label }}</label>
+                {{ form_widget(form.recovery_mode, {attr: {class: input_class}}) }}
+                {% for error in form.recovery_mode.vars.errors %}
+                    <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+                {% endfor %}
+                {% if form.recovery_mode.vars.help is defined %}
+                    <p class="{{ help_class }}">{{ form.recovery_mode.vars.help }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        {# SECCIÓN: USD #}
+        <div class="{{ section_class }}">
+            <h2 class="{{ section_title_class }}">USD</h2>
+
+            <div class="flex items-start gap-3">
+                {{ form_widget(form.usd_control_enabled) }}
+                <div class="mt-1">
+                    <label for="{{ form.usd_control_enabled.vars.id }}" class="{{ label_class }}">{{ form.usd_control_enabled.vars.label }}</label>
+                    {% for error in form.usd_control_enabled.vars.errors %}
+                        <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+                    {% endfor %}
+                    {% if form.usd_control_enabled.vars.help is defined %}
+                        <p class="{{ help_class }}">{{ form.usd_control_enabled.vars.help }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {# BOTONES #}
+        <div class="flex gap-3 pt-4 border-t border-border">
+            <button type="submit" class="rounded bg-brand px-6 py-2 font-medium text-white hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2">Guardar configuración</button>
+        </div>
+
+    {{ form_end(form) }}
+{% endblock %}

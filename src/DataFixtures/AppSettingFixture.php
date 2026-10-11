@@ -15,6 +15,9 @@ use Doctrine\Persistence\ObjectManager;
  * Settings por defecto del tenant Demo:
  *   - default_margin_pct = 40
  *   - base_currency      = ARS
+ *   - recovery_mode      = PER_PRODUCT
+ *   - currency_scale     = 2
+ *   - usd_control_enabled = false
  */
 final class AppSettingFixture extends Fixture implements FixtureGroupInterface, DependentFixtureInterface
 {
@@ -25,6 +28,9 @@ final class AppSettingFixture extends Fixture implements FixtureGroupInterface, 
         $settings = [
             AppSetting::KEY_DEFAULT_MARGIN_PCT => '40',
             AppSetting::KEY_BASE_CURRENCY => 'ARS',
+            AppSetting::KEY_RECOVERY_MODE => 'PER_PRODUCT',
+            AppSetting::KEY_CURRENCY_SCALE => '2',
+            AppSetting::KEY_USD_CONTROL_ENABLED => 'false',
         ];
 
         foreach ($settings as $key => $value) {

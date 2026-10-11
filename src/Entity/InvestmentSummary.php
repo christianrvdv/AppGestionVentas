@@ -30,7 +30,7 @@ class InvestmentSummary
     #[ORM\JoinColumn(name: 'tenant_id', referencedColumnName: 'id', nullable: false, onDelete: 'RESTRICT')]
     private Tenant $tenant;
 
-    #[ORM\OneToOne(targetEntity: Investment::class)]
+    #[ORM\OneToOne(targetEntity: Investment::class, inversedBy: 'summary')]
     #[ORM\JoinColumn(name: 'investment_id', referencedColumnName: 'id', nullable: false, onDelete: 'RESTRICT')]
     private Investment $investment;
 

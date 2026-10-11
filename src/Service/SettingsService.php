@@ -6,7 +6,10 @@ namespace App\Service;
 
 use App\Entity\AppSetting;
 use App\Entity\Investment;
+use App\Entity\Tenant;
 use App\Repository\Contract\AppSettingRepositoryInterface;
+use App\Repository\TenantRepository;
+use Doctrine\ORM\EntityManagerInterface;
 use InvalidArgumentException;
 
 /**
@@ -30,7 +33,9 @@ final class SettingsService
 
     public function __construct(
         private readonly AppSettingRepositoryInterface $settingRepository,
-        private readonly TenantContext $tenantContext
+        private readonly TenantContext $tenantContext,
+        private readonly EntityManagerInterface $entityManager,
+        private readonly TenantRepository $tenantRepository
     ) {}
 
     /**
@@ -129,7 +134,7 @@ final class SettingsService
      */
     public function getCurrencyScale(): int
     {
-        $value = $this->getRaw('currency_scale');
+        $value = $this->getRaw(AppSetting::KEY_CURRENCY_SCALE);
         if ($value !== null && $value !== '' && ctype_digit($value)) {
             $scale = (int)$value;
             if ($scale >= 0 && $scale <= 6) {
@@ -147,5 +152,57 @@ final class SettingsService
         $this->cache = [];
         $this->loaded = false;
         $this->cachedForTenantId = null;
+    }
+
+    /**
+     * Establece múltiples settings de una vez e invalida el cache.
+     *
+     * @param array<string, string> $values  Clave => valor
+     */
+    public function setMany(array $values): void
+    {
+        $tenantId = $this->tenantContext->getTenantId();
+        if ($tenantId === null) {
+            throw new \LogicException('TenantContext no tiene tenantId asignado.');
+        }
+
+        $tenant = $this->tenantRepository->find($tenantId);
+        if ($tenant === null) {
+            throw new \LogicException(sprintf('Tenant %d no encontrado.', $tenantId));
+        }
+
+        foreach ($values as $key => $value) {
+            $setting = $this->settingRepository->findSetting($tenantId, $key);
+            if ($setting === null) {
+                $setting = new AppSetting();
+                $setting->setTenant($tenant);
+                $setting->setSettingKey($key);
+                $this->entityManager->persist($setting);
+            }
+            $setting->setSettingValue($value);
+        }
+
+        $this->entityManager->flush();
+        $this->clearCache();
+    }
+
+    /**
+     * Devuelve el tenant actual (para persistir nuevos settings).
+     */
+    public function getTenant(): ?Tenant
+    {
+        $tenantId = $this->tenantContext->getTenantId();
+        if ($tenantId === null) {
+            return null;
+        }
+        return $this->tenantRepository->find($tenantId);
+    }
+
+    /**
+     * Devuelve el EntityManager para consultas directas (ej. verificar inversiones existentes).
+     */
+    public function getEntityManager(): EntityManagerInterface
+    {
+        return $this->entityManager;
     }
 }

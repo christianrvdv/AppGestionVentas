@@ -19,6 +19,7 @@ class AppSetting
     public const KEY_BASE_CURRENCY = 'base_currency';
     public const KEY_USD_RATE_CURRENT = 'usd_rate_current';
     public const KEY_USD_CONTROL_ENABLED = 'usd_control_enabled';
+    public const KEY_CURRENCY_SCALE = 'currency_scale';
 
     #[ORM\Id]
     #[ORM\GeneratedValue(strategy: 'IDENTITY')]
