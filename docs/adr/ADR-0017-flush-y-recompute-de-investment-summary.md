@@ -68,19 +68,25 @@ Servicios que leen repositorio después de mutar entidades en memoria
   todo `flush()` va seguido solo de `addFlash()` + `redirectToRoute()`;
   no hay lectura posterior en la misma acción.
 
-Pendientes documentados (no corregidos aquí):
+Pendientes documentados (no corregidos aquí) — **cerrados en el cierre de
+huecos de dominio previo a Fase 3e**:
 
-- `ExpenseAllocationService::sumAllocatedByItem()` lee `sumByItem` de BD y
-  **no tiene llamadores**: el hueco FUEL/FIX-4 ya se migró a memoria en
-  `InvestmentConfirmationService::validateExpenseAllocations()`. Si algún
-  flujo nuevo lo invoca después de mutar allocations, necesita el mismo
-  tratamiento.
+- `ExpenseAllocationService::sumAllocatedByItem()` leía `sumByItem` de BD y
+  **no tenía llamadores**: el hueco FUEL/FIX-4 ya estaba migrado a memoria en
+  `InvestmentConfirmationService::validateExpenseAllocations()`. Eliminado
+  junto con `ExpenseAllocationRepository::sumByItem()` y su firma en la
+  interfaz: sin uso hoy, era código muerto.
 - `InvestmentSummaryService::recompute()` ante un summary inexistente crea
-  `new InvestmentSummary()` sin `persist()` y devuelve un objeto que nadie
-  guarda. Los cuatro callers actuales solo trabajan sobre inversiones
-  confirmadas, así que hoy no se manifiesta. **No se cambia aquí**: añadir
-  el `persist()` haría que las inversiones en borrador entraran en
-  `sumTotalsByTenant()` y movería los KPIs del dashboard.
+  `new InvestmentSummary()` **y ahora lo persiste, pero solo si la inversión
+  está confirmada** (`$investment->isConfirmed()`). Un borrador no genera
+  fila: `Investment` materializa `totalInvestment` solo al confirmar (el
+  summary saldría en cero) y, sobre todo, `confirm()` crea su propio
+  `InvestmentSummary`, que chocaría con el índice único
+  `uniq_summary_investment`. Los cuatro callers actuales solo trabajan sobre
+  inversiones confirmadas, así que el cambio es neutro hoy; lo que cambia es
+  que un caller nuevo ya no puede "olvidar" el persist de un summary con
+  datos reales. `recompute()` sigue **sin** flushear: el flush previo y final
+  siguen siendo responsabilidad del caller (Decisión 1).
 
 ## Decisión
 

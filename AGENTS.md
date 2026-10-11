@@ -92,6 +92,37 @@ Symfony's coding standard, the `@Symfony` php-cs-fixer ruleset (a PSR-12-derived
 superset). Run `vendor/bin/php-cs-fixer fix` if `friendsofphp/php-cs-fixer` is
 installed; it isn't part of the skeleton by default.
 
+## Flush policy for recompute services
+
+Symfony never auto-flushes at the end of a request: whatever the mutator did
+not flush does not exist for anyone else. A service that *recomputes* an
+aggregate from SQL aggregates is therefore responsible for the flush itself,
+both before and after the recompute, and cannot delegate it to its caller
+(the caller does not know a recompute happened, and the service method often
+returns `void`).
+
+- **Flush before**: every aggregate `recompute()` *reads with SQL*
+  (`SUM(...)` DQL) only sees rows already in the database. Mutations that
+  live only in the Unit of Work are invisible to it.
+- **Flush after**: everything `recompute()` *writes* (mutating a managed
+  entity, or a newly created one that was persisted) is invisible to the
+  next request until someone flushes.
+
+Reference implementations: `SaleVoidService::void()` (flush intermedio tras
+marcar `voided_at` + flush final), `SaleService::register()` (flush antes y
+después de la recompute) y `LossService::register()` (flush antes y
+después). The bug this encodes is Fase 3c.2: `SaleVoidService` recalculated
+the summary while `voided_at` was still only in memory, so the sale read as
+active and recovery did not drop. Read `docs/adr/ADR-0017-flush-y-recompute-de-investment-summary.md`
+before changing any service that recomputes `InvestmentSummary`.
+
+Tests that assert on database state must `em->clear()` before reading.
+Without it Doctrine returns the in-memory instance and the test passes even
+when the flush is missing — that is exactly how the bug above went unnoticed.
+
+Exception: `InvestmentSummaryService::recompute()` does *not* flush on its
+own; by ADR-0017 the calling service owns both flushes.
+
 ## Discover, don't guess
 
 Framework APIs change between versions and your training data may be stale. Look

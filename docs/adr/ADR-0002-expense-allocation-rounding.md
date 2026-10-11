@@ -44,4 +44,4 @@ Aceptado. Implementado en `App\Service\ExpenseAllocationService`.
 
 ## REFERENCIAS
 - `App\Service\ExpenseAllocationService::allocateExpense()`
-- `App\Repository\Contract\ExpenseAllocationRepositoryInterface::deleteByExpense()`, `::deleteByItem()`, `::sumByItem()`
+- `App\Repository\Contract\ExpenseAllocationRepositoryInterface::deleteByExpense()`, `::deleteByItem()`

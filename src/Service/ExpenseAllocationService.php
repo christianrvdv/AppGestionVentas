@@ -8,7 +8,6 @@ use App\Entity\Investment;
 use App\Entity\InvestmentExpense;
 use App\Entity\InvestmentItem;
 use App\Entity\ExpenseAllocation;
-use App\Repository\Contract\ExpenseAllocationRepositoryInterface;
 use Doctrine\Common\Collections\Collection;
 
 /**
@@ -47,8 +46,7 @@ use Doctrine\Common\Collections\Collection;
 final class ExpenseAllocationService
 {
     public function __construct(
-        private readonly ExpenseAllocationRepositoryInterface $allocationRepository,
-        private readonly SettingsService                      $settingsService
+        private readonly SettingsService $settingsService
     )
     {
     }
@@ -230,10 +228,5 @@ final class ExpenseAllocationService
             $item->setAllocatedExpense('0.00');
             $item->setAllocatedExpenseUsd(null);
         }
-    }
-
-    public function sumAllocatedByItem(InvestmentItem $item): string
-    {
-        return $this->allocationRepository->sumByItem($item->getId(), $item->getTenant()->getId());
     }
 }

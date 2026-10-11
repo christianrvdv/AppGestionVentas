@@ -63,20 +63,6 @@ class ExpenseAllocationRepository extends ServiceEntityRepository implements Exp
         return (string) ($result['total'] ?? '0.00');
     }
 
-    public function sumByItem(int $itemId, int $tenantId): string
-    {
-        $result = $this->createQueryBuilder('ea')
-            ->select('SUM(ea.allocatedAmount) AS total')
-            ->andWhere('ea.investmentItem = :itemId')
-            ->andWhere('ea.tenant = :tenantId')
-            ->setParameter('itemId', $itemId)
-            ->setParameter('tenantId', $tenantId)
-            ->getQuery()
-            ->getOneOrNullResult();
-
-        return (string) ($result['total'] ?? '0.00');
-    }
-
     public function deleteByExpense(int $expenseId, int $tenantId): int
     {
         return $this->createQueryBuilder('ea')

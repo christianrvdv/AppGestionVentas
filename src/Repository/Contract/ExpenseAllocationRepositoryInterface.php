@@ -27,8 +27,6 @@ interface ExpenseAllocationRepositoryInterface
 
     public function sumByExpense(int $expenseId, int $tenantId): string;
 
-    public function sumByItem(int $itemId, int $tenantId): string;
-
     public function deleteByExpense(int $expenseId, int $tenantId): int;
 
     /**

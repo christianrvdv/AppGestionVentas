@@ -10,6 +10,7 @@ use App\Repository\Contract\InvestmentSummaryRepositoryInterface;
 use App\Repository\Contract\InventoryMovementRepositoryInterface;
 use App\Repository\Contract\ItemCostRevaluationRepositoryInterface;
 use App\Repository\Contract\SaleLineRepositoryInterface;
+use Doctrine\ORM\EntityManagerInterface;
 
 /**
  * Recalcula InvestmentSummary desde repositorios. Idempotente.
@@ -17,6 +18,15 @@ use App\Repository\Contract\SaleLineRepositoryInterface;
  * [FIX-5] totalPending y totalPendingCurrent se setean según el modo ACTIVO
  *         (antes siempre usaban valores del modo PER_PRODUCT). Además,
  *         totalRecoveredCurrent también se setea según el modo activo.
+ *
+ * PERSISTENCIA (ADR-0017): si el summary no existe, recompute() lo crea y
+ * lo persiste SOLO cuando la inversión ya está confirmada; el caller no
+ * tiene que recordar el persist y el summary no se pierde en silencio.
+ * En borrador no se persiste: Investment solo materializa totalInvestment
+ * al confirmar (todo el summary saldría en cero) y, sobre todo, la
+ * confirmación crea su propio InvestmentSummary, que chocaría con el
+ * índice único uniq_summary_investment. recompute() NO hace flush: el
+ * caller flushea antes (si lee agregados SQL) y después (si escribe).
  *
  * FLUJO:
  *   1. Leer datos crudos (saleLines, stock, revaluación).
@@ -31,7 +41,8 @@ final class InvestmentSummaryService
         private readonly InventoryMovementRepositoryInterface   $movementRepository,
         private readonly ItemCostRevaluationRepositoryInterface $revaluationRepository,
         private readonly InvestmentSummaryRepositoryInterface   $summaryRepository,
-        private readonly RecoveryRecognitionService             $recoveryRecognitionService
+        private readonly RecoveryRecognitionService             $recoveryRecognitionService,
+        private readonly EntityManagerInterface                 $entityManager
     )
     {
     }
@@ -47,6 +58,13 @@ final class InvestmentSummaryService
             $summary = new InvestmentSummary();
             $summary->setTenant($investment->getTenant());
             $summary->setInvestment($investment);
+
+            // Persiste solo si la inversión ya está confirmada (ADR-0017):
+            // el caller no puede olvidar el persist, y un borrador no genera
+            // una fila que la confirmación insertaría de nuevo.
+            if ($investment->isConfirmed()) {
+                $this->entityManager->persist($summary);
+            }
         }
 
         // 2. Totales base
