@@ -21,6 +21,20 @@ class Payment
     public const METHOD_CARD = 'CARD';
     public const METHOD_OTHER = 'OTHER';
 
+    /**
+     * Etiquetas en español de los métodos, para los selectores y las
+     * tablas de la UI. Vive junto a las constantes que etiqueta para que
+     * no se desincronicen (y para no repetir el mapa en cada controller).
+     *
+     * @var array<string, string>
+     */
+    public const METHOD_LABELS = [
+        self::METHOD_CASH => 'Efectivo',
+        self::METHOD_TRANSFER => 'Transferencia',
+        self::METHOD_CARD => 'Tarjeta',
+        self::METHOD_OTHER => 'Otro',
+    ];
+
     #[ORM\Id]
     #[ORM\GeneratedValue(strategy: 'IDENTITY')]
     #[ORM\Column(type: Types::INTEGER)]

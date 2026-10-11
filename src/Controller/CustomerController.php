@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Entity\Customer;
+use App\Entity\Payment;
 use App\Entity\Tenant;
 use App\Form\CustomerFormType;
 use App\Repository\Contract\CustomerRepositoryInterface;
+use App\Repository\Contract\PaymentRepositoryInterface;
+use App\Repository\Contract\SaleRepositoryInterface;
 use App\Service\ActiveTenantProvider;
 use App\Service\TenantContext;
 use Doctrine\ORM\EntityManagerInterface;
@@ -31,6 +34,8 @@ final class CustomerController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly ActiveTenantProvider $activeTenantProvider,
         private readonly CustomerRepositoryInterface $customerRepository,
+        private readonly SaleRepositoryInterface $saleRepository,
+        private readonly PaymentRepositoryInterface $paymentRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly PaginatorInterface $paginator,
     ) {
@@ -50,6 +55,37 @@ final class CustomerController extends AbstractController
         return $this->render('customer/index.html.twig', [
             'pagination' => $pagination,
             'q' => $term,
+        ]);
+    }
+
+    /**
+     * Detalle del cliente (Fase 3d): datos, saldo y su historial de
+     * ventas y pagos. Es la pantalla desde la que se entiende cuánto le
+     * debe: el saldo es (total vendido no anulado) − (total pagado), y
+     * los anticipos son los pagos que todavía no cubren una venta.
+     */
+    #[Route('/{id}', name: 'app_customer_show', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function show(int $id, Request $request): Response
+    {
+        $tenantId = $this->requireTenantId();
+        $customer = $this->findCustomer($id);
+
+        $totalSales = $this->saleRepository->sumSalesByCustomer($customer->getId(), $tenantId);
+        $totalPaid = $this->paymentRepository->sumByCustomer($customer->getId(), $tenantId);
+
+        return $this->render('customer/show.html.twig', [
+            'customer' => $customer,
+            'sales' => $this->saleRepository->findByCustomer($customer->getId(), $tenantId),
+            'payments' => $this->paginator->paginate(
+                $this->paymentRepository->createPaginatedQueryBuilder($tenantId, $customer->getId()),
+                $request->query->getInt('page', 1),
+                10
+            ),
+            'total_sales' => $totalSales,
+            'total_paid' => $totalPaid,
+            'balance' => bcsub($totalSales, $totalPaid, 2),
+            'advances' => $this->paymentRepository->sumUnappliedByCustomer($customer->getId(), $tenantId),
+            'methods' => Payment::METHOD_LABELS,
         ]);
     }
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional;
 
+use App\DTO\Command\PaymentCommand;
 use App\DTO\Command\RegisterSaleCommand;
 use App\DTO\Command\RegisterSaleLineCommand;
 use App\Entity\AppUser;
@@ -18,6 +19,7 @@ use App\Entity\TenantMembership;
 use App\Service\Investment\InvestmentConfirmationService;
 use App\Service\Investment\InvestmentCreationService;
 use App\Service\Investment\InvestmentItemService;
+use App\Service\Payment\PaymentService;
 use App\Service\Sale\SaleService;
 use App\Service\Sale\SaleVoidService;
 use App\Service\TenantContext;
@@ -370,6 +372,45 @@ abstract class FunctionalTestCase extends WebTestCase
         $this->em->flush();
 
         return $payment;
+    }
+
+    /**
+     * Anticipo / pago a cuenta de un cliente (sin venta asociada). Usa
+     * PaymentService, el único punto de entrada del dominio, para que el
+     * seed no dependa de un detalle de mapeo que el servicio ya cubre.
+     */
+    protected function seedAdvance(
+        Investment $investment,
+        Customer $customer,
+        string $amount = '200.00',
+        string $method = Payment::METHOD_TRANSFER,
+        ?\DateTimeImmutable $date = null,
+        ?string $reference = null
+    ): Payment {
+        return $this->runAsTenant(
+            $investment->getTenant()->getId(),
+            function () use ($investment, $customer, $amount, $method, $date, $reference): Payment {
+                $payment = static::getContainer()
+                    ->get(PaymentService::class)
+                    ->register(
+                        new PaymentCommand(
+                            investmentId: $investment->getId(),
+                            customerId: $customer->getId(),
+                            saleId: null,
+                            amount: $amount,
+                            date: $date ?? new \DateTimeImmutable('today'),
+                            method: $method,
+                            reference: $reference,
+                        ),
+                        $investment->getCreatedBy()
+                    );
+
+                $this->em->persist($payment);
+                $this->em->flush();
+
+                return $payment;
+            }
+        );
     }
 
     /**

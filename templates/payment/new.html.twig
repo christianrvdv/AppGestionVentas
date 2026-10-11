@@ -1,0 +1,132 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Registrar pago · Gestión de Negocio{% endblock %}
+
+{% set input_class = 'w-full rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand' %}
+{% set label_class = 'mb-1 block text-sm font-medium text-foreground' %}
+{% set error_class = 'mt-1 text-sm text-danger' %}
+
+{% block body %}
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <h1 class="text-2xl font-semibold text-foreground">
+            {% if sale %}
+                Registrar pago · Venta {{ sale.id }}
+            {% else %}
+                Registrar pago a cuenta
+            {% endif %}
+        </h1>
+        <a
+            href="{{ sale ? path('app_sale_show', {id: sale.id}) : path('app_payment_index') }}"
+            class="text-sm text-brand hover:underline"
+        >{{ sale ? 'Volver a la venta' : 'Volver al listado' }}</a>
+    </div>
+
+    {% if sale %}
+        <section aria-labelledby="titulos-venta" class="mb-6 rounded border border-border bg-surface p-4">
+            <h2 id="titulos-venta" class="mb-3 text-lg font-medium text-foreground">Venta {{ sale.id }}</h2>
+            <dl class="grid gap-4 sm:grid-cols-3">
+                <div>
+                    <dt class="text-sm text-muted">Cliente</dt>
+                    <dd class="mt-1 text-foreground">{{ sale.customer.name ?? 'Consumidor final' }}</dd>
+                </div>
+                <div>
+                    <dt class="text-sm text-muted">Total de la venta</dt>
+                    <dd class="mt-1 text-foreground">{{ sale.totalAmount|number_format(2, ',', '.') }}</dd>
+                </div>
+                <div>
+                    <dt class="text-sm text-muted">Ya pagado</dt>
+                    <dd id="pago-total-pagado" class="mt-1 text-foreground">{{ total_paid|number_format(2, ',', '.') }}</dd>
+                </div>
+                <div>
+                    <dt class="text-sm text-muted">Pendiente</dt>
+                    <dd id="pago-pendiente" class="mt-1 text-xl font-semibold text-foreground">{{ pending|number_format(2, ',', '.') }}</dd>
+                </div>
+                <div>
+                    <dt class="text-sm text-muted">Moneda</dt>
+                    <dd class="mt-1 text-foreground">{{ sale.currency }}</dd>
+                </div>
+            </dl>
+            <p class="mt-3 text-sm text-muted">
+                La inversión y el cliente los toma la venta: el cobro queda siempre alineado con lo cobrado.
+            </p>
+        </section>
+    {% else %}
+        <p class="mb-6 text-sm text-muted">
+            Un pago a cuenta (anticipo) queda como saldo a favor del cliente y no está aplicado a ninguna venta.
+            Para cobrar una venta concreta, usa el botón "Registrar pago" del detalle de esa venta.
+        </p>
+    {% endif %}
+
+    {{ form_start(form, {action: sale ? path('app_payment_store_for_sale', {id: sale.id}) : path('app_payment_create'), attr: {class: 'space-y-6'}}) }}
+        <section aria-labelledby="titulos-datos" class="space-y-5 rounded border border-border bg-surface p-4">
+            <h2 id="titulos-datos" class="text-lg font-medium text-foreground">Datos del pago</h2>
+
+            <div class="grid gap-4 sm:grid-cols-2">
+                {% if form.investment is defined %}
+                    <div>
+                        <label for="{{ form.investment.vars.id }}" class="{{ label_class }}">{{ form.investment.vars.label }}</label>
+                        {{ form_widget(form.investment, {attr: {class: input_class}}) }}
+                        {% for error in form.investment.vars.errors %}
+                            <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+                        {% endfor %}
+                    </div>
+                    <div>
+                        <label for="{{ form.customer.vars.id }}" class="{{ label_class }}">{{ form.customer.vars.label }}</label>
+                        {{ form_widget(form.customer, {attr: {class: input_class}}) }}
+                        {% for error in form.customer.vars.errors %}
+                            <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <div>
+                    <label for="{{ form.amount.vars.id }}" class="{{ label_class }}">{{ form.amount.vars.label }}</label>
+                    {{ form_widget(form.amount, {attr: {class: input_class, min: '0.01', step: '0.01'}}) }}
+                    {% for error in form.amount.vars.errors %}
+                        <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+                    {% endfor %}
+                </div>
+                <div>
+                    <label for="{{ form.date.vars.id }}" class="{{ label_class }}">{{ form.date.vars.label }}</label>
+                    {{ form_widget(form.date, {attr: {class: input_class}}) }}
+                    {% for error in form.date.vars.errors %}
+                        <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+                    {% endfor %}
+                </div>
+                <div>
+                    <label for="{{ form.method.vars.id }}" class="{{ label_class }}">{{ form.method.vars.label }}</label>
+                    {{ form_widget(form.method, {attr: {class: input_class}}) }}
+                    {% for error in form.method.vars.errors %}
+                        <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+                    {% endfor %}
+                </div>
+                <div>
+                    <label for="{{ form.reference.vars.id }}" class="{{ label_class }}">{{ form.reference.vars.label }}</label>
+                    {{ form_widget(form.reference, {attr: {class: input_class, maxlength: 100}}) }}
+                    {% for error in form.reference.vars.errors %}
+                        <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div>
+                <label for="{{ form.notes.vars.id }}" class="{{ label_class }}">{{ form.notes.vars.label }}</label>
+                {{ form_widget(form.notes, {attr: {class: input_class}}) }}
+                {% for error in form.notes.vars.errors %}
+                    <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+                {% endfor %}
+            </div>
+        </section>
+
+        <div class="flex flex-wrap items-center gap-3">
+            <button
+                type="submit"
+                class="rounded bg-brand px-4 py-2 font-medium text-white hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+            >Registrar pago</button>
+            <a
+                href="{{ sale ? path('app_sale_show', {id: sale.id}) : path('app_payment_index') }}"
+                class="text-sm text-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >Cancelar</a>
+        </div>
+    {{ form_end(form) }}
+{% endblock %}

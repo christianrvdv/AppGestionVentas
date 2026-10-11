@@ -49,7 +49,16 @@
             </div>
             <div class="rounded border border-border bg-surface p-4">
                 <dt class="text-sm text-muted">Cliente</dt>
-                <dd class="mt-1 text-foreground">{{ sale.customer.name ?? 'Consumidor final' }}</dd>
+                <dd class="mt-1 text-foreground">
+                    {% if sale.customer %}
+                        <a
+                            href="{{ path('app_customer_show', {id: sale.customer.id}) }}"
+                            class="text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                        >{{ sale.customer.name }}</a>
+                    {% else %}
+                        Consumidor final
+                    {% endif %}
+                </dd>
             </div>
             <div class="rounded border border-border bg-surface p-4">
                 <dt class="text-sm text-muted">Inversión</dt>
@@ -166,7 +175,16 @@
     {% endif %}
 
     <section aria-labelledby="titulos-pagos" class="mb-10">
-        <h2 id="titulos-pagos" class="mb-4 text-lg font-medium text-foreground">Pagos</h2>
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-4">
+            <h2 id="titulos-pagos" class="text-lg font-medium text-foreground">Pagos</h2>
+            {% if not sale.voidedAt %}
+                <a
+                    href="{{ path('app_payment_new_for_sale', {id: sale.id}) }}"
+                    id="venta-registrar-pago"
+                    class="rounded bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                >Registrar pago</a>
+            {% endif %}
+        </div>
         {% if payments is empty %}
             <p class="rounded border border-border bg-surface px-4 py-3 text-sm text-muted">Sin pagos registrados.</p>
         {% else %}

@@ -47,6 +47,12 @@
                         </li>
                         <li>
                             <a
+                                href="{{ path('app_payment_index') }}"
+                                class="{{ app.request.attributes.get('_route') starts with 'app_payment_' ? 'font-semibold text-brand' : 'text-foreground hover:text-brand' }}"
+                            >Pagos</a>
+                        </li>
+                        <li>
+                            <a
                                 href="{{ path('app_product_index') }}"
                                 class="{{ app.request.attributes.get('_route') starts with 'app_product_' ? 'font-semibold text-brand' : 'text-foreground hover:text-brand' }}"
                             >Productos</a>

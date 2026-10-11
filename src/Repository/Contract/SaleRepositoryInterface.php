@@ -102,6 +102,19 @@ interface SaleRepositoryInterface
     ): string;
 
     /**
+     * Total vendido a un cliente (cabeceras de venta). Por defecto excluye
+     * las anuladas: una venta anulada no existió y no debe inflar el saldo.
+     *
+     * Es la mitad del "saldo pendiente" del cliente (ver
+     * PaymentRepositoryInterface::sumByCustomer para la otra).
+     */
+    public function sumSalesByCustomer(
+        int  $customerId,
+        int  $tenantId,
+        bool $includeVoided = false
+    ): string;
+
+    /**
      * @return Sale[]
      */
     public function findByInvestment(

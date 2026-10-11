@@ -173,7 +173,7 @@ final class SaleController extends AbstractController
             'sale' => $sale,
             'lines' => $this->saleLineRepository->findBySale($sale->getId(), $tenantId),
             'payments' => $this->paymentRepository->findBySale($sale->getId(), $tenantId),
-            'method_labels' => self::methodLabels(),
+            'method_labels' => Payment::METHOD_LABELS,
         ]);
     }
 
@@ -410,18 +410,5 @@ final class SaleController extends AbstractController
         }
 
         return $user;
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    private static function methodLabels(): array
-    {
-        return [
-            Payment::METHOD_CASH => 'Efectivo',
-            Payment::METHOD_TRANSFER => 'Transferencia',
-            Payment::METHOD_CARD => 'Tarjeta',
-            Payment::METHOD_OTHER => 'Otro',
-        ];
     }
 }

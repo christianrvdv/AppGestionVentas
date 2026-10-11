@@ -1,0 +1,156 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Pagos · Gestión de Negocio{% endblock %}
+
+{% block body %}
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <h1 class="text-2xl font-semibold text-foreground">Pagos</h1>
+        <a
+            href="{{ path('app_payment_new') }}"
+            class="rounded bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+        >Registrar pago a cuenta</a>
+    </div>
+
+    <form method="get" action="{{ path('app_payment_index') }}" class="mb-6 flex flex-wrap items-end gap-3">
+        <div>
+            <label for="customer" class="mb-1 block text-sm font-medium text-foreground">Cliente</label>
+            <select
+                id="customer"
+                name="customer"
+                class="rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >
+                <option value="">Todos</option>
+                {% for customer in customers %}
+                    <option value="{{ customer.id }}" {{ filters.customer == customer.id ? 'selected' }}>{{ customer.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="sale" class="mb-1 block text-sm font-medium text-foreground">Venta</label>
+            <input
+                type="number"
+                id="sale"
+                name="sale"
+                min="1"
+                value="{{ filters.sale ?? '' }}"
+                placeholder="Nº de venta"
+                class="w-32 rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >
+        </div>
+        <div>
+            <label for="method" class="mb-1 block text-sm font-medium text-foreground">Método</label>
+            <select
+                id="method"
+                name="method"
+                class="rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >
+                <option value="">Todos</option>
+                {% for value, label in methods %}
+                    <option value="{{ value }}" {{ filters.method == value ? 'selected' }}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="from" class="mb-1 block text-sm font-medium text-foreground">Desde</label>
+            <input
+                type="date"
+                id="from"
+                name="from"
+                value="{{ filters.from ?? '' }}"
+                class="rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >
+        </div>
+        <div>
+            <label for="to" class="mb-1 block text-sm font-medium text-foreground">Hasta</label>
+            <input
+                type="date"
+                id="to"
+                name="to"
+                value="{{ filters.to ?? '' }}"
+                class="rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >
+        </div>
+        <button
+            type="submit"
+            class="rounded border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+        >Filtrar</button>
+        {% if filters.customer or filters.sale or filters.method or filters.from or filters.to %}
+            <a
+                href="{{ path('app_payment_index') }}"
+                class="px-2 py-2 text-sm text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >Limpiar filtro</a>
+        {% endif %}
+    </form>
+
+    {% if pagination.items is empty %}
+        <p class="rounded border border-border bg-surface px-4 py-3 text-sm text-muted">
+            {% if filters.customer or filters.sale or filters.method or filters.from or filters.to %}
+                No hay pagos que coincidan con el filtro.
+            {% else %}
+                No hay pagos registrados.
+                Registra el cobro de una venta
+                <a href="{{ path('app_sale_index') }}" class="text-brand hover:underline">desde su detalle</a>
+                o un anticipo con el botón de arriba.
+            {% endif %}
+        </p>
+    {% else %}
+        <div class="overflow-x-auto rounded border border-border bg-surface">
+            <table class="w-full text-sm">
+                <caption class="sr-only">Listado de pagos del negocio</caption>
+                <thead>
+                    <tr class="border-b border-border text-start text-muted">
+                        <th scope="col" class="px-4 py-2 text-start font-medium">Fecha</th>
+                        <th scope="col" class="px-4 py-2 text-start font-medium">Cliente</th>
+                        <th scope="col" class="px-4 py-2 text-start font-medium">Venta</th>
+                        <th scope="col" class="px-4 py-2 text-start font-medium">Método</th>
+                        <th scope="col" class="px-4 py-2 text-end font-medium">Monto</th>
+                        <th scope="col" class="px-4 py-2 text-start font-medium">Referencia</th>
+                        <th scope="col" class="px-4 py-2 text-end font-medium"><span class="sr-only">Detalle</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for payment in pagination %}
+                        <tr class="border-b border-border last:border-b-0">
+                            <td class="px-4 py-2 text-foreground">{{ payment.paymentDate|date('d/m/Y') }}</td>
+                            <td class="px-4 py-2">
+                                {% if payment.customer %}
+                                    <a
+                                        href="{{ path('app_customer_show', {id: payment.customer.id}) }}"
+                                        class="text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                                    >{{ payment.customer.name }}</a>
+                                {% else %}
+                                    <span class="text-muted">Consumidor final</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-2">
+                                {% if payment.sale %}
+                                    <a
+                                        href="{{ path('app_sale_show', {id: payment.sale.id}) }}"
+                                        class="text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                                    >Venta {{ payment.sale.id }}</a>
+                                {% else %}
+                                    <span class="text-muted">A cuenta</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-2">{{ methods[payment.method] ?? payment.method }}</td>
+                            <td class="px-4 py-2 text-end">{{ payment.amount|number_format(2, ',', '.') }}</td>
+                            <td class="px-4 py-2">{{ payment.reference ?? '—' }}</td>
+                            <td class="px-4 py-2 text-end">
+                                {% if payment.sale %}
+                                    <a
+                                        href="{{ path('app_sale_show', {id: payment.sale.id}) }}"
+                                        class="text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                                    >Ver venta</a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <nav aria-label="Paginación de pagos" class="mt-4">
+            {{ knp_pagination_render(pagination) }}
+        </nav>
+    {% endif %}
+{% endblock %}

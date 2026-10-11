@@ -239,6 +239,27 @@ class SaleRepository extends ServiceEntityRepository implements SaleRepositoryIn
         return (string)($result['total'] ?? '0.00');
     }
 
+    public function sumSalesByCustomer(
+        int  $customerId,
+        int  $tenantId,
+        bool $includeVoided = false
+    ): string
+    {
+        $qb = $this->createQueryBuilder('s')
+            ->select('SUM(s.totalAmount) AS total')
+            ->andWhere('s.customer = :customerId')
+            ->andWhere('s.tenant = :tenantId')
+            ->setParameter('customerId', $customerId)
+            ->setParameter('tenantId', $tenantId);
+
+        if (!$includeVoided) {
+            $qb->andWhere('s.voidedAt IS NULL');
+        }
+
+        $result = $qb->getQuery()->getOneOrNullResult();
+        return (string)($result['total'] ?? '0.00');
+    }
+
     /**
      * @return Sale[]
      */
