@@ -4,15 +4,22 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional;
 
+use App\DTO\Command\RegisterSaleCommand;
+use App\DTO\Command\RegisterSaleLineCommand;
 use App\Entity\AppUser;
 use App\Entity\Customer;
 use App\Entity\Investment;
 use App\Entity\InvestmentItem;
+use App\Entity\Payment;
 use App\Entity\Product;
+use App\Entity\Sale;
 use App\Entity\Tenant;
 use App\Entity\TenantMembership;
+use App\Service\Investment\InvestmentConfirmationService;
 use App\Service\Investment\InvestmentCreationService;
 use App\Service\Investment\InvestmentItemService;
+use App\Service\Sale\SaleService;
+use App\Service\Sale\SaleVoidService;
 use App\Service\TenantContext;
 use App\Tests\Support\TestSchema;
 use Doctrine\ORM\EntityManagerInterface;
@@ -237,6 +244,185 @@ abstract class FunctionalTestCase extends WebTestCase
             $this->em->flush();
 
             return $item;
+        } finally {
+            $context->setTenantId($previous);
+        }
+    }
+
+    /**
+     * Inversión confirmada con stock para vender: crea el borrador, le
+     * añade un producto y la confirma. Los movimientos PURCHASE que deja
+     * la confirmación son el stock que SaleService valida, así que sin
+     * este paso no se puede sembrar una venta real.
+     *
+     * @return array{investment: Investment, item: InvestmentItem}
+     */
+    protected function seedConfirmedInvestmentWithStock(
+        AppUser $user,
+        ?\DateTimeImmutable $date = null,
+        ?string $description = null,
+        int $quantity = 10,
+        string $unitCost = '100.00'
+    ): array {
+        $investment = $this->seedInvestment($user, $date, $description);
+        $product = $this->seedProduct($investment->getTenant(), 'Producto con stock', 'SKU-'.uniqid('', true));
+        $item = $this->addItemToInvestment($investment, $product, $quantity, $unitCost);
+
+        $this->runAsTenant(
+            $investment->getTenant()->getId(),
+            function () use ($investment): void {
+                static::getContainer()->get(InvestmentConfirmationService::class)->confirm($investment);
+                $this->em->flush();
+            }
+        );
+
+        return ['investment' => $investment, 'item' => $item];
+    }
+
+    /**
+     * Venta registrada por SaleService (el único punto de entrada del
+     * dominio), con el TenantContext apuntado al tenant de la inversión.
+     * Vende la primera línea del primer ítem de la inversión.
+     */
+    protected function seedSale(
+        Investment $investment,
+        AppUser $user,
+        ?Customer $customer = null,
+        ?\DateTimeImmutable $date = null,
+        int $quantity = 5,
+        string $unitPrice = '150.00'
+    ): Sale {
+        $item = $investment->getItems()->first();
+
+        if (false === $item) {
+            throw new \LogicException(sprintf(
+                'La inversión %d no tiene ítems para vender.',
+                $investment->getId()
+            ));
+        }
+
+        return $this->runAsTenant(
+            $investment->getTenant()->getId(),
+            function () use ($investment, $item, $user, $customer, $date, $quantity, $unitPrice): Sale {
+                return static::getContainer()
+                    ->get(SaleService::class)
+                    ->register(
+                        new RegisterSaleCommand(
+                            $investment->getId(),
+                            $customer?->getId(),
+                            $date ?? new \DateTimeImmutable('today'),
+                            [new RegisterSaleLineCommand($item->getId(), $quantity, $unitPrice)]
+                        ),
+                        $user
+                    );
+            }
+        );
+    }
+
+    /**
+     * Venta anulada por SaleVoidService: la inversión queda sin ventas
+     * vivas (reconocido y recuperación recalculados).
+     */
+    protected function seedVoidedSale(
+        Investment $investment,
+        AppUser $user,
+        string $reason = 'Devolución del cliente',
+        ?Customer $customer = null,
+        ?\DateTimeImmutable $date = null,
+        int $quantity = 5,
+        string $unitPrice = '150.00'
+    ): Sale {
+        $sale = $this->seedSale($investment, $user, $customer, $date, $quantity, $unitPrice);
+
+        $this->runAsTenant(
+            $investment->getTenant()->getId(),
+            function () use ($sale, $user, $reason): void {
+                static::getContainer()->get(SaleVoidService::class)->void($sale, $reason, $user);
+                $this->em->flush();
+            }
+        );
+
+        return $sale;
+    }
+
+    /**
+     * Pago aplicado a una venta (para el detalle de venta). Se construye
+     * la entidad directamente: Payment no tiene asserts de ciclo de vida.
+     */
+    protected function seedPayment(
+        Sale $sale,
+        string $amount = '500.00',
+        string $method = Payment::METHOD_CASH,
+        ?Customer $customer = null,
+        ?string $reference = null
+    ): Payment {
+        $payment = new Payment();
+        $payment->setTenant($sale->getTenant());
+        $payment->setSale($sale);
+        $payment->setCustomer($customer);
+        $payment->setAmount($amount);
+        $payment->setCurrency($sale->getCurrency());
+        $payment->setPaymentDate(new \DateTimeImmutable('today'));
+        $payment->setMethod($method);
+        $payment->setReference($reference);
+
+        $this->em->persist($payment);
+        $this->em->flush();
+
+        return $payment;
+    }
+
+    /**
+     * Venta de OTRO negocio (tenant + usuario + inversión confirmada),
+     * para verificar que ninguna vista muestra datos ajenos.
+     */
+    protected function seedForeignSale(): Sale
+    {
+        $tenant = new Tenant();
+        $tenant->setName('Ajeno');
+        $tenant->setSlug('ajeno');
+
+        $user = new AppUser();
+        $user->setEmail('admin@ajeno.local');
+        $user->setRoles(['ROLE_ADMIN']);
+        $user->setPasswordHash('x');
+        $user->addMembership(new TenantMembership($user, $tenant));
+
+        $this->em->persist($tenant);
+        $this->em->persist($user);
+        $this->em->flush();
+
+        ['investment' => $investment] = $this->seedConfirmedInvestmentWithStock(
+            $user,
+            new \DateTimeImmutable('2026-01-01'),
+            'Inversión ajena'
+        );
+
+        return $this->seedSale(
+            $investment,
+            $user,
+            $this->seedCustomer($investment->getTenant(), 'Cliente ajeno'),
+            quantity: 1
+        );
+    }
+
+    /**
+     * Ejecuta $fn con el TenantContext apuntado a $tenantId y restaura el
+     * valor previo al terminar (también si $fn lanza). Es lo que hace el
+     * TenantFilterListener en web, reproducido para los seeds.
+     *
+     * @template T
+     * @param callable(): T $fn
+     * @return T
+     */
+    private function runAsTenant(int $tenantId, callable $fn): mixed
+    {
+        $context = static::getContainer()->get(TenantContext::class);
+        $previous = $context->getTenantId();
+        $context->setTenantId($tenantId);
+
+        try {
+            return $fn();
         } finally {
             $context->setTenantId($previous);
         }

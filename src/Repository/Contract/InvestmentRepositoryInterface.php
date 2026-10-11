@@ -55,6 +55,16 @@ interface InvestmentRepositoryInterface
      */
     public function findActiveByTenant(int $tenantId): array;
 
+    /**
+     * TODAS las inversiones del tenant, sin filtrar por estado: el
+     * listado de ventas filtra por inversión y una venta puede colgar de
+     * una inversión recuperada o cerrada. Si el desplegable solo ofreciera
+     * las activas, esa venta no tendría forma de filtrarse.
+     *
+     * @return Investment[]
+     */
+    public function findAllByTenant(int $tenantId): array;
+
     public function countByStatus(int $tenantId, string $status): int;
 
     /**

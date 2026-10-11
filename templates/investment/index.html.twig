@@ -63,7 +63,7 @@
                             <td class="px-4 py-2">{{ investment.investmentDate|date('d/m/Y') }}</td>
                             <td class="px-4 py-2">{{ status_labels[investment.status] ?? investment.status }}</td>
                             <td class="px-4 py-2">{{ investment.description ?? '—' }}</td>
-                            <td class="px-4 py-2 text-end">{{ investment.totalInvestment|number_format(2, ',', '.') }}</td>
+                            <td class="px-4 py-2 text-end">{{ investment.liveTotalInvestment|number_format(2, ',', '.') }}</td>
                             <td class="px-4 py-2 text-end">
                                 <a
                                     href="{{ path('app_investment_show', {id: investment.id}) }}"

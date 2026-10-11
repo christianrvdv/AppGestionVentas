@@ -62,6 +62,33 @@ final class InvestmentIndexTest extends FunctionalTestCase
         $this->assertSelectorTextContains('table tbody', $cancelled->getCode());
     }
 
+    public function testIndexShowsLiveTotalsForDraftInvestments(): void
+    {
+        $client = $this->createSharedKernelClient();
+        ['user' => $user, 'tenant' => $tenant] = $this->seedDemoTenantAndAdmin();
+        $investment = $this->seedInvestment($user, null, 'Borrador con ítems');
+        $product = $this->seedProduct($tenant, 'Yerba', 'YER-1');
+        $this->addItemToInvestment($investment, $product, 2, '100.00');
+
+        $context = $client->getContainer()->get(\App\Service\TenantContext::class);
+        $context->setTenantId($tenant->getId());
+        $client->getContainer()->get(\App\Service\Investment\InvestmentExpenseService::class)->addExpense(
+            $investment,
+            \App\Entity\InvestmentExpense::CATEGORY_TRANSPORT,
+            '90.00',
+            new \DateTimeImmutable('2026-01-15'),
+            'Flete'
+        );
+        $this->em->flush();
+        $context->clear();
+
+        $this->loginAsDemoAdmin($client);
+        $client->request('GET', '/inversiones');
+
+        $this->assertResponseIsSuccessful();
+        $this->assertSelectorTextContains('table tbody', '290,00');
+    }
+
     public function testIndexOnlyShowsCurrentTenantInvestments(): void
     {
         $client = $this->createSharedKernelClient();

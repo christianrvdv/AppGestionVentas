@@ -133,6 +133,13 @@ class SaleLine
      */
     private function recalculateDerived(): void
     {
+        // Los setters pueden invocarse en cualquier orden: si todavía falta
+        // alguno de los tres valores que alimentan los derivados, no hay nada
+        // que calcular (igual que hace recalculateTotalLine con isset).
+        if (!isset($this->quantity, $this->unitPrice, $this->realUnitCostSnapshot)) {
+            return;
+        }
+
         if ($this->quantity <= 0) {
             throw new \LogicException(sprintf(
                 'SaleLine.quantity debe ser > 0 (id=%s).',
@@ -312,6 +319,11 @@ class SaleLine
     public function setRealUnitCostSnapshot(string $v): self
     {
         $this->realUnitCostSnapshot = $v;
+        // [FIX-1] Eager: costRecovered y grossProfitLine derivan del costo
+        // snapshot, así que también se recalculan aquí. Sin esto, quien los
+        // lea antes del flush (SaleService, para decidir la ganancia
+        // reconocida) vería los valores iniciales '0.00'.
+        $this->recalculateDerived();
         return $this;
     }
 

@@ -295,13 +295,23 @@
                         <tr class="border-b border-border text-start text-muted">
                             <th scope="col" class="px-4 py-2 text-start font-medium">Fecha</th>
                             <th scope="col" class="px-4 py-2 text-end font-medium">Total</th>
+                            <th scope="col" class="px-4 py-2 text-end font-medium"><span class="sr-only">Detalle</span></th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for sale in investment.sales %}
-                            <tr class="border-b border-border last:border-b-0">
-                                <td class="px-4 py-2 text-foreground">{{ sale.saleDate|date('d/m/Y') }}</td>
+                            <tr class="border-b border-border last:border-b-0 {{ sale.voidedAt ? 'text-muted' : '' }}">
+                                <td class="px-4 py-2 text-foreground">
+                                    {{ sale.saleDate|date('d/m/Y') }}
+                                    {% if sale.voidedAt %}<span class="text-muted">(anulada)</span>{% endif %}
+                                </td>
                                 <td class="px-4 py-2 text-end">{{ sale.totalAmount|number_format(2, ',', '.') }}</td>
+                                <td class="px-4 py-2 text-end">
+                                    <a
+                                        href="{{ path('app_sale_show', {id: sale.id}) }}"
+                                        class="text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                                    >Ver detalle</a>
+                                </td>
                             </tr>
                         {% endfor %}
                     </tbody>

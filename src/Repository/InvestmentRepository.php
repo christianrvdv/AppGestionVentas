@@ -125,6 +125,25 @@ class InvestmentRepository extends ServiceEntityRepository implements Investment
             ->getResult();
     }
 
+    /**
+     * Todas las inversiones del tenant, sin filtrar por estado (el
+     * desplegable de filtros del listado de ventas debe ofrecer también
+     * las inversiones recuperadas o cerradas, que son las que tienen
+     * ventas con más historia).
+     *
+     * @return Investment[]
+     */
+    public function findAllByTenant(int $tenantId): array
+    {
+        return $this->createQueryBuilder('i')
+            ->andWhere('i.tenant = :tenantId')
+            ->setParameter('tenantId', $tenantId)
+            ->orderBy('i.investmentDate', 'DESC')
+            ->addOrderBy('i.code', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
     public function countByStatus(int $tenantId, string $status): int
     {
         return (int) $this->createQueryBuilder('i')

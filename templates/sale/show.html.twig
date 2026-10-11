@@ -1,0 +1,170 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Venta {{ sale.id }} · Gestión de Negocio{% endblock %}
+
+{% block body %}
+    {# Los totales se derivan en vivo desde las líneas y los pagos: la
+       cabecera (Sale.totalAmount) se materializa al crear la venta, pero
+       la ganancia bruta y la reconocida son sumas de las líneas y no hay
+       columna que las guarde. #}
+    {% set total_bruta = 0 %}
+    {% set total_reconocida = 0 %}
+    {% for line in lines %}
+        {% set total_bruta = total_bruta + line.grossProfitLine %}
+        {% set total_reconocida = total_reconocida + line.recognizedProfitLine %}
+    {% endfor %}
+    {% set total_pagado = 0 %}
+    {% for payment in payments %}
+        {% set total_pagado = total_pagado + payment.amount %}
+    {% endfor %}
+    {% set pendiente = sale.totalAmount - total_pagado %}
+
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <h1 class="text-2xl font-semibold text-foreground">
+            Venta {{ sale.id }}
+            <span class="ml-2 align-middle text-sm font-normal {{ sale.voidedAt ? 'text-danger' : 'text-muted' }}">
+                {{ sale.voidedAt ? 'Anulada' : 'Activa' }}
+            </span>
+        </h1>
+        <a href="{{ path('app_sale_index') }}" class="text-sm text-brand hover:underline">Volver al listado</a>
+    </div>
+
+    {% if sale.voidedAt %}
+        <div id="venta-anulada" role="alert" class="mb-6 rounded border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
+            <p class="font-medium">Esta venta fue anulada y no cuenta para la recuperación de la inversión.</p>
+            <p class="mt-1">
+                Motivo: {{ sale.voidReason ?? 'Sin motivo registrado' }}
+                · Anulada el {{ sale.voidedAt|date('d/m/Y') }}
+                {% if sale.voidedBy %} por {{ sale.voidedBy.email }}{% endif %}
+            </p>
+        </div>
+    {% endif %}
+
+    <section aria-labelledby="titulos-cabecera" class="mb-10">
+        <h2 id="titulos-cabecera" class="mb-4 text-lg font-medium text-foreground">Resumen</h2>
+        <dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div class="rounded border border-border bg-surface p-4">
+                <dt class="text-sm text-muted">Fecha</dt>
+                <dd class="mt-1 text-foreground">{{ sale.saleDate|date('d/m/Y') }}</dd>
+            </div>
+            <div class="rounded border border-border bg-surface p-4">
+                <dt class="text-sm text-muted">Cliente</dt>
+                <dd class="mt-1 text-foreground">{{ sale.customer.name ?? 'Consumidor final' }}</dd>
+            </div>
+            <div class="rounded border border-border bg-surface p-4">
+                <dt class="text-sm text-muted">Inversión</dt>
+                <dd class="mt-1 text-foreground">
+                    <a
+                        href="{{ path('app_investment_show', {id: sale.investment.id}) }}"
+                        class="text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                    >{{ sale.investment.code }}</a>
+                    {% if sale.investment.description %}
+                        <span class="text-muted">· {{ sale.investment.description }}</span>
+                    {% endif %}
+                </dd>
+            </div>
+            <div class="rounded border border-border bg-surface p-4">
+                <dt class="text-sm text-muted">Notas</dt>
+                <dd class="mt-1 text-foreground">{{ sale.notes ?? '—' }}</dd>
+            </div>
+            <div class="rounded border border-border bg-surface p-4">
+                <dt class="text-sm text-muted">Moneda</dt>
+                <dd class="mt-1 text-foreground">{{ sale.currency }}</dd>
+            </div>
+        </dl>
+    </section>
+
+    <section aria-labelledby="titulos-totales" class="mb-10">
+        <h2 id="titulos-totales" class="mb-4 text-lg font-medium text-foreground">Totales</h2>
+        <dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div class="rounded border border-border bg-surface p-4">
+                <dt class="text-sm text-muted">Total vendido</dt>
+                <dd id="venta-total" class="mt-1 text-xl font-semibold text-foreground">{{ sale.totalAmount|number_format(2, ',', '.') }}</dd>
+            </div>
+            <div class="rounded border border-border bg-surface p-4">
+                <dt class="text-sm text-muted">Ganancia bruta</dt>
+                <dd id="venta-ganancia-bruta" class="mt-1 text-foreground">{{ total_bruta|number_format(2, ',', '.') }}</dd>
+            </div>
+            <div class="rounded border border-border bg-surface p-4">
+                <dt class="text-sm text-muted">Ganancia reconocida</dt>
+                <dd id="venta-ganancia-reconocida" class="mt-1 text-foreground">{{ total_reconocida|number_format(2, ',', '.') }}</dd>
+            </div>
+            <div class="rounded border border-border bg-surface p-4">
+                <dt class="text-sm text-muted">Pagado</dt>
+                <dd id="venta-pagado" class="mt-1 text-foreground">{{ total_pagado|number_format(2, ',', '.') }}</dd>
+            </div>
+            <div class="rounded border border-border bg-surface p-4">
+                <dt class="text-sm text-muted">Pendiente</dt>
+                <dd id="venta-pendiente" class="mt-1 text-foreground">{{ pendiente|number_format(2, ',', '.') }}</dd>
+            </div>
+        </dl>
+    </section>
+
+    <section aria-labelledby="titulos-lineas" class="mb-10">
+        <h2 id="titulos-lineas" class="mb-4 text-lg font-medium text-foreground">Líneas</h2>
+        {% if lines is empty %}
+            <p class="rounded border border-border bg-surface px-4 py-3 text-sm text-muted">La venta no tiene líneas.</p>
+        {% else %}
+            <div class="overflow-x-auto rounded border border-border bg-surface">
+                <table class="w-full text-sm">
+                    <caption class="sr-only">Líneas de la venta {{ sale.id }}</caption>
+                    <thead>
+                        <tr class="border-b border-border text-start text-muted">
+                            <th scope="col" class="px-4 py-2 text-start font-medium">Producto</th>
+                            <th scope="col" class="px-4 py-2 text-end font-medium">Cantidad</th>
+                            <th scope="col" class="px-4 py-2 text-end font-medium">Precio unitario</th>
+                            <th scope="col" class="px-4 py-2 text-end font-medium">Subtotal</th>
+                            <th scope="col" class="px-4 py-2 text-end font-medium">Costo unitario</th>
+                            <th scope="col" class="px-4 py-2 text-end font-medium">Ganancia bruta</th>
+                            <th scope="col" class="px-4 py-2 text-end font-medium">Ganancia reconocida</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for line in lines %}
+                            <tr class="border-b border-border last:border-b-0">
+                                <td class="px-4 py-2 font-medium text-foreground">{{ line.investmentItem.product.name }}</td>
+                                <td class="px-4 py-2 text-end">{{ line.quantity }}</td>
+                                <td class="px-4 py-2 text-end">{{ line.unitPrice|number_format(2, ',', '.') }}</td>
+                                <td class="px-4 py-2 text-end">{{ line.totalLine|number_format(2, ',', '.') }}</td>
+                                <td class="px-4 py-2 text-end">{{ line.realUnitCostSnapshot|number_format(2, ',', '.') }}</td>
+                                <td class="px-4 py-2 text-end">{{ line.grossProfitLine|number_format(2, ',', '.') }}</td>
+                                <td class="px-4 py-2 text-end">{{ line.recognizedProfitLine|number_format(2, ',', '.') }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </section>
+
+    <section aria-labelledby="titulos-pagos" class="mb-10">
+        <h2 id="titulos-pagos" class="mb-4 text-lg font-medium text-foreground">Pagos</h2>
+        {% if payments is empty %}
+            <p class="rounded border border-border bg-surface px-4 py-3 text-sm text-muted">Sin pagos registrados.</p>
+        {% else %}
+            <div class="overflow-x-auto rounded border border-border bg-surface">
+                <table class="w-full text-sm">
+                    <caption class="sr-only">Pagos aplicados a la venta {{ sale.id }}</caption>
+                    <thead>
+                        <tr class="border-b border-border text-start text-muted">
+                            <th scope="col" class="px-4 py-2 text-start font-medium">Fecha</th>
+                            <th scope="col" class="px-4 py-2 text-start font-medium">Método</th>
+                            <th scope="col" class="px-4 py-2 text-end font-medium">Monto</th>
+                            <th scope="col" class="px-4 py-2 text-start font-medium">Referencia</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for payment in payments %}
+                            <tr class="border-b border-border last:border-b-0">
+                                <td class="px-4 py-2 text-foreground">{{ payment.paymentDate|date('d/m/Y') }}</td>
+                                <td class="px-4 py-2">{{ method_labels[payment.method] ?? payment.method }}</td>
+                                <td class="px-4 py-2 text-end">{{ payment.amount|number_format(2, ',', '.') }}</td>
+                                <td class="px-4 py-2">{{ payment.reference ?? '—' }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </section>
+{% endblock %}

@@ -1,0 +1,134 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Ventas · Gestión de Negocio{% endblock %}
+
+{% block body %}
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <h1 class="text-2xl font-semibold text-foreground">Ventas</h1>
+    </div>
+
+    <form method="get" action="{{ path('app_sale_index') }}" class="mb-6 flex flex-wrap items-end gap-3">
+        <div>
+            <label for="investment" class="mb-1 block text-sm font-medium text-foreground">Inversión</label>
+            <select
+                id="investment"
+                name="investment"
+                class="rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >
+                <option value="">Todas</option>
+                {% for investment in investments %}
+                    <option value="{{ investment.id }}" {{ filters.investment == investment.id ? 'selected' }}>{{ investment.code }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="customer" class="mb-1 block text-sm font-medium text-foreground">Cliente</label>
+            <select
+                id="customer"
+                name="customer"
+                class="rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >
+                <option value="">Todos</option>
+                {% for customer in customers %}
+                    <option value="{{ customer.id }}" {{ filters.customer == customer.id ? 'selected' }}>{{ customer.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="from" class="mb-1 block text-sm font-medium text-foreground">Desde</label>
+            <input
+                type="date"
+                id="from"
+                name="from"
+                value="{{ filters.from ?? '' }}"
+                class="rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >
+        </div>
+        <div>
+            <label for="to" class="mb-1 block text-sm font-medium text-foreground">Hasta</label>
+            <input
+                type="date"
+                id="to"
+                name="to"
+                value="{{ filters.to ?? '' }}"
+                class="rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >
+        </div>
+        <div class="flex items-center gap-2">
+            <input
+                type="checkbox"
+                id="include_voided"
+                name="include_voided"
+                value="1"
+                {{ filters.include_voided ? 'checked' }}
+                class="rounded border-border text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >
+            <label for="include_voided" class="text-sm text-foreground">Incluir anuladas</label>
+        </div>
+        <button
+            type="submit"
+            class="rounded border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+        >Filtrar</button>
+        {% if filters.investment or filters.customer or filters.from or filters.to or filters.include_voided %}
+            <a
+                href="{{ path('app_sale_index') }}"
+                class="px-2 py-2 text-sm text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >Limpiar filtro</a>
+        {% endif %}
+    </form>
+
+    {% if pagination.items is empty %}
+        <p class="rounded border border-border bg-surface px-4 py-3 text-sm text-muted">
+            No hay ventas registradas
+            {% if filters.investment or filters.customer or filters.from or filters.to %}
+                que coincidan con el filtro.
+            {% else %}
+                para los criterios actuales.
+            {% endif %}
+        </p>
+    {% else %}
+        <div class="overflow-x-auto rounded border border-border bg-surface">
+            <table class="w-full text-sm">
+                <caption class="sr-only">Listado de ventas del negocio</caption>
+                <thead>
+                    <tr class="border-b border-border text-start text-muted">
+                        <th scope="col" class="px-4 py-2 text-start font-medium">Fecha</th>
+                        <th scope="col" class="px-4 py-2 text-start font-medium">Cliente</th>
+                        <th scope="col" class="px-4 py-2 text-start font-medium">Inversión</th>
+                        <th scope="col" class="px-4 py-2 text-end font-medium">Total</th>
+                        <th scope="col" class="px-4 py-2 text-end font-medium">Ganancia bruta</th>
+                        <th scope="col" class="px-4 py-2 text-start font-medium">Estado</th>
+                        <th scope="col" class="px-4 py-2 text-end font-medium"><span class="sr-only">Detalle</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sale in pagination %}
+                        <tr class="border-b border-border last:border-b-0 {{ sale.voidedAt ? 'text-muted' : '' }}">
+                            <td class="px-4 py-2 text-foreground">{{ sale.saleDate|date('d/m/Y') }}</td>
+                            <td class="px-4 py-2">{{ sale.customer.name ?? 'Consumidor final' }}</td>
+                            <td class="px-4 py-2">
+                                <a
+                                    href="{{ path('app_investment_show', {id: sale.investment.id}) }}"
+                                    class="text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                                >{{ sale.investment.code }}</a>
+                            </td>
+                            <td class="px-4 py-2 text-end">{{ sale.totalAmount|number_format(2, ',', '.') }}</td>
+                            <td class="px-4 py-2 text-end">{{ (gross_profit[sale.id] ?? '0.00')|number_format(2, ',', '.') }}</td>
+                            <td class="px-4 py-2">{{ sale.voidedAt ? 'Anulada' : 'Activa' }}</td>
+                            <td class="px-4 py-2 text-end">
+                                <a
+                                    href="{{ path('app_sale_show', {id: sale.id}) }}"
+                                    class="text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                                >Ver detalle</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <nav aria-label="Paginación de ventas" class="mt-4">
+            {{ knp_pagination_render(pagination) }}
+        </nav>
+    {% endif %}
+{% endblock %}

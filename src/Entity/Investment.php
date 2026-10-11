@@ -352,6 +352,29 @@ class Investment
         return $this->totalInvestment;
     }
 
+    /**
+     * Total en vivo (ítems + gastos), para borradores.
+     *
+     * totalInvestment solo se materializa al confirmar; mientras tanto el
+     * listado necesita el total real, no el 0,00 por defecto de la columna.
+     * Al confirmar, InvestmentConfirmationService calcula exactamente lo mismo.
+     */
+    public function getLiveTotalInvestment(): string
+    {
+        $scale = 2;
+
+        $total = '0.00';
+        foreach ($this->items as $item) {
+            $total = bcadd($total, bcmul($item->getUnitCost(), (string) $item->getQuantity(), $scale), $scale);
+        }
+
+        foreach ($this->expenses as $expense) {
+            $total = bcadd($total, $expense->getAmount(), $scale);
+        }
+
+        return $total;
+    }
+
     public function setTotalInvestment(string $v): self
     {
         $this->totalInvestment = $v;

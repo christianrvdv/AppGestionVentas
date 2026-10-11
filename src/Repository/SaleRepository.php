@@ -7,6 +7,8 @@ namespace App\Repository;
 use App\Entity\Sale;
 use App\Repository\Contract\SaleRepositoryInterface;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\Types\Types;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
@@ -21,6 +23,50 @@ class SaleRepository extends ServiceEntityRepository implements SaleRepositoryIn
         parent::__construct($registry, Sale::class);
     }
 
+    public function createPaginatedQueryBuilder(
+        int $tenantId,
+        ?int $investmentId = null,
+        ?int $customerId = null,
+        ?\DateTimeImmutable $from = null,
+        ?\DateTimeImmutable $to = null,
+        bool $includeVoided = false
+    ): QueryBuilder {
+        $qb = $this->createQueryBuilder('s')
+            ->andWhere('s.tenant = :tenantId')
+            ->setParameter('tenantId', $tenantId)
+            ->orderBy('s.saleDate', 'DESC')
+            ->addOrderBy('s.id', 'DESC');
+
+        if (!$includeVoided) {
+            $qb->andWhere('s.voidedAt IS NULL');
+        }
+
+        if ($investmentId !== null && $investmentId > 0) {
+            $qb->andWhere('s.investment = :investmentId')
+                ->setParameter('investmentId', $investmentId);
+        }
+
+        if ($customerId !== null && $customerId > 0) {
+            $qb->andWhere('s.customer = :customerId')
+                ->setParameter('customerId', $customerId);
+        }
+
+        // DATE_IMMUTABLE explícito: la columna sale_date es DATE, y sin el
+        // tipo Doctrine enviaría 'Y-m-d H:i:s' (que PostgreSQL no acepta
+        // comparado contra una columna date).
+        if ($from !== null) {
+            $qb->andWhere('s.saleDate >= :from')
+                ->setParameter('from', $from, Types::DATE_IMMUTABLE);
+        }
+
+        if ($to !== null) {
+            $qb->andWhere('s.saleDate <= :to')
+                ->setParameter('to', $to, Types::DATE_IMMUTABLE);
+        }
+
+        return $qb;
+    }
+
     public function findByIdAndTenant(int $id, int $tenantId): ?Sale
     {
         return $this->createQueryBuilder('s')
@@ -30,6 +76,37 @@ class SaleRepository extends ServiceEntityRepository implements SaleRepositoryIn
             ->setParameter('tenantId', $tenantId)
             ->getQuery()
             ->getOneOrNullResult();
+    }
+
+    /**
+     * Ganancia BRUTA por venta para un conjunto de ids.
+     *
+     * @param int[] $saleIds
+     * @return array<int, string>
+     */
+    public function sumGrossProfitBySaleIds(array $saleIds, int $tenantId): array
+    {
+        if ([] === $saleIds) {
+            return [];
+        }
+
+        $rows = $this->createQueryBuilder('s')
+            ->select('s.id AS saleId', 'SUM(sl.grossProfitLine) AS grossProfit')
+            ->innerJoin('s.lines', 'sl')
+            ->andWhere('s.id IN (:saleIds)')
+            ->andWhere('s.tenant = :tenantId')
+            ->setParameter('saleIds', array_values($saleIds))
+            ->setParameter('tenantId', $tenantId)
+            ->groupBy('s.id')
+            ->getQuery()
+            ->getArrayResult();
+
+        $grossProfit = [];
+        foreach ($rows as $row) {
+            $grossProfit[(int) $row['saleId']] = (string) ($row['grossProfit'] ?? '0.00');
+        }
+
+        return $grossProfit;
     }
 
     /**
