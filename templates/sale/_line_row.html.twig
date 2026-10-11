@@ -1,0 +1,56 @@
+{#
+    Una línea de la venta. Se usa tanto para las filas ya renderizadas
+    como para el prototipo que clona Stimulus, así que el markup vive en
+    un solo sitio: dentro del <template> los nombres de campo salen con
+    __line__, que el controller reemplaza por el índice real.
+
+    Los atributos data-* NO son targets de Stimulus salvo
+    data-sale-links-row: el controller busca las filas con
+    closest('[data-sale-links-row]') y los campos por [data-line-*],
+    porque un target de Stimulus solo admite un elemento y acá hay uno
+    por fila.
+#}
+{% macro row(fields, input_class, label_class, error_class, select_class) %}
+    <div class="grid gap-3 sm:grid-cols-12" data-sale-links-row>
+        <div class="sm:col-span-5">
+            <label for="{{ fields.investmentItem.vars.id }}" class="{{ label_class }}">{{ fields.investmentItem.vars.label }}</label>
+            {{ form_widget(fields.investmentItem, {attr: {class: select_class, 'data-line-item': ''}}) }}
+            {% for error in fields.investmentItem.vars.errors %}
+                <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+            {% endfor %}
+        </div>
+        <div class="sm:col-span-2">
+            <label for="{{ fields.quantity.vars.id }}" class="{{ label_class }}">{{ fields.quantity.vars.label }}</label>
+            {{ form_widget(fields.quantity, {attr: {class: input_class, 'data-line-quantity': ''}}) }}
+            {% for error in fields.quantity.vars.errors %}
+                <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+            {% endfor %}
+        </div>
+        <div class="sm:col-span-2">
+            <label for="{{ fields.unitPrice.vars.id }}" class="{{ label_class }}">{{ fields.unitPrice.vars.label }}</label>
+            {{ form_widget(fields.unitPrice, {attr: {class: input_class, 'data-line-price': ''}}) }}
+            <p class="mt-1 text-xs text-muted" data-line-suggested>Sugerido: <span data-line-suggested-value>—</span></p>
+            {% for error in fields.unitPrice.vars.errors %}
+                <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+            {% endfor %}
+        </div>
+        <div class="sm:col-span-1">
+            <span class="{{ label_class }}" aria-hidden="true">Subtotal</span>
+            <output aria-label="Subtotal de la línea" class="block px-3 py-2 text-end text-foreground" data-line-subtotal>0,00</output>
+        </div>
+        <div class="sm:col-span-1">
+            <span class="{{ label_class }}" aria-hidden="true">Ganancia</span>
+            <output aria-label="Ganancia bruta estimada de la línea" class="block px-3 py-2 text-end text-foreground" data-line-gross>—</output>
+        </div>
+        <div class="flex items-end sm:col-span-1">
+            <button
+                type="button"
+                data-action="sale-lines#remove"
+                class="text-sm text-danger hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger"
+            >Quitar</button>
+        </div>
+        <p class="sm:col-span-12 text-sm text-danger" role="alert" data-line-warning hidden>
+            Supera el stock disponible.
+        </p>
+    </div>
+{% endmacro %}

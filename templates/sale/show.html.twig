@@ -137,6 +137,34 @@
         {% endif %}
     </section>
 
+    {% if not sale.voidedAt %}
+        <section aria-labelledby="titulos-anular" class="mb-10">
+            <h2 id="titulos-anular" class="mb-4 text-lg font-medium text-foreground">Anular venta</h2>
+            <form action="{{ path('app_sale_void', {id: sale.id}) }}" method="post" class="space-y-4 rounded border border-danger/30 bg-surface p-4">
+                <p class="text-sm text-muted">
+                    Anular devuelve las unidades al inventario y saca la venta de la recuperación de la inversión.
+                    Las ventas con pagos aplicados no se pueden anular.
+                </p>
+                <div>
+                    <label for="void_reason" class="mb-1 block text-sm font-medium text-foreground">Motivo de la anulación</label>
+                    <input
+                        type="text"
+                        id="void_reason"
+                        name="reason"
+                        maxlength="255"
+                        required
+                        class="w-full rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                    >
+                </div>
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('submit') }}">
+                <button
+                    type="submit"
+                    class="rounded border border-danger/40 bg-surface px-4 py-2 text-sm font-medium text-danger hover:bg-danger/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger"
+                >Anular venta</button>
+            </form>
+        </section>
+    {% endif %}
+
     <section aria-labelledby="titulos-pagos" class="mb-10">
         <h2 id="titulos-pagos" class="mb-4 text-lg font-medium text-foreground">Pagos</h2>
         {% if payments is empty %}

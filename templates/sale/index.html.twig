@@ -5,6 +5,10 @@
 {% block body %}
     <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
         <h1 class="text-2xl font-semibold text-foreground">Ventas</h1>
+        <a
+            href="{{ path('app_sale_new') }}"
+            class="rounded bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+        >Registrar venta</a>
     </div>
 
     <form method="get" action="{{ path('app_sale_index') }}" class="mb-6 flex flex-wrap items-end gap-3">

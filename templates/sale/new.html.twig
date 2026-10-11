@@ -1,0 +1,128 @@
+{% extends 'base.html.twig' %}
+
+{% import 'sale/_line_row.html.twig' as line_row %}
+
+{% block title %}Nueva venta · Gestión de Negocio{% endblock %}
+
+{% set input_class = 'w-full rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand' %}
+{% set select_class = 'w-full rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand' %}
+{% set label_class = 'mb-1 block text-sm font-medium text-foreground' %}
+{% set error_class = 'mt-1 text-sm text-danger' %}
+
+{% block body %}
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <h1 class="text-2xl font-semibold text-foreground">Nueva venta</h1>
+        <a href="{{ path('app_sale_index') }}" class="text-sm text-brand hover:underline">Volver al listado</a>
+    </div>
+
+    {% if sellable_items is empty %}
+        <p class="rounded border border-border bg-surface px-4 py-3 text-sm text-muted">
+            No hay ítems con stock disponible. Confirme una inversión o espere a tener inventario para poder vender.
+        </p>
+    {% else %}
+        <p class="mb-6 text-sm text-muted">
+            La estimación de totales y ganancia se calcula en el navegador mientras cargas la venta:
+            es una ayuda, el servidor vuelve a calcularlo todo al registrar.
+        </p>
+
+        {# El controller acota el selector de ítems a la inversión elegida
+           y actualiza la estimación en vivo. Sin JavaScript el form sigue
+           siendo usable: trae una línea armada y envía al servidor. #}
+        {{ form_start(form, {action: path('app_sale_create'), attr: {class: 'space-y-6', 'data-controller': 'sale-lines'}}) }}
+            <section aria-labelledby="titulos-cabecera" class="space-y-5 rounded border border-border bg-surface p-4">
+                <h2 id="titulos-cabecera" class="text-lg font-medium text-foreground">Datos de la venta</h2>
+
+                <div class="grid gap-4 sm:grid-cols-3">
+                    <div>
+                        <label for="{{ form.investment.vars.id }}" class="{{ label_class }}">{{ form.investment.vars.label }}</label>
+                        {{ form_widget(form.investment, {attr: {class: select_class, 'data-sale-lines-target': 'investment'}}) }}
+                        {% for error in form.investment.vars.errors %}
+                            <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+                        {% endfor %}
+                    </div>
+                    <div>
+                        <label for="{{ form.customer.vars.id }}" class="{{ label_class }}">{{ form.customer.vars.label }}</label>
+                        <div data-controller="select-autocomplete" class="space-y-2">
+                            <input
+                                type="text"
+                                data-select-autocomplete-target="query"
+                                data-action="input->select-autocomplete#filter"
+                                placeholder="Buscar cliente..."
+                                aria-label="Buscar cliente"
+                                class="{{ input_class }}"
+                            >
+                            {{ form_widget(form.customer, {attr: {class: select_class, 'data-select-autocomplete-target': 'list'}}) }}
+                        </div>
+                        {% for error in form.customer.vars.errors %}
+                            <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+                        {% endfor %}
+                    </div>
+                    <div>
+                        <label for="{{ form.saleDate.vars.id }}" class="{{ label_class }}">{{ form.saleDate.vars.label }}</label>
+                        {{ form_widget(form.saleDate, {attr: {class: input_class}}) }}
+                        {% for error in form.saleDate.vars.errors %}
+                            <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div>
+                    <label for="{{ form.notes.vars.id }}" class="{{ label_class }}">{{ form.notes.vars.label }}</label>
+                    {{ form_widget(form.notes, {attr: {class: input_class}}) }}
+                    {% for error in form.notes.vars.errors %}
+                        <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section aria-labelledby="titulos-lineas" class="space-y-4 rounded border border-border bg-surface p-4">
+                <h2 id="titulos-lineas" class="text-lg font-medium text-foreground">Líneas</h2>
+
+                <div class="space-y-4" data-sale-lines-target="rows">
+                    {% for line in form.lines %}
+                        {{ line_row.row(line, input_class, label_class, error_class, select_class) }}
+                    {% endfor %}
+                </div>
+
+                <template data-sale-lines-target="prototype">
+                    {{ line_row.row(form.lines.vars.prototype, input_class, label_class, error_class, select_class) }}
+                </template>
+
+                {% for error in form.lines.vars.errors %}
+                    <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+                {% endfor %}
+
+                <button
+                    type="button"
+                    data-action="sale-lines#add"
+                    class="rounded border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                >Agregar línea</button>
+            </section>
+
+            <section aria-labelledby="titulos-estimado" class="rounded border border-border bg-surface p-4">
+                <h2 id="titulos-estimado" class="mb-4 text-lg font-medium text-foreground">Estimado</h2>
+                <dl class="grid gap-4 sm:grid-cols-2">
+                    <div class="rounded border border-border bg-background p-4">
+                        <dt class="text-sm text-muted">Total estimado</dt>
+                        <dd id="venta-total-estimado" class="mt-1 text-xl font-semibold text-foreground" data-sale-lines-target="total">0,00</dd>
+                    </div>
+                    <div class="rounded border border-border bg-background p-4">
+                        <dt class="text-sm text-muted">Ganancia bruta estimada</dt>
+                        <dd id="venta-ganancia-estimada" class="mt-1 text-xl font-semibold text-foreground" data-sale-lines-target="profit">—</dd>
+                    </div>
+                </dl>
+            </section>
+
+            <div class="flex flex-wrap items-center gap-3">
+                <button
+                    type="submit"
+                    class="rounded bg-brand px-4 py-2 font-medium text-white hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                >Registrar venta</button>
+                <a
+                    href="{{ path('app_sale_index') }}"
+                    class="text-sm text-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                >Cancelar</a>
+            </div>
+        {{ form_end(form) }}
+    {% endif %}
+{% endblock %}

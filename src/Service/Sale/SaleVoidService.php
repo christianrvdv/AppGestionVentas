@@ -26,7 +26,11 @@ use Doctrine\ORM\EntityManagerInterface;
  *   - Recalcula InvestmentSummary.
  *   - Actualiza estado de inversión (puede volver a OPEN/PARTIAL).
  *
- * NO HACE FLUSH: el controlador hace flush único.
+ * POLÍTICA DE FLUSH: hace UN flush intermedio después de marcar la
+ * anulación y antes de recalcular el summary. El summary se calcula con
+ * consultas SQL: si la anulación siguiera solo en memoria, esas consultas
+ * verían la venta como activa y la recuperación no bajaría. El llamador
+ * debe completar el flush (summary y estado de la inversión).
  */
 final class SaleVoidService
 {
@@ -71,11 +75,16 @@ final class SaleVoidService
         $sale->setVoidReason($reason);
         $sale->setVoidedBy($user);
 
-        // 5. Recalcular summary de la inversión
+        // 5. Flush intermedio: sin él, el summary de abajo se recalcula
+        //    contra una BD donde la venta todavía figura como activa
+        //    (voided_at está solo en memoria) y la recuperación no baja.
+        $this->entityManager->flush();
+
+        // 6. Recalcular summary de la inversión
         $investment = $sale->getInvestment();
         $this->summaryService->recompute($investment);
 
-        // 6. Actualizar estado de inversión (puede retroceder a OPEN/PARTIAL)
+        // 7. Actualizar estado de inversión (puede retroceder a OPEN/PARTIAL)
         $this->updateInvestmentState($investment);
     }
 
