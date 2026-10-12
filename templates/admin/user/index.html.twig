@@ -1,0 +1,117 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Usuarios · Administración{% endblock %}
+
+{% block body %}
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <h1 class="text-2xl font-semibold text-foreground">Usuarios</h1>
+        <p class="text-sm text-muted">
+            <span id="valor-total-usuarios" class="font-medium text-foreground">{{ pagination.totalItemCount }}</span>
+            en total
+        </p>
+    </div>
+
+    <form method="get" action="{{ path('app_admin_user_index') }}" class="mb-6 flex flex-wrap items-end gap-3">
+        <div>
+            <label for="q" class="mb-1 block text-sm font-medium text-foreground">Correo</label>
+            <input
+                type="search"
+                id="q"
+                name="q"
+                value="{{ current_q ?? '' }}"
+                placeholder="admin@…"
+                class="rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >
+        </div>
+        <div>
+            <label for="tenant" class="mb-1 block text-sm font-medium text-foreground">Negocio</label>
+            <select
+                id="tenant"
+                name="tenant"
+                class="rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >
+                <option value="">Todos</option>
+                {% for tenant in tenants %}
+                    <option value="{{ tenant.id }}" {{ current_tenant == tenant.id ? 'selected' }}>{{ tenant.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="rol" class="mb-1 block text-sm font-medium text-foreground">Rol global</label>
+            <select
+                id="rol"
+                name="rol"
+                class="rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >
+                <option value="">Todos</option>
+                {% for rol in roles %}
+                    <option value="{{ rol }}" {{ current_rol == rol ? 'selected' }}>{{ rol }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button
+            type="submit"
+            class="rounded border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+        >Filtrar</button>
+        {% if current_q or current_tenant or current_rol %}
+            <a
+                href="{{ path('app_admin_user_index') }}"
+                class="px-2 py-2 text-sm text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >Limpiar filtro</a>
+        {% endif %}
+    </form>
+
+    {% if pagination.items is empty %}
+        <p
+            id="lista-vacia"
+            class="rounded border border-border bg-surface px-4 py-3 text-sm text-muted"
+        >No hay usuarios que coincidan con el filtro.</p>
+    {% else %}
+        <div class="overflow-x-auto rounded border border-border bg-surface">
+            <table class="w-full text-sm">
+                <caption class="sr-only">Listado global de usuarios</caption>
+                <thead>
+                    <tr class="border-b border-border text-start text-muted">
+                        <th scope="col" class="px-4 py-2 text-start font-medium">Correo</th>
+                        <th scope="col" class="px-4 py-2 text-start font-medium">Cuenta</th>
+                        <th scope="col" class="px-4 py-2 text-end font-medium">Negocios</th>
+                        <th scope="col" class="px-4 py-2 text-start font-medium">Negocios en los que trabaja</th>
+                        <th scope="col" class="px-4 py-2 text-start font-medium">Rol global</th>
+                        <th scope="col" class="px-4 py-2 text-end font-medium"><span class="sr-only">Ficha</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in pagination %}
+                        <tr id="usuario-{{ user.id }}" class="border-b border-border last:border-b-0 {{ user.isActive ? '' : 'text-muted' }}">
+                            <td class="cel-email px-4 py-2 font-medium text-foreground">{{ user.email }}</td>
+                            <td class="cel-estado px-4 py-2">{{ user.isActive ? 'Activa' : 'Desactivada' }}</td>
+                            <td class="cel-negocios px-4 py-2 text-end">{{ user.memberships|length }}</td>
+                            <td class="cel-nombres px-4 py-2">
+                                {% if user.memberships is empty %}
+                                    Sin negocios
+                                {% else %}
+                                    <ul class="flex flex-wrap gap-x-3">
+                                        {% for membership in user.memberships %}
+                                            <li>{{ membership.tenant.name }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </td>
+                            <td class="cel-roles px-4 py-2">{{ user.roles|join(', ') }}</td>
+                            <td class="px-4 py-2 text-end">
+                                <a
+                                    href="{{ path('app_admin_user_show', {id: user.id}) }}"
+                                    class="text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                                >Ver ficha</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <nav aria-label="Paginación de usuarios" class="mt-4">
+            {{ knp_pagination_render(pagination) }}
+        </nav>
+    {% endif %}
+{% endblock %}

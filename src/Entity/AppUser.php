@@ -55,6 +55,15 @@ class AppUser implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(name: 'is_active', type: Types::BOOLEAN)]
     private bool $isActive = true;
 
+    /**
+     * Fase 6.1 (reset de contraseña del panel admin): marca que la
+     * contraseña vigente es temporal y debe cambiarse en el próximo
+     * login. EnforcePasswordChangeListener redirige a /cambiar-password
+     * mientras esté activo.
+     */
+    #[ORM\Column(name: 'must_change_password', type: Types::BOOLEAN, options: ['default' => false])]
+    private bool $mustChangePassword = false;
+
     #[ORM\Column(name: 'created_at', type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $createdAt;
 
@@ -191,6 +200,17 @@ class AppUser implements UserInterface, PasswordAuthenticatedUserInterface
     public function setIsActive(bool $isActive): self
     {
         $this->isActive = $isActive;
+        return $this;
+    }
+
+    public function isMustChangePassword(): bool
+    {
+        return $this->mustChangePassword;
+    }
+
+    public function setMustChangePassword(bool $mustChangePassword): self
+    {
+        $this->mustChangePassword = $mustChangePassword;
         return $this;
     }
 

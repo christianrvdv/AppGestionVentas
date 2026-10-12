@@ -462,4 +462,74 @@ class SaleRepository extends ServiceEntityRepository implements SaleRepositoryIn
 
         return $formatted;
     }
+
+    /**
+     * Total de ventas del sistema (panel admin, Fase 6.1). CONTEO CRUDO
+     * de filas: incluye las anuladas (histórico completo, como en los
+     * listados); el monto agregado que sí mide negocio real es
+     * sumTotalByTenant(), que las excluye.
+     *
+     * Excepción documentada al invariante "toda consulta filtra por
+     * tenant_id": es un conteo de filas y su único consumidor es /admin,
+     * blindado con ROLE_SUPER_ADMIN (global por diseño, con el
+     * TenantFilter ya deshabilitado por TenantFilterListener).
+     */
+    public function countAll(): int
+    {
+        return (int) $this->createQueryBuilder('s')
+            ->select('COUNT(s.id)')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /**
+     * Ventas de una tanda de tenants con EL TENANT EXPLÍCITO en la
+     * cláusula: los contadores por fila de /admin/tenants y las métricas
+     * de /admin/tenants/{id} (Fase 6.1). El SQLFilter está deshabilitado
+     * para el super_admin, así que el aislamiento lo aporta este
+     * parámetro, igual que en createPaginatedQueryBuilder().
+     *
+     * @param list<int> $tenantIds
+     *
+     * @return array<int, int> tenantId => cantidad (solo los pedidos)
+     */
+    public function countByTenants(array $tenantIds): array
+    {
+        if ([] === $tenantIds) {
+            return [];
+        }
+
+        $rows = $this->createQueryBuilder('s')
+            ->select('IDENTITY(s.tenant) AS tenantId', 'COUNT(s.id) AS total')
+            ->andWhere('s.tenant IN (:tenantIds)')
+            ->setParameter('tenantIds', $tenantIds)
+            ->groupBy('s.tenant')
+            ->getQuery()
+            ->getArrayResult();
+
+        $counts = [];
+        foreach ($rows as $row) {
+            $counts[(int) $row['tenantId']] = (int) $row['total'];
+        }
+
+        return $counts;
+    }
+
+    /**
+     * Monto total vendido de UN tenant en todo el histórico (métrica de
+     * detalle en /admin/tenants/{id}). Excluye anuladas, como countAll.
+     *
+     * @return string suma con el formato decimal de la BD (para
+     *               formatear con number_format en la vista)
+     */
+    public function sumTotalByTenant(int $tenantId): string
+    {
+        return (string) $this->createQueryBuilder('s')
+            ->select('COALESCE(SUM(s.totalAmount), 0)')
+            ->andWhere('s.tenant = :tenantId')
+            ->setParameter('tenantId', $tenantId)
+            ->andWhere('s.voidedAt IS NULL')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
 }

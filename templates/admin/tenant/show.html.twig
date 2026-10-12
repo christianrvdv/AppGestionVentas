@@ -1,0 +1,117 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ tenant.name }} · Administración{% endblock %}
+
+{% block body %}
+    <p class="mb-4">
+        <a
+            href="{{ path('app_admin_tenant_index') }}"
+            class="text-sm text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+        >← Volver a negocios</a>
+    </p>
+
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-4">
+        <h1 id="titulo-tenant" class="text-2xl font-semibold text-foreground">
+            {{ tenant.name }}
+            <span class="ms-2 align-middle text-sm font-normal {{ tenant.isActive ? 'text-muted' : 'text-danger' }}">{{ tenant.isActive ? 'activo' : 'inactivo' }}</span>
+        </h1>
+
+        <form
+            method="post"
+            action="{{ path('app_admin_tenant_toggle_active', {id: tenant.id}) }}"
+            onsubmit="return confirm('¿{{ tenant.isActive ? 'Desactivar' : 'Activar' }} este negocio? {{ tenant.isActive ? 'Sus usuarios dejarán de poder elegirlo.' : 'Volverá a estar disponible para sus usuarios.' }}')"
+        >
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('admin_tenant_toggle') }}">
+            <button
+                id="btn-toggle-tenant"
+                type="submit"
+                class="rounded border border-danger/40 px-4 py-2 text-sm font-medium text-danger hover:bg-danger/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >{{ tenant.isActive ? 'Desactivar negocio' : 'Activar negocio' }}</button>
+        </form>
+    </div>
+
+    <p class="mb-8 rounded border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-foreground">
+        {{ tenant.isActive
+            ? 'Al desactivarlo, sus usuarios no podrán elegirlo en el selector de negocios. Los datos se conservan.'
+            : 'Este negocio está deshabilitado: sus usuarios no pueden elegirlo. Sus datos siguen guardados.' }}
+    </p>
+
+    <section aria-labelledby="titulo-datos" class="mb-10">
+        <h2 id="titulo-datos" class="mb-4 text-lg font-medium text-foreground">Datos</h2>
+        <ul class="grid gap-4 sm:grid-cols-3">
+            <li class="rounded border border-border bg-surface p-4">
+                <p class="text-sm text-muted">Slug</p>
+                <p class="mt-1 text-base font-medium text-foreground">{{ tenant.slug }}</p>
+            </li>
+            <li class="rounded border border-border bg-surface p-4">
+                <p class="text-sm text-muted">Creado</p>
+                <p class="mt-1 text-base font-medium text-foreground">{{ tenant.createdAt|date('d/m/Y H:i') }}</p>
+            </li>
+            <li class="rounded border border-border bg-surface p-4">
+                <p class="text-sm text-muted">Actualizado</p>
+                <p class="mt-1 text-base font-medium text-foreground">{{ tenant.updatedAt|date('d/m/Y H:i') }}</p>
+            </li>
+        </ul>
+    </section>
+
+    <section aria-labelledby="titulo-metricas" class="mb-10">
+        <h2 id="titulo-metricas" class="mb-4 text-lg font-medium text-foreground">Métricas</h2>
+        <ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <li class="rounded border border-border bg-surface p-4">
+                <p class="text-sm text-muted">Usuarios</p>
+                <p id="metrica-usuarios" class="mt-1 text-xl font-semibold text-foreground">{{ metrics.usuarios }}</p>
+            </li>
+            <li class="rounded border border-border bg-surface p-4">
+                <p class="text-sm text-muted">Inversiones</p>
+                <p id="metrica-inversiones" class="mt-1 text-xl font-semibold text-foreground">{{ metrics.inversiones }}</p>
+            </li>
+            <li class="rounded border border-border bg-surface p-4">
+                <p class="text-sm text-muted">Ventas</p>
+                <p id="metrica-ventas" class="mt-1 text-xl font-semibold text-foreground">{{ metrics.ventas }}</p>
+            </li>
+            <li class="rounded border border-border bg-surface p-4">
+                <p class="text-sm text-muted">Monto vendido (sin anuladas)</p>
+                <p id="metrica-monto-vendido" class="mt-1 text-xl font-semibold text-foreground">{{ metrics.monto_vendido|number_format(2, ',', '.') }}</p>
+            </li>
+        </ul>
+    </section>
+
+    <section aria-labelledby="titulo-usuarios" class="mb-10">
+        <h2 id="titulo-usuarios" class="mb-4 text-lg font-medium text-foreground">Usuarios del negocio</h2>
+
+        {% if members is empty %}
+            <p class="rounded border border-border bg-surface px-4 py-3 text-sm text-muted">
+                Este negocio todavía no tiene usuarios.
+            </p>
+        {% else %}
+            <div class="overflow-x-auto rounded border border-border bg-surface">
+                <table class="w-full text-sm">
+                    <caption class="sr-only">Usuarios con membresía en {{ tenant.name }}</caption>
+                    <thead>
+                        <tr class="border-b border-border text-start text-muted">
+                            <th scope="col" class="px-4 py-2 text-start font-medium">Correo</th>
+                            <th scope="col" class="px-4 py-2 text-start font-medium">Rol del negocio</th>
+                            <th scope="col" class="px-4 py-2 text-start font-medium">Cuenta</th>
+                            <th scope="col" class="px-4 py-2 text-end font-medium"><span class="sr-only">Ficha</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for membership in members %}
+                            <tr id="miembro-{{ membership.user.id }}" class="border-b border-border last:border-b-0">
+                                <td class="px-4 py-2 font-medium text-foreground">{{ membership.user.email }}</td>
+                                <td class="px-4 py-2">{{ membership.role }}</td>
+                                <td class="px-4 py-2">{{ membership.user.isActive ? 'Activa' : 'Desactivada' }}</td>
+                                <td class="px-4 py-2 text-end">
+                                    <a
+                                        href="{{ path('app_admin_user_show', {id: membership.user.id}) }}"
+                                        class="text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                                    >Ver ficha</a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </section>
+{% endblock %}

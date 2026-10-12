@@ -1,37 +1,37 @@
-# Task List: Fase 4.1 — Reportes Básicos
+# Task List: Fase 6.1 — Panel admin básico
 
-## Phase 1: Foundation — Services & DTOs
-- [ ] Task 1: Crear DTOs de filtros (ProfitReportFilters, InvestmentReportFilters, ProductRankingFilters)
-- [ ] Task 2: Crear ProfitReportService con lógica de ganancias por período
-- [ ] Task 3: Crear InvestmentReportService con lógica de lista de inversiones
-- [ ] Task 4: Crear ProductRankingService con lógica de ranking
+## Phase 1: Dashboard admin
+- [x] T1: Tests RED (`AdminDashboardTest`, `AdminAccessTest`)
+- [x] T2: Conteos en repos + interfaces (Tenant/AppUser/TenantMembership/Investment/Sale)
+- [x] T3: `AdminMetricsService` (globales y por tenant)
+- [x] T4: `AdminController::index` con métricas + template `admin/index`
 
-## Checkpoint: Foundation Services
-- [ ] `composer ci` verde (lint + tests existentes)
+Checkpoint: `php bin/phpunit --filter=Admin` verde
 
-## Phase 2: Controllers & Routes
-- [ ] Task 5: Crear ReportController con 3 acciones (profit, investment, product)
+## Phase 2: Listado y detalle de tenants
+- [x] T5: Test RED `AdminTenantIndexTest` (paginado + filtros activo/búsqueda)
+- [x] T6: `TenantRepository::createPaginatedQueryBuilder` + `findAll` + `AdminTenantController::index`
+- [x] T7: Test RED `AdminTenantShowTest` (usuarios, métricas, toggle, desactivado no seleccionable)
+- [x] T8: `AdminTenantController::show`/`toggle-active` + templates
 
-## Phase 3: Templates
-- [ ] Task 6: Crear template base report/base.html.twig
-- [ ] Task 7: Crear template report/profit.html.twig
-- [ ] Task 8: Crear template report/investment.html.twig
-- [ ] Task 9: Crear template report/product.html.twig
+Checkpoint: `php bin/phpunit --filter=Admin` verde
 
-## Checkpoint: Templates Render
-- [ ] Navegación manual: las 3 páginas cargan sin errores 500
+## Phase 3: Listado y detalle de usuarios
+- [x] T9: Test RED `AdminUserIndexTest` (membresías + filtros email/tenant/rol)
+- [x] T10: `AppUserRepository::createPaginatedQueryBuilder` (email/tenant/rol global) + `AdminUserController::index`
+- [x] T11: Test RED `AdminUserShowTest` (membresías, desactivar → sin login, reset password)
+- [x] T12: `AdminUserController::show`/`toggle-active`/`reset-password` + templates
 
-## Phase 4: Navigation
-- [ ] Task 10: Añadir "Reportes" al nav en base.html.twig
+Checkpoint: `php bin/phpunit --filter=Admin` verde
 
-## Phase 5: Tests
-- [ ] Task 11: Test de integración ProfitReportTest
-- [ ] Task 12: Test de integración InvestmentReportTest
-- [ ] Task 13: Test de integración ProductRankingTest
+## Phase 4: Reset con forzado de cambio
+- [x] T13: Migración `must_change_password` + propiedad en `AppUser`
+- [x] T14: Test RED `AdminPasswordChangeTest` (reset → login forzado → cambio → libre)
+- [x] T15: `PasswordChangeFormType` + `PasswordChangeController` + `EnforcePasswordChangeListener` + template
 
-## Checkpoint: Tests
-- [ ] `php bin/phpunit` pasa completo
-- [ ] `composer ci` verde
+## Phase 5: Cross-tenant
+- [x] T16: Test `AdminCrossTenantTest` (super_admin sin datos ajenos en /inversiones; métricas del detalle aisladas)
 
-## Phase 6: Final Polish
-- [ ] Task 14: Verificación final `composer ci` y commit único
+## Phase 6: Nav y cierre
+- [x] T17: Link "Admin" en `base.html.twig` (solo super_admin)
+- [x] T18: `composer ci` + `php bin/phpunit --order-by=random` verdes y commit único

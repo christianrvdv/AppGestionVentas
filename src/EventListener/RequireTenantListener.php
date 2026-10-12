@@ -42,7 +42,8 @@ use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInt
  * conocido).
  *
  * Los caminos permitidos son de "antes de elegir negocio": login,
- * logout, el selector, el alta de negocio, el panel de administración
+ * logout, el selector, el alta de negocio, el cambio de contraseña
+ * propio (/cambiar-password), el panel de administración
  * (/admin, que exige ROLE_SUPER_ADMIN vía access_control y por diseño
  * no opera con un tenant concreto) y las herramientas del framework
  * (profiler, assets), que no tocan datos de negocio.
@@ -54,6 +55,10 @@ final class RequireTenantListener
         '/login',
         '/logout',
         '/onboarding',
+        // Cambio de contraseña propio (Fase 6.1): debe poder usarse
+        // con cualquier negocio activo o sin ninguno (el super_admin),
+        // y es el destino de EnforcePasswordChangeListener.
+        '/cambiar-password',
     ];
 
     /**

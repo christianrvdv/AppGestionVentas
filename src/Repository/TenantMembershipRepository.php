@@ -78,4 +78,53 @@ class TenantMembershipRepository extends ServiceEntityRepository implements Tena
                 ->getResult();
         });
     }
+
+    /**
+     * Total de membresías del sistema (panel admin, Fase 6.1).
+     *
+     * @return int
+     */
+    public function countAll(): int
+    {
+        return $this->filterGuard->withoutTenantFilter(function (): int {
+            return (int) $this->createQueryBuilder('m')
+                ->select('COUNT(m.id)')
+                ->getQuery()
+                ->getSingleScalarResult();
+        });
+    }
+
+    /**
+     * Membresias (== usuarios, por la unique user+tenant) de una tanda
+     * de tenants: los contadores por fila del listado /admin/tenants
+     * (Fase 6.1). Un solo query agrupado, sin N+1.
+     *
+     * @param list<int> $tenantIds
+     *
+     * @return array<int, int> tenantId => cantidad (solo los pedidos; los
+     *                          que no tengan filas no aparecen)
+     */
+    public function countByTenants(array $tenantIds): array
+    {
+        if ([] === $tenantIds) {
+            return [];
+        }
+
+        return $this->filterGuard->withoutTenantFilter(function () use ($tenantIds): array {
+            $rows = $this->createQueryBuilder('m')
+                ->select('IDENTITY(m.tenant) AS tenantId', 'COUNT(m.id) AS total')
+                ->andWhere('m.tenant IN (:tenantIds)')
+                ->setParameter('tenantIds', $tenantIds)
+                ->groupBy('m.tenant')
+                ->getQuery()
+                ->getArrayResult();
+
+            $counts = [];
+            foreach ($rows as $row) {
+                $counts[(int) $row['tenantId']] = (int) $row['total'];
+            }
+
+            return $counts;
+        });
+    }
 }

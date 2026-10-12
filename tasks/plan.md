@@ -1,116 +1,153 @@
-# Implementation Plan: Fase 5.1 — Gestión de tasas USD en UI
+# Implementation Plan: Fase 6.1 — Panel admin básico
+
+## Objetivo
+
+UI para que `ROLE_SUPER_ADMIN` vea y gestione globalmente tenants y
+usuarios: dashboard con contadores, listados paginados/filtrables,
+detalles con métricas, activar/desactivar y reset de password.
+(Fuera de alcance: impersonation, alta/baja de tenants, edición de
+membresías, reset por email, métricas agregadas complejas.)
 
 ## Module Dependency Graph
+
 ```
-usd-rate-crud (independent)
-    ↓
-investment-revaluation (needs current rate from usd-rate-crud)
-    ↓
-usd-exposure-indicator (reads InvestmentSummary updated by revaluation)
-    ↓
-revaluation-report (reads ItemCostRevaluation created by revaluation)
+admin-metrics (contadores; reutiliza repos existentes)
+    ├─
+admin-dashboard (usa admin-metrics)
+    ├─
+admin-tenants (listado/detalle/toggle; usa admin-metrics + Investment/Sale repo con tenantId explícito)
+    ├─
+admin-users (listado/detalle/toggle/reset; usa memberships)
+    └─
+password-reset (migración must_change_password + listener de forzado + /cambiar-password)
 ```
 
-## Phase 1: usd-rate-crud (CRUD tasas USD)
+Build order: admin-metrics → dashboard → tenants → users → password-reset → cross-tenant/nav.
 
-### Tasks
-- [ ] **Task 1.1**: Create `UsdRateFormType` form
-  - Acceptance: Form with date (default today), rate (decimal > 0), note (optional)
-  - Verify: `php bin/phpunit --filter=UsdRateFormType`
-  - Files: `src/Form/UsdRateFormType.php`
+## Decisiones de diseño
 
-- [ ] **Task 1.2**: Create `UsdRateController` with index action
-  - Acceptance: GET `/tasas-usd` renders table with all columns, ordering, current rate badge, date filter
-  - Verify: `php bin/phpunit --filter=UsdRateControllerTest::test_index`
-  - Files: `src/Controller/UsdRateController.php`, `templates/usd_rate/index.html.twig`
+1. **Rutas** (todas bajo `^/admin` → `ROLE_SUPER_ADMIN` en security.yaml,
+   blanqueadas en RequireTenantListener sin tenant activo):
 
-- [ ] **Task 1.3**: Create `UsdRateController` new/create actions
-  - Acceptance: GET/POST `/tasas-usd/nueva` creates rate; same date → correction + flash
-  - Verify: `php bin/phpunit --filter=UsdRateControllerTest::test_new_and_create`
-  - Files: `src/Controller/UsdRateController.php`, `templates/usd_rate/new.html.twig`
+   | Método | Ruta | Nombre |
+   |---|---|---|
+   | GET | `/admin` | `app_admin_index` |
+   | GET | `/admin/tenants` | `app_admin_tenant_index` |
+   | GET | `/admin/tenants/{id}` | `app_admin_tenant_show` |
+   | POST | `/admin/tenants/{id}/toggle-active` | `app_admin_tenant_toggle_active` |
+   | GET | `/admin/users` | `app_admin_user_index` |
+   | GET | `/admin/users/{id}` | `app_admin_user_show` |
+   | POST | `/admin/users/{id}/toggle-active` | `app_admin_user_toggle_active` |
+   | POST | `/admin/users/{id}/reset-password` | `app_admin_user_reset_password` |
+   | GET/POST | `/cambiar-password` | `app_password_change` |
 
-- [ ] **Task 1.4**: Add route to navigation (Reportes dropdown or main nav)
-  - Acceptance: Link accessible from main navigation
-  - Verify: Manual check in browser
-  - Files: `templates/base.html.twig`
+   Controllers nuevos en `src/Controller/Admin/`; el `AdminController`
+   existente queda solo con el dashboard (h1 "Administración", que ya
+   afirma `SuperAdminFlowTest`).
 
-## Phase 2: investment-revaluation (Revaluar desde UI)
+2. **Cross-tenant safety**: el super_admin corre con `TenantFilter`
+   deshabilitado, así que TODA query de detalle lleva el `tenantId`
+   explícito en la cláusula: reutilizar
+   `InvestmentRepository::createPaginatedQueryBuilder($tenantId, null)` y
+   `SaleRepository` con `tenantId` explícito. `/inversiones` exige
+   `active_tenant_id` (403 para super_admin) — comportamiento existente,
+   ahora con test.
 
-### Tasks
-- [ ] **Task 2.1**: Add revalue action to `InvestmentController`
-  - Acceptance: POST `/inversiones/{id}/revaluar` calls service, shows flash with impact
-  - Verify: `php bin/phpunit --filter=InvestmentRevaluationControllerTest::test_revalue_open`
-  - Files: `src/Controller/InvestmentController.php`
+3. **Contadores**: los totales son conteos de filas crudos (incluyen
+   inversiones canceladas y ventas anuladas = histórico); el **monto
+   total vendido excluye anuladas** (coherente con el default de
+   `SaleRepository`). Ambas decisiones se documentan en el reporte.
 
-- [ ] **Task 2.2**: Add revaluation section to `investment/show.html.twig`
-  - Acceptance: Section visible only for OPEN/PARTIAL; shows snapshot, current, last reval, history, button
-  - Verify: `php bin/phpunit --filter=InvestmentRevaluationControllerTest::test_revaluation_section_visibility`
-  - Files: `templates/investment/show.html.twig`
+4. **Filtro de rol global en /admin/users**: DQL no tiene `CAST` y
+   `jsonb LIKE` no existe en PostgreSQL, así que el rol se resuelve con
+   una pre-lookup por DBAL (`SELECT id FROM app_user WHERE roles::text
+   LIKE '%"ROLE_X"%'`) y en la query principal se filtra `u.id IN (:ids)`.
+   Postgres-only es coherente con ADR-0011. El valor del rol se
+   validación contra allow-list en el controller antes de tocar la query.
 
-- [ ] **Task 2.3**: Handle domain errors (CLOSED, no current rate)
-  - Acceptance: CLOSED → flash error; no current rate → clear error flash
-  - Verify: `php bin/phpunit --filter=InvestmentRevaluationControllerTest::test_revalue_closed` + `test_revalue_no_rate`
-  - Files: `src/Controller/InvestmentController.php`
+5. **Listado de usuarios y membresías**: fetch-join
+   (`leftJoin('u.memberships')->addSelect('m')`); KnpPaginator usa
+   `Doctrine\ORM\Tools\Pagination\Paginator` con `CountWalker` (COUNT
+   DISTINCT + fetch join collection), así que el total no se infla.
 
-## Phase 3: usd-exposure-indicator (Indicador exposición USD)
+6. **Reset de password (decisión del usuario: opción A)**: genera
+   password temporal, la muestra UNA vez en un flash al volver al
+   detalle, y fuerza el cambio en el próximo login:
+   - migración `app_user.must_change_password` (bool, default false);
+   - `EnforcePasswordChangeListener` (kernel.request, prioridad 7,
+     entre firewall=8 y RequireTenantListener=6) redirige a
+     `/cambiar-password` mientras la bandera esté puesta;
+   - `PasswordChangeController` + form (RepeatedType, 8+ caracteres) la
+     limpia. `/cambiar-password` se añade a los prefijos permitidos de
+     RequireTenantListener.
 
-### Tasks
-- [ ] **Task 3.1**: Add exposure indicator to investment detail
-  - Acceptance: Shows "Valor actualizado: $X (histórico: $Y)" with colored delta
-  - Verify: `php bin/phpunit --filter=InvestmentRevaluationControllerTest::test_exposure_indicator`
-  - Files: `templates/investment/show.html.twig`
+7. **CSRF**: tokens planos por acción (`_csrf_token` con id de token por
+   acción, patrón `select_tenant`/`submit` ya usado). Los toggles
+   destructivos llevan `onsubmit="return confirm(...)"` + advertencia
+   visible (patrón de `investment/show`).
 
-## Phase 4: revaluation-report (Reporte impacto revaluación)
+8. **Nav**: link "Admin" en `base.html.twig` solo para
+   `app.user.superAdmin`, resaltado con el prefijo `app_admin_`.
 
-### Tasks
-- [ ] **Task 4.1**: Create `RevaluationReportFilters` DTO
-  - Acceptance: DTO with from/to dates, validation
-  - Verify: `php bin/phpunit --filter=RevaluationReportFiltersTest`
-  - Files: `src/DTO/Report/RevaluationReportFilters.php`
+## Estructura de archivos
 
-- [ ] **Task 4.2**: Add revaluation action to `ReportController`
-  - Acceptance: GET `/reportes/revaluacion` with date filter, table with all columns, totals
-  - Verify: `php bin/phpunit --filter=RevaluationReportControllerTest::test_report`
-  - Files: `src/Controller/ReportController.php`, `templates/report/revaluation.html.twig`
+```
+src/Controller/Admin/AdminTenantController.php     (index/show/toggle)
+src/Controller/Admin/AdminUserController.php       (index/show/toggle/reset)
+src/Controller/PasswordChangeController.php        (/cambiar-password)
+src/Controller/AdminController.php                 (dashboard con métricas)
+src/Service/Admin/AdminMetricsService.php          (contadores globales y por tenant)
+src/EventListener/EnforcePasswordChangeListener.php
+src/Form/PasswordChangeFormType.php
+src/Entity/AppUser.php                             (+ mustChangePassword)
+migrations/Version*.php                             (+ must_change_password)
+src/Repository/{Tenant,AppUser,TenantMembership,Investment,Sale}Repository.php (+QB/conteos)
+src/Repository/Contract/{...}Interface.php          (mismos métodos)
+templates/admin/index.html.twig                     (dashboard)
+templates/admin/tenant/{index,show}.html.twig
+templates/admin/user/{index,show}.html.twig
+templates/security/change_password.html.twig
+templates/base.html.twig                           (nav Admin)
+tests/Functional/Admin/*.php                        (9 escenarios + password change)
+```
 
-## Phase 5: Tests & Quality Gates
+## Testing Strategy
 
-### Tasks
-- [ ] **Task 5.1**: Write integration tests for all 7 scenarios
-  - Acceptance: All 7 test methods pass
-  - Verify: `php bin/phpunit --filter="UsdRate|InvestmentRevaluation|RevaluationReport"`
-  - Files: `tests/Integration/UsdRate/UsdRateControllerTest.php`, `tests/Integration/Investment/InvestmentRevaluationControllerTest.php`, `tests/Integration/Report/RevaluationReportControllerTest.php`
+- Framework: PHPUnit 13 + `FunctionalTestCase` (client de kernel
+  compartido, BD PostgreSQL de test, aislamiento DAMA).
+- Comandos:
+  - Foco: `php bin/phpunit --filter=AdminDashboardTest`
+  - Total: `php bin/phpunit --order-by=random`
+  - CI: `composer ci` (lint:container + lint:twig + lint:yaml + phpstan + tests)
+- TDD: cada fase escribe su test (RED) antes que su código (GREEN).
 
-- [ ] **Task 5.2**: Run full test suite with random order
-  - Acceptance: `php bin/phpunit --order-by=random` exits 0
-  - Verify: Command output
+### Matriz de escenarios (9 del alcance + reset)
 
-- [ ] **Task 5.3**: Run composer ci
-  - Acceptance: `composer ci` exits 0 (PHPStan, CS, tests)
-  - Verify: Command output
+| # | Escenario | Test |
+|---|---|---|
+| 1 | Dashboard con contadores correctos | `Admin/AdminDashboardTest` |
+| 2 | Listado de tenants paginado y filtrable | `Admin/AdminTenantIndexTest` |
+| 3 | Detalle de tenant: usuarios + métricas | `Admin/AdminTenantShowTest` |
+| 4 | Listado de usuarios con membresías | `Admin/AdminUserIndexTest` |
+| 5 | Detalle de usuario con membresías | `Admin/AdminUserShowTest` |
+| 6 | Usuario desactivado no puede loguear | `Admin/AdminUserShowTest` |
+| 7 | Tenant desactivado no es seleccionable | `Admin/AdminTenantShowTest` |
+| 8 | Usuario normal → 403 en todas las rutas | `Admin/AdminAccessTest` |
+| 9 | Cross-tenant en /inversiones | `Admin/AdminCrossTenantTest` |
+| + | Reset + forzado de cambio | `Admin/PasswordChangeTest` |
 
-- [ ] **Task 5.4**: Create single commit with message
-  - Acceptance: `git commit -m "feat(web): gestión de tasas USD y revaluación en UI (Fase 5.1)"`
-  - Verify: `git log --oneline -1`
+## Boundaries
 
----
+- Always: query de detalle con `tenantId` explícito; tests en verde con
+  `--order-by=random`; `composer ci` antes del commit.
+- Ask first: cambios de esquema (migración), nuevas dependencias, roles
+  nuevos.
+- Never: impersonation, alta/baja de tenants desde el panel, reset por
+  email (sin mailer), editar membresías.
 
-## Risk Mitigation
+## Success Criteria
 
-| Risk | Mitigation |
-|------|------------|
-| Tenant isolation bugs | Every repository query includes tenantId; tests verify isolation |
-| Flash message not showing | Use `addFlash()` after redirect; test asserts flash bag |
-| Correction detection | Service returns entity; controller checks `isCorrection()` |
-| Date handling | Always normalize to `DateTimeImmutable` date-only in service |
-| CSRF on POST | Use `FormType` with CSRF or explicit `assertValidCsrf()` |
-
----
-
-## Verification Checkpoints
-
-1. **After Phase 1**: `php bin/phpunit tests/Integration/UsdRate/UsdRateControllerTest.php` — all green
-2. **After Phase 2**: `php bin/phpunit tests/Integration/Investment/InvestmentRevaluationControllerTest.php` — all green
-3. **After Phase 3**: Manual verification of exposure indicator on investment show
-4. **After Phase 4**: `php bin/phpunit tests/Integration/Report/RevaluationReportControllerTest.php` — all green
-5. **Final**: `php bin/phpunit --order-by=random && composer ci` — all green
+- `/admin`, `/admin/tenants[/{id}]`, `/admin/users[/{id}]` operativos.
+- Los 9 escenarios + reset cubiertos por tests.
+- `php bin/phpunit --order-by=random` y `composer ci` en verde.
+- Un único commit: `feat(admin): panel admin básico (tenants, usuarios, dashboard) (Fase 6.1)`

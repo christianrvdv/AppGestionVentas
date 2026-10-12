@@ -5,15 +5,55 @@
 {% block body %}
     <h1 class="mb-6 text-2xl font-semibold text-foreground">Administración</h1>
 
-    <section aria-labelledby="titulo-panel" class="mb-10">
-        <h2 id="titulo-panel" class="mb-4 text-lg font-medium text-foreground">Panel global</h2>
+    <section aria-labelledby="titulo-metricas" class="mb-10">
+        <h2 id="titulo-metricas" class="mb-4 text-lg font-medium text-foreground">Resumen global</h2>
 
-        <div class="rounded border border-border bg-surface px-4 py-3 text-sm text-muted">
-            Panel en construcción: la administración de usuarios y
-            negocios del sistema se gestiona hoy desde la CLI
-            (<code class="font-mono">app:user:list</code>,
-            <code class="font-mono">app:user:create</code>,
-            <code class="font-mono">app:user:change-password</code>).
-        </div>
+        <ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <li class="rounded border border-border bg-surface p-4">
+                <p class="text-sm text-muted">Negocios activos</p>
+                <p id="valor-tenants-activos" class="mt-1 text-xl font-semibold text-foreground">{{ stats.tenants_activos }}</p>
+            </li>
+            <li class="rounded border border-border bg-surface p-4">
+                <p class="text-sm text-muted">Usuarios</p>
+                <p id="valor-usuarios" class="mt-1 text-xl font-semibold text-foreground">{{ stats.usuarios }}</p>
+            </li>
+            <li class="rounded border border-border bg-surface p-4">
+                <p class="text-sm text-muted">Membresías</p>
+                <p id="valor-membresias" class="mt-1 text-xl font-semibold text-foreground">{{ stats.membresias }}</p>
+            </li>
+            <li class="rounded border border-border bg-surface p-4">
+                <p class="text-sm text-muted">Inversiones registradas</p>
+                <p id="valor-inversiones" class="mt-1 text-xl font-semibold text-foreground">{{ stats.inversiones }}</p>
+            </li>
+            <li class="rounded border border-border bg-surface p-4">
+                <p class="text-sm text-muted">Ventas registradas</p>
+                <p id="valor-ventas" class="mt-1 text-xl font-semibold text-foreground">{{ stats.ventas }}</p>
+            </li>
+        </ul>
+    </section>
+
+    <section aria-labelledby="titulo-secciones" class="mb-10">
+        <h2 id="titulo-secciones" class="mb-4 text-lg font-medium text-foreground">Secciones</h2>
+
+        <ul class="grid gap-4 sm:grid-cols-2">
+            <li class="rounded border border-border bg-surface p-4">
+                <p class="text-sm text-muted">Negocios</p>
+                <p class="mt-1">
+                    <a
+                        href="{{ path('app_admin_tenant_index') }}"
+                        class="font-medium text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                    >Ver negocios</a>
+                </p>
+            </li>
+            <li class="rounded border border-border bg-surface p-4">
+                <p class="text-sm text-muted">Usuarios</p>
+                <p class="mt-1">
+                    <a
+                        href="{{ path('app_admin_user_index') }}"
+                        class="font-medium text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                    >Ver usuarios</a>
+                </p>
+            </li>
+        </ul>
     </section>
 {% endblock %}

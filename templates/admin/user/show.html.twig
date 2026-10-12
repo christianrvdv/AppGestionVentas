@@ -1,0 +1,110 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ user.email }} · Administración{% endblock %}
+
+{% block body %}
+    <p class="mb-4">
+        <a
+            href="{{ path('app_admin_user_index') }}"
+            class="text-sm text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+        >← Volver a usuarios</a>
+    </p>
+
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-4">
+        <h1 id="titulo-usuario" class="text-2xl font-semibold text-foreground">{{ user.email }}</h1>
+
+        <div class="flex flex-wrap items-center gap-3">
+            <form
+                method="post"
+                action="{{ path('app_admin_user_toggle_active', {id: user.id}) }}"
+                onsubmit="return confirm('¿{{ user.isActive ? 'Desactivar' : 'Activar' }} esta cuenta? {{ user.isActive ? 'No podrá iniciar sesión hasta reactivarla.' : 'Volverá a poder iniciar sesión.' }}')"
+            >
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('admin_user_toggle') }}">
+                <button
+                    id="btn-toggle-usuario"
+                    type="submit"
+                    class="rounded border border-danger/40 px-4 py-2 text-sm font-medium text-danger hover:bg-danger/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                >{{ user.isActive ? 'Desactivar usuario' : 'Activar usuario' }}</button>
+            </form>
+
+            <form
+                method="post"
+                action="{{ path('app_admin_user_reset_password', {id: user.id}) }}"
+                onsubmit="return confirm('¿Generar una contraseña temporal para esta cuenta? La anterior dejará de servir.')"
+            >
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('admin_user_reset') }}">
+                <button
+                    id="btn-reset-password"
+                    type="submit"
+                    class="rounded border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                >Restablecer contraseña</button>
+            </form>
+        </div>
+    </div>
+
+    <p class="mb-8 rounded border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-foreground">
+        {{ user.isActive
+            ? 'Al desactivar la cuenta, su usuario no podrá iniciar sesión (los datos se conservan).'
+            : 'Esta cuenta está deshabilitada: su usuario no puede iniciar sesión.' }}
+    </p>
+
+    <section aria-labelledby="titulo-perfil" class="mb-10">
+        <h2 id="titulo-perfil" class="mb-4 text-lg font-medium text-foreground">Perfil</h2>
+        <ul class="grid gap-4 sm:grid-cols-3">
+            <li class="rounded border border-border bg-surface p-4">
+                <p class="text-sm text-muted">Cuenta</p>
+                <p id="perfil-estado" class="mt-1 text-base font-medium text-foreground">{{ user.isActive ? 'Activa' : 'Desactivada' }}</p>
+            </li>
+            <li class="rounded border border-border bg-surface p-4">
+                <p class="text-sm text-muted">Roles globales</p>
+                <p id="perfil-roles" class="mt-1 text-base font-medium text-foreground">{{ user.roles|join(', ') }}</p>
+            </li>
+            <li class="rounded border border-border bg-surface p-4">
+                <p class="text-sm text-muted">Creada</p>
+                <p id="perfil-creada" class="mt-1 text-base font-medium text-foreground">{{ user.createdAt|date('d/m/Y H:i') }}</p>
+            </li>
+        </ul>
+    </section>
+
+    <section aria-labelledby="titulo-membresias" class="mb-10">
+        <h2 id="titulo-membresias" class="mb-4 text-lg font-medium text-foreground">Negocios</h2>
+
+        {% if memberships is empty %}
+            <p id="sin-membresias" class="rounded border border-border bg-surface px-4 py-3 text-sm text-muted">
+                Este usuario todavía no pertenece a ningún negocio.
+            </p>
+        {% else %}
+            <div class="overflow-x-auto rounded border border-border bg-surface">
+                <table class="w-full text-sm">
+                    <caption class="sr-only">Membresías de {{ user.email }}</caption>
+                    <thead>
+                        <tr class="border-b border-border text-start text-muted">
+                            <th scope="col" class="px-4 py-2 text-start font-medium">Negocio</th>
+                            <th scope="col" class="px-4 py-2 text-start font-medium">Rol del negocio</th>
+                            <th scope="col" class="px-4 py-2 text-start font-medium">Estado</th>
+                            <th scope="col" class="px-4 py-2 text-end font-medium"><span class="sr-only">Ficha</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for membership in memberships %}
+                            <tr id="membresia-{{ membership.tenant.id }}" class="border-b border-border last:border-b-0">
+                                <td class="px-4 py-2 font-medium text-foreground">
+                                    {{ membership.tenant.name }}
+                                    {% if membership.isDefault %}<span class="ms-1 text-xs text-muted">(principal)</span>{% endif %}
+                                </td>
+                                <td class="px-4 py-2">{{ membership.role }}</td>
+                                <td class="px-4 py-2">{{ membership.tenant.isActive ? 'Activo' : 'Inactivo' }}</td>
+                                <td class="px-4 py-2 text-end">
+                                    <a
+                                        href="{{ path('app_admin_tenant_show', {id: membership.tenant.id}) }}"
+                                        class="text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                                    >Ver ficha</a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </section>
+{% endblock %}

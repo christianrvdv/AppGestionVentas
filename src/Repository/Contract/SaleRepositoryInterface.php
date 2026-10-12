@@ -165,4 +165,31 @@ interface SaleRepositoryInterface
         ?int               $customerId = null,
         bool               $includeVoided = false
     ): array;
+
+    /**
+     * Total de ventas del sistema (panel admin, Fase 6.1). Conteo CRUDO
+     * de filas: incluye anuladas (histórico). Excepción documentada al
+     * invariante del puerto: su único consumidor es /admin
+     * (ROLE_SUPER_ADMIN, con el TenantFilter ya deshabilitado).
+     */
+    public function countAll(): int;
+
+    /**
+     * Ventas de una tanda de tenants con el tenant EXPLÍCITO en la
+     * cláusula (panel admin, Fase 6.1). Cuenta filas, anuladas incluidas.
+     *
+     * @param list<int> $tenantIds
+     *
+     * @return array<int, int> tenantId => cantidad (solo los pedidos)
+     */
+    public function countByTenants(array $tenantIds): array;
+
+    /**
+     * Monto total vendido (sin anuladas) de un tenant en todo el
+     * histórico, para la métrica de detalle de /admin/tenants/{id}
+     * (Fase 6.1).
+     *
+     * @return string suma en formato decimal de la BD
+     */
+    public function sumTotalByTenant(int $tenantId): string;
 }

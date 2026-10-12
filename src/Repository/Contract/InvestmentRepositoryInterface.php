@@ -79,4 +79,23 @@ interface InvestmentRepositoryInterface
      * por estado; ordena por fecha DESC y código DESC.
      */
     public function createPaginatedQueryBuilder(int $tenantId, ?string $status): QueryBuilder;
+
+    /**
+     * Total de inversiones del sistema (panel admin, Fase 6.1). Excepción
+     * documentada al invariante del puerto: es un conteo de filas (histórico,
+     * canceladas incluidas) y su único consumidor es /admin
+     * (ROLE_SUPER_ADMIN, sin TenantFilter).
+     */
+    public function countAll(): int;
+
+    /**
+     * Inversiones de una tanda de tenants con el tenant EXPLÍCITO en la
+     * cláusula (panel admin, Fase 6.1): el SQLFilter está deshabilitado
+     * para el super_admin, así que el aislamiento lo aporta este parámetro.
+     *
+     * @param list<int> $tenantIds
+     *
+     * @return array<int, int> tenantId => cantidad (solo los pedidos)
+     */
+    public function countByTenants(array $tenantIds): array;
 }

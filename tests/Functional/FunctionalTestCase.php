@@ -136,6 +136,29 @@ abstract class FunctionalTestCase extends WebTestCase
     }
 
     /**
+     * super_admin global real (hash con el hasher de la aplicación, como
+     * en prod) y SIN membresías: el caso que crea
+     * `app:user:create --super-admin` (ADR-0016). Base de los tests del
+     * panel /admin (Fase 6.1).
+     */
+    protected function seedSuperAdmin(
+        string $email = 'super@demo.local',
+        string $password = 'super1234'
+    ): AppUser {
+        $user = new AppUser();
+        $user->setEmail($email);
+        $user->setRoles([AppUser::ROLE_SUPER_ADMIN]);
+
+        $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
+        $user->setPasswordHash($hasher->hashPassword($user, $password));
+
+        $this->em->persist($user);
+        $this->em->flush();
+
+        return $user;
+    }
+
+    /**
      * Autentica vía el formulario real de /login (flujo completo:
      * CSRF, provider, checker, sesión).
      *

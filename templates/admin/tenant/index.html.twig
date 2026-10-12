@@ -1,0 +1,96 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Negocios · Administración{% endblock %}
+
+{% block body %}
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <h1 class="text-2xl font-semibold text-foreground">Negocios</h1>
+        <p class="text-sm text-muted">
+            <span id="valor-total-tenants" class="font-medium text-foreground">{{ pagination.totalItemCount }}</span>
+            en total
+        </p>
+    </div>
+
+    <form method="get" action="{{ path('app_admin_tenant_index') }}" class="mb-6 flex flex-wrap items-end gap-3">
+        <div>
+            <label for="estado" class="mb-1 block text-sm font-medium text-foreground">Estado</label>
+            <select
+                id="estado"
+                name="estado"
+                class="rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >
+                <option value="">Todos</option>
+                <option value="activo" {{ current_estado == 'activo' ? 'selected' }}>Activos</option>
+                <option value="inactivo" {{ current_estado == 'inactivo' ? 'selected' }}>Inactivos</option>
+            </select>
+        </div>
+        <div>
+            <label for="q" class="mb-1 block text-sm font-medium text-foreground">Buscar</label>
+            <input
+                type="search"
+                id="q"
+                name="q"
+                value="{{ current_q ?? '' }}"
+                placeholder="Nombre o slug"
+                class="rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >
+        </div>
+        <button
+            type="submit"
+            class="rounded border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+        >Filtrar</button>
+        {% if current_estado or current_q %}
+            <a
+                href="{{ path('app_admin_tenant_index') }}"
+                class="px-2 py-2 text-sm text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >Limpiar filtro</a>
+        {% endif %}
+    </form>
+
+    {% if pagination.items is empty %}
+        <p
+            id="lista-vacia"
+            class="rounded border border-border bg-surface px-4 py-3 text-sm text-muted"
+        >No hay negocios que coincidan con el filtro.</p>
+    {% else %}
+        <div class="overflow-x-auto rounded border border-border bg-surface">
+            <table class="w-full text-sm">
+                <caption class="sr-only">Listado global de negocios</caption>
+                <thead>
+                    <tr class="border-b border-border text-start text-muted">
+                        <th scope="col" class="px-4 py-2 text-start font-medium">Negocio</th>
+                        <th scope="col" class="px-4 py-2 text-start font-medium">Estado</th>
+                        <th scope="col" class="px-4 py-2 text-end font-medium">Usuarios</th>
+                        <th scope="col" class="px-4 py-2 text-end font-medium">Inversiones</th>
+                        <th scope="col" class="px-4 py-2 text-end font-medium">Ventas</th>
+                        <th scope="col" class="px-4 py-2 text-end font-medium"><span class="sr-only">Ficha</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tenant in pagination %}
+                        <tr id="tenant-{{ tenant.id }}" class="border-b border-border last:border-b-0 {{ tenant.isActive ? '' : 'text-muted' }}">
+                            <td class="px-4 py-2 font-medium text-foreground">
+                                {{ tenant.name }}
+                                <span class="block text-xs font-normal text-muted">{{ tenant.slug }}</span>
+                            </td>
+                            <td class="px-4 py-2">{{ tenant.isActive ? 'Activo' : 'Inactivo' }}</td>
+                            <td class="cel-usuarios px-4 py-2 text-end">{{ counts.users[tenant.id] ?? 0 }}</td>
+                            <td class="cel-inversiones px-4 py-2 text-end">{{ counts.investments[tenant.id] ?? 0 }}</td>
+                            <td class="cel-ventas px-4 py-2 text-end">{{ counts.sales[tenant.id] ?? 0 }}</td>
+                            <td class="px-4 py-2 text-end">
+                                <a
+                                    href="{{ path('app_admin_tenant_show', {id: tenant.id}) }}"
+                                    class="text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                                >Ver ficha</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <nav aria-label="Paginación de negocios" class="mt-4">
+            {{ knp_pagination_render(pagination) }}
+        </nav>
+    {% endif %}
+{% endblock %}

@@ -183,4 +183,53 @@ class InvestmentRepository extends ServiceEntityRepository implements Investment
 
         return $qb;
     }
+
+    /**
+     * Total de inversiones del sistema (panel admin, Fase 6.1).
+     *
+     * Excepcion documentada al invariante "toda consulta filtra por
+     * tenant_id": es un CONTEO de filas, no datos de negocio, y su unico
+     * consumidor es /admin, blindado con ROLE_SUPER_ADMIN (global por
+     * diseno, sin TenantFilter). Incluye canceladas (historico).
+     */
+    public function countAll(): int
+    {
+        return (int) $this->createQueryBuilder('i')
+            ->select('COUNT(i.id)')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /**
+     * Inversiones de una tanda de tenants con EL TENANT EXPLICITO en la
+     * clausula: los contadores por fila de /admin/tenants y las metricas
+     * de /admin/tenants/{id} (Fase 6.1). El SQLFilter esta deshabilitado
+     * para el super_admin, asi que el aislamiento lo aporta este
+     * parametro, igual que en createPaginatedQueryBuilder().
+     *
+     * @param list<int> $tenantIds
+     *
+     * @return array<int, int> tenantId => cantidad (solo los pedidos)
+     */
+    public function countByTenants(array $tenantIds): array
+    {
+        if ([] === $tenantIds) {
+            return [];
+        }
+
+        $rows = $this->createQueryBuilder('i')
+            ->select('IDENTITY(i.tenant) AS tenantId', 'COUNT(i.id) AS total')
+            ->andWhere('i.tenant IN (:tenantIds)')
+            ->setParameter('tenantIds', $tenantIds)
+            ->groupBy('i.tenant')
+            ->getQuery()
+            ->getArrayResult();
+
+        $counts = [];
+        foreach ($rows as $row) {
+            $counts[(int) $row['tenantId']] = (int) $row['total'];
+        }
+
+        return $counts;
+    }
 }

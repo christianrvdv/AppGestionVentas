@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\Security;
 
-use App\Entity\AppUser;
 use App\Tests\Functional\FunctionalTestCase;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
-use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /**
  * Flujo global del super_admin (ADR-0016).
@@ -98,24 +96,9 @@ final class SuperAdminFlowTest extends FunctionalTestCase
 
     /**
      * super_admin real (hash con el hasher de la aplicación, como en
-     * prod) y SIN membresías: el caso que existía gracias a
-     * app:user:create --super-admin.
+     * prod) y SIN membresías: lo crea el helper de la base
+     * FunctionalTestCase::seedSuperAdmin().
      */
-    private function seedSuperAdmin(): AppUser
-    {
-        $user = new AppUser();
-        $user->setEmail('super@demo.local');
-        $user->setRoles([AppUser::ROLE_SUPER_ADMIN]);
-
-        $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
-        $user->setPasswordHash($hasher->hashPassword($user, 'super1234'));
-
-        $this->em->persist($user);
-        $this->em->flush();
-
-        return $user;
-    }
-
     private function assertRedirectPath(KernelBrowser $client, string $path, string $message = ''): void
     {
         $location = (string) $client->getResponse()->headers->get('Location');
