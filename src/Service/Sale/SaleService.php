@@ -180,20 +180,26 @@ final class SaleService
     /**
      * [FIX-1] Pre-carga el stock disponible por itemId.
      *
+     * [Fase 7.6] Fix N+1: los ítems se agregan en UNA sola query
+     * (getStockByItemIds con GROUP BY investment_item_id). Antes era un
+     * getQuantityDeltaSum por ítem referenciado. Un ítem sin movimientos
+     * queda en 0, igual que antes.
+     *
      * @param RegisterSaleLineCommand[] $lines
      * @return array<int, int> Map itemId => stock disponible
      */
     private function preloadRemainingStock(array $lines, Investment $investment): array
     {
-        $stock = [];
-        $tenantId = $investment->getTenant()->getId();
+        $itemIds = [];
         foreach ($lines as $lineCmd) {
-            $itemId = $lineCmd->investmentItemId;
-            if (!array_key_exists($itemId, $stock)) {
-                $stock[$itemId] = $this->movementRepository->getQuantityDeltaSum($itemId, $tenantId);
-            }
+            $itemIds[$lineCmd->investmentItemId] = $lineCmd->investmentItemId;
         }
-        return $stock;
+
+        // Los ítems sin movimientos no aparecen en el resultado agregado;
+        // se pre inicializan en 0 para preservar la semántica anterior.
+        // (Unión con el resultado a la izquierda: los SUM pisarían los 0.)
+        return $this->movementRepository->getStockByItemIds(array_values($itemIds), $investment->getTenant()->getId())
+            + array_fill_keys($itemIds, 0);
     }
 
     private function loadInvestment(int $investmentId, int $tenantId): Investment

@@ -55,6 +55,51 @@ final class SaleServiceQueryCountTest extends IntegrationTestCase
         );
     }
 
+    public function test_stock_se_precarga_en_una_sola_query_agregada(): void
+    {
+        [, $user, $investment, $items] = $this->investmentWithThreeItems(10);
+
+        $counter = static::getContainer()->get(QueryCounter::class);
+        $counter->reset();
+
+        static::getContainer()->get(SaleService::class)->register(
+            new RegisterSaleCommand(
+                investmentId: $investment->getId(),
+                customerId: null,
+                date: new \DateTimeImmutable('2026-01-10'),
+                lines: [
+                    new RegisterSaleLineCommand($items[0]->getId(), 1, '150.00'),
+                    new RegisterSaleLineCommand($items[1]->getId(), 2, '150.00'),
+                    new RegisterSaleLineCommand($items[2]->getId(), 3, '150.00'),
+                ]
+            ),
+            $user
+        );
+
+        // getStockByItemIds agrupa por investment_item_id en UNA query.
+        // Se excluye el INNER JOIN porque recompute() también consulta
+        // inventory_movement con GROUP BY (getStockByInvestment), pero eso
+        // es una sola query por inversión, no una por ítem.
+        $perItemAggregates = array_values(array_filter(
+            $counter->containing('FROM inventory_movement'),
+            static fn (string $sql): bool => stripos($sql, 'SUM(') !== false
+                && stripos($sql, 'INNER JOIN') === false
+        ));
+
+        $this->assertCount(
+            1,
+            $perItemAggregates,
+            "Se esperaba UNA sola query agregada de stock (getStockByItemIds con GROUP BY); se encontraron:\n"
+            .implode("\n", $perItemAggregates)
+        );
+
+        $this->assertStringContainsString(
+            'GROUP BY',
+            $perItemAggregates[0],
+            'La query agregada de stock debe agrupar por investment_item_id.'
+        );
+    }
+
     /**
      * Inversión confirmada con 3 productos/ítems y stock de compra.
      *

@@ -47,6 +47,34 @@ class InventoryMovementRepository extends ServiceEntityRepository implements Inv
     }
 
     /**
+     * @param list<int> $itemIds
+     * @return array<int, int>
+     */
+    public function getStockByItemIds(array $itemIds, int $tenantId): array
+    {
+        if ($itemIds === []) {
+            return [];
+        }
+
+        $results = $this->createQueryBuilder('im')
+            ->select('IDENTITY(im.investmentItem) AS itemId, SUM(im.quantityDelta) AS total')
+            ->andWhere('im.investmentItem IN (:itemIds)')
+            ->andWhere('im.tenant = :tenantId')
+            ->setParameter('itemIds', $itemIds)
+            ->setParameter('tenantId', $tenantId)
+            ->groupBy('im.investmentItem')
+            ->getQuery()
+            ->getArrayResult();
+
+        $stock = [];
+        foreach ($results as $row) {
+            $stock[(int)$row['itemId']] = (int)($row['total'] ?? 0);
+        }
+
+        return $stock;
+    }
+
+    /**
      * @return array<int, array{in: int, out: int, balance: int}>
      */
     public function getStockByItem(int $tenantId): array

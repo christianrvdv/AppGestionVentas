@@ -21,6 +21,19 @@ interface InventoryMovementRepositoryInterface
     public function getQuantityDeltaSum(int $itemId, int $tenantId): int;
 
     /**
+     * Stock (SUM de quantityDelta) para un conjunto de ítems en UNA sola
+     * query (GROUP BY investment_item_id). Cierra el N+1 de
+     * SaleService::preloadRemainingStock.
+     *
+     * Un ítem sin movimientos no aparece en el resultado; el caller debe
+     * tratarlo como 0.
+     *
+     * @param list<int> $itemIds
+     * @return array<int, int> Map itemId => SUM(quantityDelta)
+     */
+    public function getStockByItemIds(array $itemIds, int $tenantId): array;
+
+    /**
      * @return array<int, array{in: int, out: int, balance: int}>
      */
     public function getStockByItem(int $tenantId): array;
