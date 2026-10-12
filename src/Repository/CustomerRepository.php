@@ -13,6 +13,13 @@ use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
 /**
  * @extends ServiceEntityRepository<Customer>
+ *
+ * CONVENCIÓN DE ESTADO: los clientes no tienen borrado lógico ni
+ * físico — se desactivan con isActive = false. Solo los selectores de
+ * UI (findActiveByTenant, countActiveByTenant) filtran por
+ * isActive = true; los buscadores, lookups por teléfono/email y el
+ * paginado incluyen inactivos a propósito (una venta histórica de un
+ * cliente desactivado debe poder mostrarse y editarse).
  */
 #[AsAlias(CustomerRepositoryInterface::class)]
 class CustomerRepository extends ServiceEntityRepository implements CustomerRepositoryInterface

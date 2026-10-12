@@ -14,6 +14,12 @@ use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
 /**
  * @extends ServiceEntityRepository<Payment>
+ *
+ * CONVENCIÓN DE BORRADO LÓGICO: los pagos no tienen flag de anulación y
+ * ningún método filtra por Sale.voidedAt. Es correcto por construcción:
+ * la política de anulación (ADR-0003, SaleVoidService) solo permite
+ * anular ventas SIN pagos aplicados, así que una venta anulada jamás
+ * tiene pagos que excluir. Sumar pagos de una venta anulada da 0.
  */
 #[AsAlias(PaymentRepositoryInterface::class)]
 class PaymentRepository extends ServiceEntityRepository implements PaymentRepositoryInterface

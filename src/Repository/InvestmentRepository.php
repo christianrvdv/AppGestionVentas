@@ -13,6 +13,14 @@ use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
 /**
  * @extends ServiceEntityRepository<Investment>
+ *
+ * CONVENCIÓN DE BORRADO LÓGICO (inversiones): no hay soft delete ni
+ * borrado físico — la vida del registro es su status (ADR: el ciclo se
+ * cierra con CANCELLED/CLOSED, nunca delete). Los agregados de capital
+ * EXCLUYEN CANCELLED (una cancelada no se ejecutó); los finders activos
+ * usan status IN (OPEN, PARTIAL); findAllByTenant y los conteos de
+ * /admin incluyen todo el histórico (excepciones documentadas en cada
+ * método).
  */
 #[AsAlias(InvestmentRepositoryInterface::class)]
 class InvestmentRepository extends ServiceEntityRepository implements InvestmentRepositoryInterface

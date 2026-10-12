@@ -14,6 +14,14 @@ use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
 /**
  * @extends ServiceEntityRepository<Sale>
+ *
+ * CONVENCIÓN DE BORRADO LÓGICO (ventas): las ventas no se borran
+ * físicamente; anularlas marca Sale.voidedAt (ADR-0003). Toda consulta de
+ * negocio EXCLUYE las anuladas por defecto y ofrece el flag $includeVoided
+ * para auditoría/histórico. Las excepciones están documentadas en cada
+ * método: conteos crudos de /admin (countAll, countByTenants) y
+ * sumGrossProfitBySaleIds(), cuyo input ya viene filtrado por
+ * createPaginatedQueryBuilder().
  */
 #[AsAlias(SaleRepositoryInterface::class)]
 class SaleRepository extends ServiceEntityRepository implements SaleRepositoryInterface
@@ -306,14 +314,26 @@ class SaleRepository extends ServiceEntityRepository implements SaleRepositoryIn
         return $qb->getQuery()->getResult();
     }
 
-    public function countByInvestment(int $investmentId, int $tenantId): int
-    {
+    /**
+     * Ventas registradas de una inversión. Por defecto excluye anuladas,
+     * igual que todos los métodos de negocio de este repositorio (ver
+     * convención de borrado lógico en la clase).
+     */
+    public function countByInvestment(
+        int  $investmentId,
+        int  $tenantId,
+        bool $includeVoided = false
+    ): int {
         $qb = $this->createQueryBuilder('s')
             ->select('COUNT(s.id)')
             ->andWhere('s.investment = :investmentId')
             ->andWhere('s.tenant = :tenantId')
             ->setParameter('investmentId', $investmentId)
             ->setParameter('tenantId', $tenantId);
+
+        if (!$includeVoided) {
+            $qb->andWhere('s.voidedAt IS NULL');
+        }
 
         return (int) $qb->getQuery()->getSingleScalarResult();
     }

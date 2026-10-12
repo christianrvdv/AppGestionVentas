@@ -52,6 +52,17 @@ when@test:
             resource: '../src/Service/'
             exclude:
                 # Money es un value object con constructor privado
-                # (fábricas estáticas): no es un servicio.
+                # (fǭbricas estǭticas): no es un servicio.
                 - '../src/Service/Money/'
             public: true
+
+        # Conteo de queries SQL para tests de regresi�n de N+1 (Fase 7.5).
+        # El middleware solo existe en test; los tests lo obtienen con
+        # static::getContainer()->get(QueryCounter::class) y cuentan
+        # sentencias por substring (p. ej. 'investment_item').
+        App\Tests\Support\QueryCounter:
+            public: true
+
+        App\Tests\Support\QueryCountingMiddleware:
+            tags:
+                - { name: doctrine.middleware }

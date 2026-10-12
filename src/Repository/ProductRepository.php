@@ -13,6 +13,13 @@ use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
 /**
  * @extends ServiceEntityRepository<Product>
+ *
+ * CONVENCIÓN DE BORRADO LÓGICO: los productos no tienen borrado lógico
+ * propio (solo isActive), pero sus rankings/aggregate cruzan sale_line →
+ * Sale: esas consultas EXCLUYEN ventas anuladas por defecto
+ * (s.voidedAt IS NULL, con $includeVoided para auditoría), igual que
+ * SaleRepository. Un ranking contaminado por anuladas produce
+ * decisiones de negocio erróneas.
  */
 #[AsAlias(ProductRepositoryInterface::class)]
 class ProductRepository extends ServiceEntityRepository implements ProductRepositoryInterface

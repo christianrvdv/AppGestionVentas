@@ -132,7 +132,16 @@ interface SaleRepositoryInterface
         bool $includeVoided = false
     ): array;
 
-    public function countByInvestment(int $investmentId, int $tenantId): int;
+    /**
+     * Ventas registradas de una inversión. Por defecto excluye anuladas
+     * (convención de borrado lógico del repositorio); $includeVoided para
+     * auditoría.
+     */
+    public function countByInvestment(
+        int  $investmentId,
+        int  $tenantId,
+        bool $includeVoided = false
+    ): int;
 
     /**
      * Totales diarios (venta + ganancia bruta).

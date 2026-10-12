@@ -12,6 +12,13 @@ use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
 /**
  * @extends ServiceEntityRepository<SaleLine>
+ *
+ * CONVENCIÓN DE BORRADO LÓGICO (líneas): una línea no se anula por sí
+ * sola; hereda el estado de su cabecera. Toda consulta de negocio une
+ * Sale y filtra s.voidedAt IS NULL por defecto, con $includeVoided para
+ * auditoría. Excepción documentada: findBySale(), la vista cruda de la
+ * cabecera (el detalle de la venta también muestra las líneas de una
+ * venta anulada).
  */
 #[AsAlias(SaleLineRepositoryInterface::class)]
 class SaleLineRepository extends ServiceEntityRepository implements SaleLineRepositoryInterface

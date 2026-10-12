@@ -126,6 +126,11 @@ final class SaleService
         // para que líneas posteriores del mismo ítem vean el stock correcto.
         $remainingStock = $this->preloadRemainingStock($cmd->lines, $investment);
 
+        // [Fase 7.5] Fix N+1: todos los ítems de las líneas se cargan en UNA
+        // sola query (findByIdsAndTenant) y el loop de createSaleLine usa el
+        // array en memoria. Antes cada línea hacía su propia findByIdAndTenant.
+        $itemsById = $this->loadItemsById($cmd->lines, $investment);
+
         // 8. Recuperado acumulado previo (ventas no anuladas)
         $accumulatedRecovered = $this->saleLineRepository->sumCostRecoveredByInvestment(
             $investment->getId(),
@@ -145,7 +150,8 @@ final class SaleService
                 $accumulatedRecovered,
                 $investmentTotal,
                 $saleLinesData,
-                $remainingStock
+                $remainingStock,
+                $itemsById
             );
         }
 
@@ -200,10 +206,41 @@ final class SaleService
     }
 
     /**
+     * [Fase 7.5] Carga todos los ítems referenciados por las líneas en UNA
+     * sola query (findByIdsAndTenant), indexados por id.
+     *
+     * Un id inexistente simplemente no aparece en el mapa; createSaleLine
+     * lanza el mismo LogicException de antes al no encontrarlo.
+     *
+     * @param RegisterSaleLineCommand[] $lines
+     * @return array<int, InvestmentItem> Map itemId => InvestmentItem
+     */
+    private function loadItemsById(array $lines, Investment $investment): array
+    {
+        $ids = [];
+        foreach ($lines as $lineCmd) {
+            $ids[$lineCmd->investmentItemId] = $lineCmd->investmentItemId;
+        }
+
+        $items = $this->itemRepository->findByIdsAndTenant(
+            array_values($ids),
+            $investment->getTenant()->getId()
+        );
+
+        $itemsById = [];
+        foreach ($items as $item) {
+            $itemsById[$item->getId()] = $item;
+        }
+
+        return $itemsById;
+    }
+
+    /**
      * [FIX-1] Valida stock contra $remainingStock (en memoria) y lo descuenta.
      *
-     * @param list<SaleLineData> $saleLinesData Salida: acumula las líneas creadas
-     * @param array<int, int>    $remainingStock Entrada/salida: stock por itemId
+     * @param list<SaleLineData>  $saleLinesData Salida: acumula las líneas creadas
+     * @param array<int, int>     $remainingStock Entrada/salida: stock por itemId
+     * @param array<int, InvestmentItem> $itemsById Ítems precargados (Fase 7.5, fix N+1)
      *
      * @return string Recuperado acumulado tras crear la línea
      */
@@ -215,15 +252,17 @@ final class SaleService
         string                  $accumulatedRecoveredBefore,
         string                  $investmentTotal,
         array                   &$saleLinesData,
-        array                   &$remainingStock
+        array                   &$remainingStock,
+        array                   $itemsById
     ): string
     {
         $itemId = $lineCmd->investmentItemId;
         $quantity = $lineCmd->quantity;
         $unitPrice = $lineCmd->unitPrice;
-        $tenantId = $investment->getTenant()->getId();
 
-        $item = $this->itemRepository->findByIdAndTenant($itemId, $tenantId);
+        // [Fase 7.5] Lookup en memoria: los ítems se cargaron en bloque en
+        // loadItemsById() antes del loop (una sola query, sin N+1).
+        $item = $itemsById[$itemId] ?? null;
         if ($item === null) {
             throw new \LogicException(sprintf('Ítem %d no encontrado.', $itemId));
         }
