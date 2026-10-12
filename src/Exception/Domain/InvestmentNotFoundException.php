@@ -9,8 +9,8 @@ namespace App\Exception\Domain;
  */
 final class InvestmentNotFoundException extends DomainException
 {
-    public function __construct(int $investmentId)
+    public static function forInvestment(int $investmentId): self
     {
-        parent::__construct(sprintf('Inversión %d no encontrada.', $investmentId));
+        return new self(sprintf('Inversión %d no encontrada.', $investmentId));
     }
 }

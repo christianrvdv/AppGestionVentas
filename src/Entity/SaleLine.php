@@ -8,6 +8,33 @@ use App\Repository\SaleLineRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
+/**
+ * Línea de venta con sus derivados contables y sus snapshots.
+ *
+ * SETTERS QUE RECALCULAN (alimentan totalLine, costRecovered y
+ * grossProfitLine; un setter sin recálculo los dejaría desfasados hasta
+ * el flush — bug real de Fase 3c.1):
+ *   - setQuantity / setUnitPrice: recalculan totalLine al momento de la
+ *     asignación ([FIX-1]) y propagan el total a la venta padre.
+ *   - setRealUnitCostSnapshot: recalcula costRecovered y
+ *     grossProfitLine (derivan del costo real de la línea).
+ *
+ * SETTERS QUE NO RECALCULAN (snapshots puros, sin efecto en los
+ * derivados — los derivados se calculan en la moneda base de la
+ * inversión, no en USD ni con el costo de reposición):
+ *   - setUsdRateSnapshot: tasa vigente al momento de la venta; solo
+ *     documenta el contexto cambiario.
+ *   - setCurrentCostSnapshot: costo de reposición del ítem al día de la
+ *     venta; lo consume SaleVoidService al anular, para el movimiento
+ *     de reversa.
+ *
+ * recognizedProfitLine no tiene setter: se asigna únicamente vía
+ * applyRecognizedProfit(), que valida la invariante contable.
+ *
+ * PrePersist/PreUpdate recalculan por seguridad, pero la fuente de
+ * verdad en memoria son los setters ([FIX-1]): los callbacks corren
+ * demasiado tarde para que Sale::onPrePersist vea los totales.
+ */
 #[ORM\Entity(repositoryClass: SaleLineRepository::class)]
 #[ORM\Table(name: 'sale_line')]
 #[ORM\Index(name: 'idx_saleline_tenant_sale', columns: ['tenant_id', 'sale_id'])]

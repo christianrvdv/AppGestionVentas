@@ -158,8 +158,8 @@ final class InvestmentConfirmationService
                 bccomp($diff, bcsub('0', self::ALLOCATION_TOLERANCE, 2), 2) < 0) {
                 throw AllocationMismatchException::forExpense(
                     $expense->getId(),
-                    $expenseAmount,
-                    $allocatedSum
+                    $allocatedSum,
+                    $expenseAmount
                 );
             }
         }

@@ -1,0 +1,27 @@
+{% extends 'base.html.twig' %}
+
+{#
+    403 custom (Fase 7). El default de Symfony dice "Forbidden" en inglés
+    y sin contexto: el usuario que dejó una pestaña abierta mucho tiempo
+    recibe un CSRF inválido (Fase 3b) y no entiende qué pasó. Este
+    template da el mensaje accionable y una salida al dashboard.
+
+    Extiende base.html.twig: si el usuario está autenticado ve el nav
+    (y puede reintentar desde ahí); si no, el layout ya oculta el nav
+    solo con {% if app.user %}.
+#}
+
+{% block title %}Acceso denegado{% endblock %}
+
+{% block body %}
+    <h1 class="mb-2 text-2xl font-semibold text-foreground">Acceso denegado</h1>
+    <p class="mb-6 max-w-md text-sm text-muted">
+        No tenés permiso para acceder a esta página. Si tu sesión expiró,
+        recargá la página e intentá de nuevo.
+    </p>
+
+    <a
+        href="{{ path('app_dashboard') }}"
+        class="rounded bg-brand px-4 py-2 font-medium text-white hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+    >Volver al dashboard</a>
+{% endblock %}

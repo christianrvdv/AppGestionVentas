@@ -56,10 +56,14 @@ abstract class FunctionalTestCase extends WebTestCase
      * Client que NO reboota el kernel entre peticiones: conserva la
      * conexión estática de DAMA (y su contenido) durante el test.
      * El esquema ya está creado por tests/bootstrap.php.
+     *
+     * `$options` se pasa a createClient() (p. ej. ['debug' => false]
+     * para tests que verifican el rendering de páginas de error, que en
+     * debug muestra el exception page en vez del template custom).
      */
-    protected function createSharedKernelClient(): KernelBrowser
+    protected function createSharedKernelClient(array $options = []): KernelBrowser
     {
-        $client = static::createClient();
+        $client = static::createClient($options);
         $client->disableReboot();
 
         $this->em = static::getContainer()->get(EntityManagerInterface::class);

@@ -88,8 +88,8 @@ final class PaymentService
             if ($customer->getTenant()->getId() !== $investment->getTenant()->getId()) {
                 throw TenantMismatchException::forEntities(
                     'Customer',
-                    $investment->getTenant()->getId(),
-                    $customer->getTenant()->getId()
+                    $customer->getTenant()->getId(),
+                    $investment->getTenant()->getId()
                 );
             }
         }
@@ -106,8 +106,8 @@ final class PaymentService
             if ($sale->getTenant()->getId() !== $investment->getTenant()->getId()) {
                 throw TenantMismatchException::forEntities(
                     'Sale',
-                    $investment->getTenant()->getId(),
-                    $sale->getTenant()->getId()
+                    $sale->getTenant()->getId(),
+                    $investment->getTenant()->getId()
                 );
             }
 

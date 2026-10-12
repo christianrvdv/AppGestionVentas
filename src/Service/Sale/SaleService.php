@@ -98,8 +98,8 @@ final class SaleService
             if ($customer->getTenant()->getId() !== $investment->getTenant()->getId()) {
                 throw TenantMismatchException::forEntities(
                     'Customer',
-                    $investment->getTenant()->getId(),
-                    $customer->getTenant()->getId()
+                    $customer->getTenant()->getId(),
+                    $investment->getTenant()->getId()
                 );
             }
         }
@@ -194,7 +194,7 @@ final class SaleService
     {
         $investment = $this->investmentRepository->findByIdAndTenant($investmentId, $tenantId);
         if ($investment === null) {
-            throw new InvestmentNotFoundException($investmentId);
+            throw InvestmentNotFoundException::forInvestment($investmentId);
         }
         return $investment;
     }
@@ -231,8 +231,8 @@ final class SaleService
         if ($item->getInvestment()->getId() !== $investment->getId()) {
             throw ItemNotInInvestmentException::forItemInvestment(
                 $itemId,
-                $investment->getId(),
-                $item->getInvestment()->getId()
+                $item->getInvestment()->getId(),
+                $investment->getId()
             );
         }
 

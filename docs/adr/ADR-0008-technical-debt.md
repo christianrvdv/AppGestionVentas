@@ -11,16 +11,16 @@ Todos los servicios inyectan sus repositorios vía autowiring + `#[AsAlias]`. No
 ### 2. Método `InvestmentRepositoryInterface::countByCodePrefix` ✅ **Resuelto**
 Añadido a interfaz e implementación. Tests de creación de inversión (`InvestmentCrudTest`) lo cubren.
 
-### 3. Relación `Investment <-> InvestmentSummary` ⏳ **Pendiente**
-**Actual:** Unidireccional (`InvestmentSummary -> Investment`).
-**Necesario:** Bidireccional para navegación fácil (`$investment->getSummary()`).
-**Migración:** Añadir `#[ORM\OneToOne(mappedBy: 'investment', cascade: ['persist'])]` en `Investment::$summary`.
+### 3. Relación `Investment <-> InvestmentSummary` ✅ **Resuelto**
+**Antes:** Unidireccional (`InvestmentSummary -> Investment`).
+**Actual:** Bidireccional — `Investment::$summary` (`#[ORM\OneToOne(mappedBy: 'investment', ...)]`) permite navegar con `$investment->getSummary()`.
 
 ### 4. Tests unitarios e integración 🟡 **Mayormente resuelto**
 **Existen y pasan:**
 - `Money` ✅
 - `ExpenseAllocationService` ✅
 - `InvestmentConfirmationService` ✅
+- `InvestmentRevaluationService` ✅ (nuevo desde la auditoría)
 - `SaleService` ✅
 - `SaleVoidService` ✅
 - `LossService` ✅
@@ -28,9 +28,8 @@ Añadido a interfaz e implementación. Tests de creación de inversión (`Invest
 - `RecoveryRecognitionService` ✅
 - `InvestmentStateMachine` ✅
 
-**Faltan tests dedicados:**
+**Falta test dedicado:**
 - `InvestmentItemCalculatorService`: cascada márgenes, current* init.
-- `InvestmentRevaluationService`: gain/loss signo, current* update.
 
 ### 5. Event Listeners para side effects automáticos ✅ **Decisión: explícito en servicios**
 Candidatos revisados:
@@ -68,14 +67,15 @@ El servicio actualiza `AppSetting::KEY_USD_RATE_CURRENT` inline (líneas 91-106)
 Pendiente hasta que existan controladores API. UI actual usa Turbo/Stimulus con renderizado server-side.
 
 ## Priorización sugerida
-1. **Tests faltantes** (`InvestmentItemCalculatorService`, `InvestmentRevaluationService`).
-2. **Relación Investment-Summary bidireccional** (limpieza de API).
-3. **Optimización N+1 en SaleService** (usar `findByIdsAndTenant` ya existente).
-4. **Consistencia soft deletes** en repositorios.
-5. **OpenAPI** cuando haya API expuesta.
+1. **Optimización N+1 en SaleService** (usar `findByIdsAndTenant` ya existente).
+2. **Consistencia soft deletes** en repositorios.
+3. **Test `InvestmentItemCalculatorService`** (cascada márgenes, current* init).
+4. **OpenAPI** cuando haya API expuesta.
 
 ## Estado
-Actualizado en cierre post-Fase 3d (commit 69621c1). Ítems 1, 2, 5, 7, 9, 11 resueltos; 3, 6, 8, 10, 12 pendientes; 4 mayormente resuelto.
+Actualizado en cierre post-Fase 7. Ítems 1, 2, 3, 5, 7, 9, 11 resueltos;
+4 mayormente resuelto (falta `InvestmentItemCalculatorService`);
+6, 8, 10, 12 pendientes.
 
 ## Referencias
 - `services.yaml` (autowiring + `#[AsAlias]` en repositorios).

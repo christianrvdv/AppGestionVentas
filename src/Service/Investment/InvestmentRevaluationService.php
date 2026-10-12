@@ -45,8 +45,8 @@ final class InvestmentRevaluationService
         if ($newRate->getTenant()->getId() !== $investment->getTenant()->getId()) {
             throw TenantMismatchException::forEntities(
                 'UsdRate',
-                $investment->getTenant()->getId(),
-                $newRate->getTenant()->getId()
+                $newRate->getTenant()->getId(),
+                $investment->getTenant()->getId()
             );
         }
 

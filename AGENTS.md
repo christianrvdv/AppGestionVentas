@@ -86,6 +86,34 @@ Install `symfony/test-pack` if it isn't already. Functional/HTTP tests extend
 until it has a test that exercises it the way a caller would, an HTTP request for
 a controller or a service call for a service, not just "it didn't throw."
 
+Before every commit, run the full suite with `php bin/phpunit --order-by=random`
+in addition to the normal run: tests that pass only in declaration order hide
+hidden coupling (static state, uncleaned fixtures, order-dependent seeds).
+
+## Static analysis
+
+PHPStan runs at level 6 over `src/` (`phpstan.neon`) and level 5 over `tests/`
+(`phpstan.tests.neon`), executed via `php bin/phpstan`. There is **no baseline**
+by default: resolve new errors properly rather than silencing them with
+`@phpstan-ignore`, `@var` casts, or a generated baseline. A type error in
+Doctrine entity relationships usually means the entity metadata is wrong —
+fix the entity, not the analysis.
+
+## Commit convention
+
+Commit messages are **ASCII-only** (no accents, no Unicode) for portability
+across Windows/PowerShell consoles. Reference the plan phase when applicable:
+`chore: pulido, encoding consistency y consolidacion (Fase 7)`. One phase =
+one commit; don't mix unrelated phases in a single commit.
+
+## Plan convention
+
+Plans live in `tasks/`: the master plan in `tasks/plan.md` and one file per
+phase in `tasks/plan-faseN.md` (e.g. `plan-fase2.md`). Never overwrite or
+rewrite a plan for a phase that is already closed — those files are the
+historical record of what was decided and shipped. For a new phase, create a
+new `plan-faseN.md` instead of editing a finished one.
+
 ## Code style
 
 Symfony's coding standard, the `@Symfony` php-cs-fixer ruleset (a PSR-12-derived

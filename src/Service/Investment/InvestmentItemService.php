@@ -48,8 +48,8 @@ final class InvestmentItemService
         if ($product->getTenant()->getId() !== $investment->getTenant()->getId()) {
             throw TenantMismatchException::forEntities(
                 'Product',
-                $investment->getTenant()->getId(),
-                $product->getTenant()->getId()
+                $product->getTenant()->getId(),
+                $investment->getTenant()->getId()
             );
         }
 

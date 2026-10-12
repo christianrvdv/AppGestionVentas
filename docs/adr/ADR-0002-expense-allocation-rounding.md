@@ -36,12 +36,11 @@ por DQL (ver FIX-2 y FIX-4 en el servicio):
   `uniq_allocation_expense_item`.
 - `InvestmentItem.allocatedExpense` se recalcula sumando en memoria.
 
-> **Actualización (cierre post-Fase 3d):** el repositorio de allocations
-> (`App\Repository\ExpenseAllocationRepository` y su interfaz
-> `Contract\ExpenseAllocationRepositoryInterface`) existía solo para el
-> prorrateo por DQL que FIX-2/FIX-4 reemplazaron. Sin consumidores desde
-> entonces, se eliminó junto con su `repositoryClass` en la entidad.
-> La idempotencia descrita arriba es la única vía hoy.
+El repositorio de allocations (`App\Repository\ExpenseAllocationRepository`
+y su interfaz `Contract\ExpenseAllocationRepositoryInterface`) existía solo
+para el prorrateo por DQL que FIX-2/FIX-4 reemplazaron. Sin consumidores
+desde entonces, se eliminó junto con su `repositoryClass` en la entidad.
+La idempotencia descrita arriba es la única vía hoy.
 
 ## ESCALA
 Redondeo a la escala de la moneda del tenant (`SettingsService::getCurrencyScale()`, default 2).
@@ -54,14 +53,8 @@ Usa `bcmath` con `ROUND_HALF_UP` (ver ADR-0001).
 - **Guardar diferencia en cuenta "diferencia de cambio"**: Complejidad innecesaria para centavos.
 
 ## ESTADO
-Aceptado. Implementado en `App\Service\ExpenseAllocationService`.
+Aceptado. Implementado en `App\Service\ExpenseAllocationService::allocateForInvestment()`.
 
 ## REFERENCIAS
-- `App\Service\ExpenseAllocationService::allocateExpense()`
+- `App\Service\ExpenseAllocationService::allocateForInvestment()`
 - `App\Entity\ExpenseAllocation` (índice único `uniq_allocation_expense_item`)
-
-> Los métodos `deleteByExpense()` / `deleteByItem()` que este ADR citaba en
-> su versión original pertenecían a `ExpenseAllocationRepositoryInterface`,
-> eliminada en el cierre post-Fase 3d: la idempotencia pasó a manejarse en
-> memoria (FIX-2 / FIX-4) y la interfaz quedó sin consumidores.
-

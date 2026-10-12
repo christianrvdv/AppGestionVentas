@@ -47,11 +47,10 @@ final class AdminPasswordChangeTest extends FunctionalTestCase
             (string) $client->getResponse()->headers->get('Location')
         );
 
+        // ...pero las rutas de recuperación quedan libres (Fase 7):
+        // /select-tenant no debe bloquear el flujo M2M.
         $client->request('GET', '/select-tenant');
-        $this->assertStringEndsWith(
-            '/cambiar-password',
-            (string) $client->getResponse()->headers->get('Location')
-        );
+        $this->assertResponseIsSuccessful();
     }
 
     /**

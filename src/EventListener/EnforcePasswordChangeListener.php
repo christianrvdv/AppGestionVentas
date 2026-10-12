@@ -35,16 +35,36 @@ use Symfony\Component\Security\Http\Event\LoginSuccessEvent;
  *      (8) — el token ya existe — y antes de RequireTenantListener (6),
  *      que además tiene /cambiar-password blanqueada, porque el cambio
  *      debe poder usarse con cualquier negocio activo o sin ninguno.
+ *
+ * El bloqueo NO cubre las rutas de recuperación (ver ALLOWED_PREFIXES):
+ * el usuario debe poder completar el cambio (/cambiar-password),
+ * salir (/logout), volver a entrar (/login), elegir o crear su negocio
+ * (/select-tenant, /onboarding) y usar el panel global (/admin). Si
+ * alguna de esas quedara bloqueada, el flag dejaría usuarios atrapados
+ * sin salida (Fase 7).
  */
 final class EnforcePasswordChangeListener
 {
     /**
      * Prefijos que sí pueden usarse con el flag activo: el destino
-     * mismo, salir de la sesión y la infraestructura del framework.
+     * mismo, salir de la sesión, volver a entrar, las rutas desde las
+     * que el usuario se recupera o decide a qué negocio usar (Fase 7:
+     * exenciones verificadas — sin ellas un usuario con varias
+     * membresías o un super_admin sin tenant quedaba bloqueado en
+     * /select-tenant y /admin pudiendo usar /cambiar-password), los
+     * estáticos del framework (un redirect en /assets o /build rompería
+     * la página entera con HTML donde debe haber CSS/JS) y las
+     * herramientas del profiler.
      */
     private const ALLOWED_PREFIXES = [
         '/cambiar-password',
         '/logout',
+        '/login',
+        '/select-tenant',
+        '/onboarding',
+        '/admin',
+        '/assets',
+        '/build',
         '/_profiler',
         '/_wdt',
         '/_error',
