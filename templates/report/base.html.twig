@@ -13,7 +13,7 @@
             <form method="get" class="flex flex-wrap items-end gap-4" novalidate>
                 {% block filter_fields %}{% endblock %}
                 <button type="submit" class="btn-primary">Filtrar</button>
-                <a href="{{ request.getRequestUri|split('?')[0] }}" class="btn-secondary">Limpiar</a>
+                <a href="{{ app.request.getRequestUri|split('?')[0] }}" class="btn-secondary">Limpiar</a>
             </form>
         </div>
     {% endblock %}
