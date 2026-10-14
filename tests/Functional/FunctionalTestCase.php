@@ -12,6 +12,7 @@ use App\Entity\Customer;
 use App\Entity\Investment;
 use App\Entity\InvestmentItem;
 use App\Entity\Payment;
+use App\Entity\PaymentAllocation;
 use App\Entity\Product;
 use App\Entity\Sale;
 use App\Entity\Tenant;
@@ -377,6 +378,10 @@ abstract class FunctionalTestCase extends WebTestCase
     /**
      * Pago aplicado a una venta (para el detalle de venta). Se construye
      * la entidad directamente: Payment no tiene asserts de ciclo de vida.
+     *
+     * Desde ADR-0018 el vínculo no es Payment.sale sino una
+     * PaymentAllocation, que se persiste por el cascade de
+     * Payment.allocations.
      */
     protected function seedPayment(
         Sale $sale,
@@ -387,13 +392,17 @@ abstract class FunctionalTestCase extends WebTestCase
     ): Payment {
         $payment = new Payment();
         $payment->setTenant($sale->getTenant());
-        $payment->setSale($sale);
         $payment->setCustomer($customer);
         $payment->setAmount($amount);
         $payment->setCurrency($sale->getCurrency());
         $payment->setPaymentDate(new \DateTimeImmutable('today'));
         $payment->setMethod($method);
         $payment->setReference($reference);
+
+        $allocation = new PaymentAllocation();
+        $allocation->setSale($sale);
+        $allocation->setAmount($amount);
+        $payment->addAllocation($allocation);
 
         $this->em->persist($payment);
         $this->em->flush();

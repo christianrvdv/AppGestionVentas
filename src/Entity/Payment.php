@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Entity;
 
 use App\Repository\PaymentRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -12,7 +14,6 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'payment')]
 #[ORM\Index(name: 'idx_payment_tenant_date', columns: ['tenant_id', 'payment_date'])]
 #[ORM\Index(name: 'idx_payment_tenant_customer', columns: ['tenant_id', 'customer_id'])]
-#[ORM\Index(name: 'idx_payment_tenant_sale', columns: ['tenant_id', 'sale_id'])]
 #[ORM\HasLifecycleCallbacks]
 class Payment
 {
@@ -57,15 +58,21 @@ class Payment
     private ?Customer $customer = null;
 
     /**
-     * Venta a la que aplica este pago.
-     * Null = anticipo o pago a cuenta del cliente sin venta específica.
+     * Ventas que cubre este pago (Fase 3f, ADR-0018).
      *
-     * onDelete RESTRICT: si un pago está asociado a una venta,
-     * esa venta no puede borrarse. Las ventas se anulan, no se borran.
+     * Reemplaza al antiguo Payment.sale (un 1:N que no podía repartir un
+     * anticipo entre varias ventas ni registrar varios pagos sobre una
+     * misma venta). El monto aplicado vive en la allocation, no acá:
+     * amount sigue siendo el dinero que entró.
+     *
+     * cascade persist: el alta de un pago contra una venta crea su
+     * allocation en la misma operación y el flush del llamador las lleva
+     * a las dos.
+     *
+     * @var Collection<int, PaymentAllocation>
      */
-    #[ORM\ManyToOne(targetEntity: Sale::class, inversedBy: 'payments')]
-    #[ORM\JoinColumn(name: 'sale_id', referencedColumnName: 'id', nullable: true, onDelete: 'RESTRICT')]
-    private ?Sale $sale = null;
+    #[ORM\OneToMany(mappedBy: 'payment', targetEntity: PaymentAllocation::class, cascade: ['persist'])]
+    private Collection $allocations;
 
     #[ORM\Column(type: Types::DECIMAL, precision: 12, scale: 2)]
     private string $amount = '0.00';
@@ -100,6 +107,7 @@ class Payment
 
     public function __construct()
     {
+        $this->allocations = new ArrayCollection();
         $this->paymentDate = new \DateTimeImmutable();
         $this->createdAt = new \DateTimeImmutable();
         $this->updatedAt = new \DateTimeImmutable();
@@ -146,14 +154,24 @@ class Payment
         return $this;
     }
 
-    public function getSale(): ?Sale
+    /** @return Collection<int, PaymentAllocation> */
+    public function getAllocations(): Collection
     {
-        return $this->sale;
+        return $this->allocations;
     }
 
-    public function setSale(?Sale $sale): self
+    public function addAllocation(PaymentAllocation $allocation): self
     {
-        $this->sale = $sale;
+        if (!$this->allocations->contains($allocation)) {
+            $this->allocations->add($allocation);
+            $allocation->setPayment($this);
+        }
+        return $this;
+    }
+
+    public function removeAllocation(PaymentAllocation $allocation): self
+    {
+        $this->allocations->removeElement($allocation);
         return $this;
     }
 

@@ -14,6 +14,7 @@ use App\Exception\Domain\DomainException;
 use App\Form\PaymentFormType;
 use App\Repository\Contract\CustomerRepositoryInterface;
 use App\Repository\Contract\InvestmentRepositoryInterface;
+use App\Repository\Contract\PaymentAllocationRepositoryInterface;
 use App\Repository\Contract\PaymentRepositoryInterface;
 use App\Repository\Contract\SaleRepositoryInterface;
 use App\Service\Payment\PaymentService;
@@ -27,25 +28,31 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * Pagos (Fase 3d): listado, alta de anticipo y alta sobre una venta.
+ * Pagos (Fases 3d y 3f): listado, detalle, alta de anticipo, alta sobre una
+ * venta y aplicación de un anticipo existente a una venta.
  *
  * El tenant sale SIEMPRE de la sesión (ADR-0015), y el id de una venta,
  * cliente o inversión de otro negocio es indistinguible de uno
  * inexistente: responde 404 en ambos casos.
  *
  * Los controllers son delgados: delegan en PaymentService::register y
- * traducen las excepciones de dominio en flashes (nunca en 500). Moneda,
- * coincidencia de cliente y pertenencia al tenant NO se replican acá.
+ * PaymentService::applyToSale y traducen las excepciones de dominio en
+ * flashes (nunca en 500). Moneda, coincidencia de cliente, pertenencia al
+ * tenant y el techo de remanente/pendiente NO se replican acá.
  *
- * Dos formas de registrar, elegidas por la ruta:
- *   - POST /ventas/{id}/pago: el pago se aplica a esa venta. Inversión
- *     (moneda base) y cliente salen de la venta: no son campos editables,
- *     así el cobro no puede quedar desalineado de lo cobrado.
- *   - POST /pagos: pago a cuenta / anticipo. Pide inversión y cliente.
+ * Tres formas de cobrar, elegidas por la ruta:
+ *   - POST /ventas/{id}/pago: el pago nace ya aplicado a esa venta.
+ *     Inversión (moneda base) y cliente salen de la venta: no son campos
+ *     editables, así el cobro no puede quedar desalineado de lo cobrado.
+ *   - POST /pagos: pago a cuenta / anticipo. Pide inversión y cliente, y
+ *     no toca ninguna venta todavía.
+ *   - POST /ventas/{id}/anticipo: reparte un anticipo EXISTENTE sobre la
+ *     venta (Fase 3f, ADR-0018). Ni el pago ni el monto crean dinero
+ *     nuevo: solo mueven remanente ya cobrado.
  *
  * El pago PARCIAL explícito, los reembolsos y la conciliación están
  * fuera de alcance de esta fase: el usuario ve el pendiente y decide el
- * monto; el dominio no limita el total registrado.
+ * monto; el dominio limita el total registrado al remanente disponible.
  */
 final class PaymentController extends AbstractController
 {
@@ -53,6 +60,7 @@ final class PaymentController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly PaymentService $paymentService,
         private readonly PaymentRepositoryInterface $paymentRepository,
+        private readonly PaymentAllocationRepositoryInterface $allocationRepository,
         private readonly SaleRepositoryInterface $saleRepository,
         private readonly InvestmentRepositoryInterface $investmentRepository,
         private readonly CustomerRepositoryInterface $customerRepository,
@@ -77,8 +85,19 @@ final class PaymentController extends AbstractController
             10
         );
 
+        // Las ventas de cada pago se resuelven aparte (una consulta para
+        // la página entera) en vez de un join a la colección: desde
+        // ADR-0018 el vínculo es M:N y un join duplicaría cada fila.
+        $pagePaymentIds = [];
+        foreach ($pagination->getItems() as $item) {
+            if ($item instanceof Payment) {
+                $pagePaymentIds[] = $item->getId();
+            }
+        }
+
         return $this->render('payment/index.html.twig', [
             'pagination' => $pagination,
+            'sale_ids' => $this->allocationRepository->saleIdsByPaymentIds($pagePaymentIds, $tenantId),
             'customers' => $this->customerRepository->findActiveByTenant($tenantId),
             'methods' => Payment::METHOD_LABELS,
             'filters' => [
@@ -88,6 +107,28 @@ final class PaymentController extends AbstractController
                 'to' => $to?->format('Y-m-d'),
                 'method' => $method,
             ],
+        ]);
+    }
+
+    #[Route('/pagos/{id}', name: 'app_payment_show', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function show(int $id): Response
+    {
+        $tenantId = $this->requireTenantId();
+        $payment = $this->paymentRepository->findByIdAndTenant($id, $tenantId);
+
+        if (null === $payment) {
+            throw $this->createNotFoundException('El pago no existe.');
+        }
+
+        $allocations = $this->allocationRepository->findByPayment($id, $tenantId);
+        $applied = $this->allocationRepository->sumByPayment($id, $tenantId);
+
+        return $this->render('payment/show.html.twig', [
+            'payment' => $payment,
+            'allocations' => $allocations,
+            'methods' => Payment::METHOD_LABELS,
+            'applied' => $applied,
+            'available' => bcsub($payment->getAmount(), $applied, 2),
         ]);
     }
 
@@ -123,6 +164,66 @@ final class PaymentController extends AbstractController
         $sale = $this->findSale($id, $tenantId);
 
         return $this->store($request, $sale, $tenantId);
+    }
+
+    /**
+     * Aplica un anticipo existente a la venta (Fase 3f, ADR-0018).
+     *
+     * Es un POST plano con CSRF stateless (token id "submit", como la
+     * anulación de ventas), no un form de Symfony: solo vienen dos campos
+     * (pago y monto) y el form no aportaría nada. El monto, el remanente
+     * del pago, el pendiente de la venta, la moneda y el cliente se
+     * validan en el dominio: si algo falla, flash de error y se vuelve al
+     * detalle.
+     */
+    #[Route('/ventas/{id}/anticipo', name: 'app_payment_apply_to_sale', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function applyToSale(int $id, Request $request): Response
+    {
+        $tenantId = $this->requireTenantId();
+        $sale = $this->findSale($id, $tenantId);
+
+        $this->assertValidPlainCsrf($request);
+
+        $paymentId = $this->filterId($request->request->get('payment'));
+
+        if (null === $paymentId) {
+            $this->addFlash('error', 'Seleccioná un anticipo para aplicar.');
+
+            return $this->redirectToRoute('app_sale_show', ['id' => $sale->getId()]);
+        }
+
+        $payment = $this->paymentRepository->findByIdAndTenant($paymentId, $tenantId);
+
+        if (null === $payment) {
+            $this->addFlash('error', 'El anticipo no existe.');
+
+            return $this->redirectToRoute('app_sale_show', ['id' => $sale->getId()]);
+        }
+
+        // El form entrega el monto como float (NumberType); el dominio
+        // trabaja con string de 2 decimales.
+        $amount = number_format((float) $request->request->get('amount', ''), 2, '.', '');
+
+        try {
+            $allocation = $this->paymentService->applyToSale($payment, $sale, $amount);
+        } catch (DomainException $e) {
+            $this->addFlash('error', $e->getMessage());
+
+            return $this->redirectToRoute('app_sale_show', ['id' => $sale->getId()]);
+        }
+
+        // PaymentService no flushea (ADR-0017): la allocation recién creada
+        // llega a la base con este único flush, igual que en store().
+        $this->entityManager->persist($allocation);
+        $this->entityManager->flush();
+
+        $this->addFlash('success', sprintf(
+            'Anticipo de %s aplicado a la venta %d.',
+            number_format((float) $amount, 2, ',', '.'),
+            $sale->getId()
+        ));
+
+        return $this->redirectToRoute('app_sale_show', ['id' => $sale->getId()]);
     }
 
     /**
@@ -274,6 +375,22 @@ final class PaymentController extends AbstractController
     private function assertValidCsrf(Request $request, FormInterface $form): void
     {
         $token = $request->request->all($form->getName())['_token'] ?? null;
+
+        if (!\is_string($token) || !$this->isCsrfTokenValid('submit', $token)) {
+            throw $this->createAccessDeniedException('CSRF inválido.');
+        }
+    }
+
+    /**
+     * CSRF plano con el token id "submit" (stateless, ver
+     * config/packages/csrf.yaml): el campo _csrf_token del POST, sin form
+     * de Symfony. Mismo criterio que SaleController::assertValidCsrf: un
+     * token inválido responde 403, no un flash, para no confundir un
+     * ataque con un error de datos.
+     */
+    private function assertValidPlainCsrf(Request $request): void
+    {
+        $token = $request->request->all()['_csrf_token'] ?? null;
 
         if (!\is_string($token) || !$this->isCsrfTokenValid('submit', $token)) {
             throw $this->createAccessDeniedException('CSRF inválido.');

@@ -6,6 +6,7 @@ namespace App\Controller;
 
 use App\DTO\Command\RegisterSaleCommand;
 use App\DTO\Command\RegisterSaleLineCommand;
+use App\DTO\Query\AvailableAdvance;
 use App\Entity\AppUser;
 use App\Entity\Customer;
 use App\Entity\Investment;
@@ -18,6 +19,7 @@ use App\Repository\Contract\CustomerRepositoryInterface;
 use App\Repository\Contract\InventoryMovementRepositoryInterface;
 use App\Repository\Contract\InvestmentItemRepositoryInterface;
 use App\Repository\Contract\InvestmentRepositoryInterface;
+use App\Repository\Contract\PaymentAllocationRepositoryInterface;
 use App\Repository\Contract\PaymentRepositoryInterface;
 use App\Repository\Contract\SaleLineRepositoryInterface;
 use App\Repository\Contract\SaleRepositoryInterface;
@@ -52,6 +54,7 @@ final class SaleController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly SaleRepositoryInterface $saleRepository,
         private readonly SaleLineRepositoryInterface $saleLineRepository,
+        private readonly PaymentAllocationRepositoryInterface $allocationRepository,
         private readonly PaymentRepositoryInterface $paymentRepository,
         private readonly CustomerRepositoryInterface $customerRepository,
         private readonly InvestmentRepositoryInterface $investmentRepository,
@@ -169,12 +172,45 @@ final class SaleController extends AbstractController
             throw $this->createNotFoundException('La venta no existe.');
         }
 
+        // Desde ADR-0018 el cobro de una venta son sus allocations, no los
+        // pagos completos: un anticipo de 100 puede cubrir 40 acá y 60 en
+        // otra venta, y sumar 100 inflaría el total pagado.
+        $allocations = $this->allocationRepository->findBySale($sale->getId(), $tenantId);
+
+        $totalPaid = '0.00';
+        foreach ($allocations as $allocation) {
+            $totalPaid = bcadd($totalPaid, $allocation->getAmount(), 2);
+        }
+
         return $this->render('sale/show.html.twig', [
             'sale' => $sale,
             'lines' => $this->saleLineRepository->findBySale($sale->getId(), $tenantId),
-            'payments' => $this->paymentRepository->findBySale($sale->getId(), $tenantId),
+            'allocations' => $allocations,
+            'total_pagado' => $totalPaid,
+            // El selector de anticipos solo tiene sentido con algo que
+            // aplicar y en una venta activa de un cliente concreto: la URL
+            // es escribible a mano, así que no se pinta nunca para una
+            // venta anulada.
+            'available_advances' => $this->availableAdvancesFor($sale, $tenantId),
             'method_labels' => Payment::METHOD_LABELS,
         ]);
+    }
+
+    /**
+     * Anticipos del cliente de la venta que todavía tienen remanente.
+     * Devuelve vacío para una venta sin cliente (mostrador) o anulada.
+     *
+     * @return AvailableAdvance[]
+     */
+    private function availableAdvancesFor(Sale $sale, int $tenantId): array
+    {
+        $customer = $sale->getCustomer();
+
+        if ($sale->isVoided() || null === $customer) {
+            return [];
+        }
+
+        return $this->paymentRepository->findAvailableAdvancesByCustomer($customer->getId(), $tenantId);
     }
 
     /**

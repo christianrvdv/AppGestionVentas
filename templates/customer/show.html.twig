@@ -39,7 +39,8 @@
         </dl>
         <p class="mt-3 text-sm text-muted">
             El saldo pendiente es lo vendido (sin ventas anuladas) menos lo pagado: puede ser negativo si el cliente
-            adelantó más de lo que compró. Los anticipos son pagos sin venta asociada.
+            adelantó más de lo que compró. Los anticipos son la parte de lo pagado que todavía no cubre ninguna venta,
+            y se aplican desde el detalle de cada venta.
         </p>
     </section>
 
@@ -131,13 +132,18 @@
                             <tr class="border-b border-border last:border-b-0">
                                 <td class="px-4 py-2 text-foreground">{{ payment.paymentDate|date('d/m/Y') }}</td>
                                 <td class="px-4 py-2">
-                                    {% if payment.sale %}
-                                        <a
-                                            href="{{ path('app_sale_show', {id: payment.sale.id}) }}"
-                                            class="text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-                                        >Venta {{ payment.sale.id }}</a>
-                                    {% else %}
+                                    {# sale_ids lo arma el controller en una sola
+                                       consulta (el vínculo es M:N desde ADR-0018). #}
+                                    {% set saleIds = sale_ids[payment.id] ?? [] %}
+                                    {% if saleIds is empty %}
                                         <span class="text-muted">A cuenta</span>
+                                    {% else %}
+                                        {% for saleId in saleIds %}
+                                            <a
+                                                href="{{ path('app_sale_show', {id: saleId}) }}"
+                                                class="text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                                            >Venta {{ saleId }}</a>{{ not loop.last ? ', ' }}
+                                        {% endfor %}
                                     {% endif %}
                                 </td>
                                 <td class="px-4 py-2">{{ methods[payment.method] ?? payment.method }}</td>

@@ -76,14 +76,19 @@ class Sale
     #[ORM\OneToMany(mappedBy: 'sale', targetEntity: SaleLine::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
     private Collection $lines;
 
-    /** @var Collection<int, Payment> */
-    #[ORM\OneToMany(mappedBy: 'sale', targetEntity: Payment::class)]
-    private Collection $payments;
+    /**
+     * Aplicaciones de pagos sobre esta venta (Fase 3f, ADR-0018).
+     * El importe cobrado de la venta es la suma de estas allocations.
+     *
+     * @var Collection<int, PaymentAllocation>
+     */
+    #[ORM\OneToMany(mappedBy: 'sale', targetEntity: PaymentAllocation::class)]
+    private Collection $allocations;
 
     public function __construct()
     {
         $this->lines = new ArrayCollection();
-        $this->payments = new ArrayCollection();
+        $this->allocations = new ArrayCollection();
         $this->createdAt = new \DateTimeImmutable();
         $this->updatedAt = new \DateTimeImmutable();
         $this->saleDate = new \DateTimeImmutable();
@@ -306,24 +311,24 @@ class Sale
         return $this;
     }
 
-    /** @return Collection<int, Payment> */
-    public function getPayments(): Collection
+    /** @return Collection<int, PaymentAllocation> */
+    public function getAllocations(): Collection
     {
-        return $this->payments;
+        return $this->allocations;
     }
 
-    public function addPayment(Payment $p): self
+    public function addAllocation(PaymentAllocation $a): self
     {
-        if (!$this->payments->contains($p)) {
-            $this->payments->add($p);
-            $p->setSale($this);
+        if (!$this->allocations->contains($a)) {
+            $this->allocations->add($a);
+            $a->setSale($this);
         }
         return $this;
     }
 
-    public function removePayment(Payment $p): self
+    public function removeAllocation(PaymentAllocation $a): self
     {
-        $this->payments->removeElement($p);
+        $this->allocations->removeElement($a);
         return $this;
     }
 }

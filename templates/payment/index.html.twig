@@ -123,25 +123,29 @@
                                 {% endif %}
                             </td>
                             <td class="px-4 py-2">
-                                {% if payment.sale %}
-                                    <a
-                                        href="{{ path('app_sale_show', {id: payment.sale.id}) }}"
-                                        class="text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-                                    >Venta {{ payment.sale.id }}</a>
-                                {% else %}
+                                {# sale_ids lo arma el controller en una sola
+                                   consulta (el vínculo es M:N desde ADR-0018):
+                                   un pago puede cubrir varias ventas. #}
+                                {% set saleIds = sale_ids[payment.id] ?? [] %}
+                                {% if saleIds is empty %}
                                     <span class="text-muted">A cuenta</span>
+                                {% else %}
+                                    {% for saleId in saleIds %}
+                                        <a
+                                            href="{{ path('app_sale_show', {id: saleId}) }}"
+                                            class="text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                                        >Venta {{ saleId }}</a>{{ not loop.last ? ', ' }}
+                                    {% endfor %}
                                 {% endif %}
                             </td>
                             <td class="px-4 py-2">{{ methods[payment.method] ?? payment.method }}</td>
                             <td class="px-4 py-2 text-end">{{ payment.amount|number_format(2, ',', '.') }}</td>
                             <td class="px-4 py-2">{{ payment.reference ?? '—' }}</td>
                             <td class="px-4 py-2 text-end">
-                                {% if payment.sale %}
-                                    <a
-                                        href="{{ path('app_sale_show', {id: payment.sale.id}) }}"
-                                        class="text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-                                    >Ver venta</a>
-                                {% endif %}
+                                <a
+                                    href="{{ path('app_payment_show', {id: payment.id}) }}"
+                                    class="text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                                >Ver detalle</a>
                             </td>
                         </tr>
                     {% endfor %}

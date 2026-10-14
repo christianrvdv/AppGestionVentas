@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Functional\Payment;
 
 use App\Entity\Payment;
+use App\Entity\PaymentAllocation;
 use App\Repository\Contract\PaymentRepositoryInterface;
 use App\Tests\Functional\FunctionalTestCase;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -111,7 +112,9 @@ final class PaymentRegistrationTest extends FunctionalTestCase
         $this->assertSame(Payment::METHOD_TRANSFER, $payment->getMethod());
         $this->assertSame('REF-9', $payment->getReference());
         $this->assertSame('Seña del saldo', $payment->getNotes());
-        $this->assertNotNull($payment->getSale(), 'el pago queda aplicado a la venta.');
+        $allocation = $payment->getAllocations()->first();
+        $this->assertNotNull($allocation, 'el pago queda aplicado a la venta.');
+        $this->assertSame($saleId, $allocation->getSale()->getId());
         $this->assertNotNull($payment->getCustomer(), 'el cliente lo toma la venta.');
         $this->assertSame(
             $investment->getBaseCurrency(),
@@ -182,7 +185,7 @@ final class PaymentRegistrationTest extends FunctionalTestCase
         $this->em->clear();
         $this->assertSame(
             0,
-            $this->countPayments($saleId),
+            $this->countAllocationsForSale($saleId),
             'con CSRF inválido no se persiste nada.'
         );
     }
@@ -210,7 +213,7 @@ final class PaymentRegistrationTest extends FunctionalTestCase
         $this->assertSelectorTextContains('[role="alert"]', 'El monto del pago debe ser mayor que cero.');
 
         $this->em->clear();
-        $this->assertSame(0, $this->countPayments($saleId));
+        $this->assertSame(0, $this->countAllocationsForSale($saleId));
     }
 
     public function testRegisterPaymentOnVoidedSaleIsRejected(): void
@@ -236,7 +239,7 @@ final class PaymentRegistrationTest extends FunctionalTestCase
         $this->assertSelectorTextContains('[role="alert"]', 'No se pueden registrar pagos sobre una venta anulada.');
 
         $this->em->clear();
-        $this->assertSame(0, $this->countPayments($saleId));
+        $this->assertSame(0, $this->countAllocationsForSale($saleId));
     }
 
     public function testNewForSaleReturns404ForUnknownSale(): void
@@ -315,7 +318,7 @@ final class PaymentRegistrationTest extends FunctionalTestCase
 
         $this->assertCount(1, $payments);
         $payment = $payments[0];
-        $this->assertNull($payment->getSale(), 'un anticipo no está aplicado a ninguna venta.');
+        $this->assertCount(0, $payment->getAllocations(), 'un anticipo no está aplicado a ninguna venta.');
         $this->assertNotNull($payment->getCustomer());
         $this->assertDecimalEquals('200.00', $payment->getAmount());
         $this->assertSame($investment->getBaseCurrency(), $payment->getCurrency());
@@ -393,12 +396,16 @@ final class PaymentRegistrationTest extends FunctionalTestCase
         return $token;
     }
 
-    private function countPayments(int $saleId): int
+    /**
+     * Importes aplicados a una venta. Desde ADR-0018 no hay un campo
+     * Payment.sale que contar: el vínculo es PaymentAllocation.
+     */
+    private function countAllocationsForSale(int $saleId): int
     {
         $result = $this->em->createQueryBuilder()
-            ->select('COUNT(p.id)')
-            ->from(Payment::class, 'p')
-            ->andWhere('p.sale = :saleId')
+            ->select('COUNT(a.id)')
+            ->from(PaymentAllocation::class, 'a')
+            ->andWhere('a.sale = :saleId')
             ->setParameter('saleId', $saleId)
             ->getQuery()
             ->getSingleScalarResult();

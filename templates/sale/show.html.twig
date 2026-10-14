@@ -3,19 +3,17 @@
 {% block title %}Venta {{ sale.id }} · Gestión de Negocio{% endblock %}
 
 {% block body %}
-    {# Los totales se derivan en vivo desde las líneas y los pagos: la
-       cabecera (Sale.totalAmount) se materializa al crear la venta, pero
+    {# Los totales se derivan en vivo desde las líneas y las allocations:
+       la cabecera (Sale.totalAmount) se materializa al crear la venta, pero
        la ganancia bruta y la reconocida son sumas de las líneas y no hay
-       columna que las guarde. #}
+       columna que las guarde. Pagado y pendiente también se calculan: desde
+       ADR-0018 "pagado" es la suma de las allocations, no la de los pagos
+       completos (un anticipo puede cubrir varias ventas). #}
     {% set total_bruta = 0 %}
     {% set total_reconocida = 0 %}
     {% for line in lines %}
         {% set total_bruta = total_bruta + line.grossProfitLine %}
         {% set total_reconocida = total_reconocida + line.recognizedProfitLine %}
-    {% endfor %}
-    {% set total_pagado = 0 %}
-    {% for payment in payments %}
-        {% set total_pagado = total_pagado + payment.amount %}
     {% endfor %}
     {% set pendiente = sale.totalAmount - total_pagado %}
 
@@ -185,27 +183,34 @@
                 >Registrar pago</a>
             {% endif %}
         </div>
-        {% if payments is empty %}
+        {% if allocations is empty %}
             <p class="rounded border border-border bg-surface px-4 py-3 text-sm text-muted">Sin pagos registrados.</p>
         {% else %}
             <div class="overflow-x-auto rounded border border-border bg-surface">
                 <table class="w-full text-sm">
-                    <caption class="sr-only">Pagos aplicados a la venta {{ sale.id }}</caption>
+                    <caption class="sr-only">Importes aplicados a la venta {{ sale.id }}</caption>
                     <thead>
                         <tr class="border-b border-border text-start text-muted">
                             <th scope="col" class="px-4 py-2 text-start font-medium">Fecha</th>
                             <th scope="col" class="px-4 py-2 text-start font-medium">Método</th>
-                            <th scope="col" class="px-4 py-2 text-end font-medium">Monto</th>
+                            <th scope="col" class="px-4 py-2 text-end font-medium">Aplicado</th>
                             <th scope="col" class="px-4 py-2 text-start font-medium">Referencia</th>
+                            <th scope="col" class="px-4 py-2 text-start font-medium"><span class="sr-only">Detalle</span></th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for payment in payments %}
+                        {% for allocation in allocations %}
                             <tr class="border-b border-border last:border-b-0">
-                                <td class="px-4 py-2 text-foreground">{{ payment.paymentDate|date('d/m/Y') }}</td>
-                                <td class="px-4 py-2">{{ method_labels[payment.method] ?? payment.method }}</td>
-                                <td class="px-4 py-2 text-end">{{ payment.amount|number_format(2, ',', '.') }}</td>
-                                <td class="px-4 py-2">{{ payment.reference ?? '—' }}</td>
+                                <td class="px-4 py-2 text-foreground">{{ allocation.payment.paymentDate|date('d/m/Y') }}</td>
+                                <td class="px-4 py-2">{{ method_labels[allocation.payment.method] ?? allocation.payment.method }}</td>
+                                <td class="px-4 py-2 text-end">{{ allocation.amount|number_format(2, ',', '.') }}</td>
+                                <td class="px-4 py-2">{{ allocation.payment.reference ?? '—' }}</td>
+                                <td class="px-4 py-2">
+                                    <a
+                                        href="{{ path('app_payment_show', {id: allocation.payment.id}) }}"
+                                        class="text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                                    >Ver pago</a>
+                                </td>
                             </tr>
                         {% endfor %}
                     </tbody>
@@ -213,4 +218,58 @@
             </div>
         {% endif %}
     </section>
+
+    {# Fase 3f / ADR-0018: un anticipo del cliente se reparte sobre la
+       venta desde acá. Solo se pinta cuando hay remanente y la venta es
+       activa de un cliente concreto: el controlador ya filtra ambos casos,
+       pero el form se oculta también para no mostrar una acción inválida.
+       El monto y el remanente los revalida el dominio (PaymentService),
+       no el form. #}
+    {% if not sale.voidedAt and available_advances is not empty %}
+        <section aria-labelledby="titulos-anticipo" class="mb-10">
+            <h2 id="titulos-anticipo" class="mb-4 text-lg font-medium text-foreground">Aplicar anticipo</h2>
+            <form action="{{ path('app_payment_apply_to_sale', {id: sale.id}) }}" method="post" class="space-y-4 rounded border border-border bg-surface p-4">
+                <p class="text-sm text-muted">
+                    Repartí un anticipo de {{ sale.customer.name }} sobre esta venta. Cada anticipo puede usarse una sola
+                    vez por cada venta, hasta agotar su remanente; el pendiente de la venta es
+                    {{ pendiente|number_format(2, ',', '.') }}.
+                </p>
+                <div>
+                    <label for="advance_payment" class="mb-1 block text-sm font-medium text-foreground">Anticipo</label>
+                    <select
+                        id="advance_payment"
+                        name="payment"
+                        required
+                        class="w-full max-w-md rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                    >
+                        <option value="">Seleccioná un anticipo</option>
+                        {% for advance in available_advances %}
+                            <option value="{{ advance.payment.id }}">
+                                Pago {{ advance.payment.id }} · {{ advance.payment.paymentDate|date('d/m/Y') }}
+                                · disponible {{ advance.available|number_format(2, ',', '.') }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="advance_amount" class="mb-1 block text-sm font-medium text-foreground">Monto a aplicar</label>
+                    <input
+                        type="number"
+                        id="advance_amount"
+                        name="amount"
+                        min="0"
+                        step="0.01"
+                        max="{{ pendiente }}"
+                        required
+                        class="w-40 rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                    >
+                </div>
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('submit') }}">
+                <button
+                    type="submit"
+                    class="rounded border border-brand/40 bg-surface px-4 py-2 text-sm font-medium text-brand hover:bg-brand/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                >Aplicar anticipo</button>
+            </form>
+        </section>
+    {% endif %}
 {% endblock %}

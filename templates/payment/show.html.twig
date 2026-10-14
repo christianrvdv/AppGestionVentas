@@ -1,0 +1,111 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Pago {{ payment.id }} · Gestión de Negocio{% endblock %}
+
+{% block body %}
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <h1 class="text-2xl font-semibold text-foreground">Pago {{ payment.id }}</h1>
+        <a href="{{ path('app_payment_index') }}" class="text-sm text-brand hover:underline">Volver al listado</a>
+    </div>
+
+    <section aria-labelledby="titulos-resumen" class="mb-10">
+        <h2 id="titulos-resumen" class="mb-4 text-lg font-medium text-foreground">Resumen</h2>
+        <dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div class="rounded border border-border bg-surface p-4">
+                <dt class="text-sm text-muted">Monto cobrado</dt>
+                <dd id="pago-monto" class="mt-1 text-xl font-semibold text-foreground">{{ payment.amount|number_format(2, ',', '.') }}</dd>
+            </div>
+            <div class="rounded border border-border bg-surface p-4">
+                <dt class="text-sm text-muted">Aplicado a ventas</dt>
+                <dd id="pago-aplicado" class="mt-1 text-foreground">{{ applied|number_format(2, ',', '.') }}</dd>
+            </div>
+            <div class="rounded border border-border bg-surface p-4">
+                <dt class="text-sm text-muted">Disponible para aplicar</dt>
+                <dd id="pago-disponible" class="mt-1 text-foreground">{{ available|number_format(2, ',', '.') }}</dd>
+            </div>
+            <div class="rounded border border-border bg-surface p-4">
+                <dt class="text-sm text-muted">Fecha</dt>
+                <dd class="mt-1 text-foreground">{{ payment.paymentDate|date('d/m/Y') }}</dd>
+            </div>
+        </dl>
+        <p class="mt-3 text-sm text-muted">
+            Desde Fase 3f un pago se reparte entre varias ventas: el monto cobrado es el total que entró, lo aplicado es la
+            suma de sus allocations y la diferencia es el remanente que todavía se puede usar en otra venta.
+        </p>
+    </section>
+
+    <section aria-labelledby="titulos-datos" class="mb-10">
+        <h2 id="titulos-datos" class="mb-4 text-lg font-medium text-foreground">Datos</h2>
+        <dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div class="rounded border border-border bg-surface p-4">
+                <dt class="text-sm text-muted">Cliente</dt>
+                <dd class="mt-1 text-foreground">
+                    {% if payment.customer %}
+                        <a
+                            href="{{ path('app_customer_show', {id: payment.customer.id}) }}"
+                            class="text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                        >{{ payment.customer.name }}</a>
+                    {% else %}
+                        Consumidor final
+                    {% endif %}
+                </dd>
+            </div>
+            <div class="rounded border border-border bg-surface p-4">
+                <dt class="text-sm text-muted">Método</dt>
+                <dd class="mt-1 text-foreground">{{ methods[payment.method] ?? payment.method }}</dd>
+            </div>
+            <div class="rounded border border-border bg-surface p-4">
+                <dt class="text-sm text-muted">Referencia</dt>
+                <dd class="mt-1 text-foreground">{{ payment.reference ?? '—' }}</dd>
+            </div>
+            <div class="rounded border border-border bg-surface p-4">
+                <dt class="text-sm text-muted">Moneda</dt>
+                <dd class="mt-1 text-foreground">{{ payment.currency }}</dd>
+            </div>
+            <div class="rounded border border-border bg-surface p-4">
+                <dt class="text-sm text-muted">Tasa USD al cobrar</dt>
+                <dd class="mt-1 text-foreground">{{ payment.usdRateSnapshot ?? '—' }}</dd>
+            </div>
+            <div class="rounded border border-border bg-surface p-4">
+                <dt class="text-sm text-muted">Notas</dt>
+                <dd class="mt-1 text-foreground">{{ payment.notes ?? '—' }}</dd>
+            </div>
+        </dl>
+    </section>
+
+    <section aria-labelledby="titulos-ventas" class="mb-10">
+        <h2 id="titulos-ventas" class="mb-4 text-lg font-medium text-foreground">Ventas que cubre</h2>
+        {% if allocations is empty %}
+            <p class="rounded border border-border bg-surface px-4 py-3 text-sm text-muted">
+                A cuenta: este pago todavía no cubre ninguna venta. Aplicalo desde el detalle de una venta.
+            </p>
+        {% else %}
+            <div class="overflow-x-auto rounded border border-border bg-surface">
+                <table class="w-full text-sm">
+                    <caption class="sr-only">Ventas cubiertas por el pago {{ payment.id }}</caption>
+                    <thead>
+                        <tr class="border-b border-border text-start text-muted">
+                            <th scope="col" class="px-4 py-2 text-start font-medium">Venta</th>
+                            <th scope="col" class="px-4 py-2 text-end font-medium">Aplicado</th>
+                            <th scope="col" class="px-4 py-2 text-start font-medium"><span class="sr-only">Detalle</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for allocation in allocations %}
+                            <tr class="border-b border-border last:border-b-0">
+                                <td class="px-4 py-2 text-foreground">Venta {{ allocation.sale.id }}</td>
+                                <td class="px-4 py-2 text-end">{{ allocation.amount|number_format(2, ',', '.') }}</td>
+                                <td class="px-4 py-2">
+                                    <a
+                                        href="{{ path('app_sale_show', {id: allocation.sale.id}) }}"
+                                        class="text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                                    >Ver venta</a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </section>
+{% endblock %}

@@ -120,7 +120,9 @@ final class PaymentServiceTest extends IntegrationTestCase
         );
 
         $this->assertNull($payment->getCustomer());
-        $this->assertSame($sale->getId(), $payment->getSale()->getId());
+        $allocation = $payment->getAllocations()->first();
+        $this->assertNotFalse($allocation, 'el pago queda aplicado a la venta.');
+        $this->assertSame($sale->getId(), $allocation->getSale()->getId());
 
         $this->em->persist($payment);
         $this->em->flush();

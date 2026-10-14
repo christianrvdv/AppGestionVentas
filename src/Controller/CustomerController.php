@@ -9,6 +9,7 @@ use App\Entity\Payment;
 use App\Entity\Tenant;
 use App\Form\CustomerFormType;
 use App\Repository\Contract\CustomerRepositoryInterface;
+use App\Repository\Contract\PaymentAllocationRepositoryInterface;
 use App\Repository\Contract\PaymentRepositoryInterface;
 use App\Repository\Contract\SaleRepositoryInterface;
 use App\Service\ActiveTenantProvider;
@@ -36,6 +37,7 @@ final class CustomerController extends AbstractController
         private readonly CustomerRepositoryInterface $customerRepository,
         private readonly SaleRepositoryInterface $saleRepository,
         private readonly PaymentRepositoryInterface $paymentRepository,
+        private readonly PaymentAllocationRepositoryInterface $allocationRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly PaginatorInterface $paginator,
     ) {
@@ -62,7 +64,8 @@ final class CustomerController extends AbstractController
      * Detalle del cliente (Fase 3d): datos, saldo y su historial de
      * ventas y pagos. Es la pantalla desde la que se entiende cuánto le
      * debe: el saldo es (total vendido no anulado) − (total pagado), y
-     * los anticipos son los pagos que todavía no cubren una venta.
+     * el saldo a favor es (total pagado) − (lo que ya cubre ventas,
+     * medido sobre allocations desde ADR-0018).
      */
     #[Route('/{id}', name: 'app_customer_show', requirements: ['id' => '\d+'], methods: ['GET'])]
     public function show(int $id, Request $request): Response
@@ -73,18 +76,31 @@ final class CustomerController extends AbstractController
         $totalSales = $this->saleRepository->sumSalesByCustomer($customer->getId(), $tenantId);
         $totalPaid = $this->paymentRepository->sumByCustomer($customer->getId(), $tenantId);
 
+        $payments = $this->paginator->paginate(
+            $this->paymentRepository->createPaginatedQueryBuilder($tenantId, $customer->getId()),
+            $request->query->getInt('page', 1),
+            10
+        );
+
+        // Las ventas de cada pago se resuelven aparte (una consulta para
+        // la página entera), no con un join: desde ADR-0018 el vínculo es
+        // M:N y un join duplicaría cada fila.
+        $pagePaymentIds = [];
+        foreach ($payments->getItems() as $item) {
+            if ($item instanceof Payment) {
+                $pagePaymentIds[] = $item->getId();
+            }
+        }
+
         return $this->render('customer/show.html.twig', [
             'customer' => $customer,
             'sales' => $this->saleRepository->findByCustomer($customer->getId(), $tenantId),
-            'payments' => $this->paginator->paginate(
-                $this->paymentRepository->createPaginatedQueryBuilder($tenantId, $customer->getId()),
-                $request->query->getInt('page', 1),
-                10
-            ),
+            'payments' => $payments,
+            'sale_ids' => $this->allocationRepository->saleIdsByPaymentIds($pagePaymentIds, $tenantId),
             'total_sales' => $totalSales,
             'total_paid' => $totalPaid,
             'balance' => bcsub($totalSales, $totalPaid, 2),
-            'advances' => $this->paymentRepository->sumUnappliedByCustomer($customer->getId(), $tenantId),
+            'advances' => $this->paymentRepository->sumAvailableAdvancesByCustomer($customer->getId(), $tenantId),
             'methods' => Payment::METHOD_LABELS,
         ]);
     }
