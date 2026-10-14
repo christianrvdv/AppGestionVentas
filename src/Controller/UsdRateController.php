@@ -12,6 +12,7 @@ use App\Service\UsdRateService;
 use App\Service\TenantContext;
 use Knp\Component\Pager\PaginatorInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\Form\FormError;
 use Symfony\Component\Form\FormInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -84,13 +85,15 @@ final class UsdRateController extends AbstractController
             /** @var array{rateDate: \DateTimeImmutable, rate: int|float, note: ?string} $data */
             $data = $form->getData();
 
+            // NumberType devuelve int|float y el servicio exige string
+            // (UsdRate.rate es DECIMAL(12,4)); sin normalizar, el camino
+            // feliz reventaba con un TypeError.
+            $normalizedRate = number_format((float) $data['rate'], 4, '.', '');
+
             try {
                 $rate = $this->usdRateService->setRate(
                     $data['rateDate'],
-                    // NumberType devuelve int|float y el servicio exige string
-                    // (UsdRate.rate es DECIMAL(12,4)); sin normalizar, el
-                    // camino feliz reventaba con un TypeError.
-                    number_format((float) $data['rate'], 4, '.', ''),
+                    $normalizedRate,
                     $user,
                     $data['note'] ?? null
                 );
@@ -103,7 +106,12 @@ final class UsdRateController extends AbstractController
 
                 return $this->redirectToRoute('app_usd_rate_index');
             } catch (\LogicException|\InvalidArgumentException $e) {
-                $this->addFlash('error', $e->getMessage());
+                // El form es VÁLIDO (falló el dominio, no una constraint), así
+                // que render() seguiría respondiendo 200. Se marca inválido con
+                // el mensaje del dominio para que AbstractController fije 422 y
+                // Turbo Drive re-renderice el formulario en vez de exigir un
+                // redirect que se lleva el error por delante.
+                $form->addError(new FormError($e->getMessage()));
             }
         }
 

@@ -13,6 +13,12 @@
     </div>
 
     {{ form_start(form, {attr: {class: 'space-y-6 rounded border border-border bg-surface p-6 max-w-md'}}) }}
+        {# Errores de dominio (p. ej. fallo de tenant) que el controller
+           añade a la raíz del form; los de campo se pintan más abajo. #}
+        {% for error in form.vars.errors %}
+            <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+        {% endfor %}
+
         <div>
             <label for="{{ form.rateDate.vars.id }}" class="{{ label_class }}">{{ form.rateDate.vars.label }}</label>
             {{ form_widget(form.rateDate, {attr: {class: input_class}}) }}
