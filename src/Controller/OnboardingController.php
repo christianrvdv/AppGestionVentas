@@ -81,8 +81,12 @@ final class OnboardingController extends AbstractController
             }
         }
 
+        // FormInterface en vez de createView(): render() fija 422 solo
+        // cuando el form es inválido —incluidos los errores manuales de
+        // slug—, que es lo que Turbo Drive exige para re-renderizar en
+        // vez de exigir una redirección.
         return $this->render('tenant/onboarding.html.twig', [
-            'form' => $form->createView(),
+            'form' => $form,
         ]);
     }
 

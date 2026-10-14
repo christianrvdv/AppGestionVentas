@@ -262,7 +262,7 @@ final class InvestmentExpenseUiTest extends FunctionalTestCase
             ],
         ]);
 
-        $this->assertResponseIsSuccessful();
+        $this->assertResponseStatusCodeSame(422);
         $this->assertSelectorTextContains('[role="alert"]', 'El monto debe ser mayor a cero.');
 
         $this->em->clear();

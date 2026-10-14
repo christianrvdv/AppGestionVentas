@@ -4,13 +4,15 @@ export default class extends Controller {
     static targets = ['menu', 'button'];
 
     connect() {
-        document.addEventListener('click', this.handleClickOutside.bind(this));
-        document.addEventListener('keydown', this.handleKeydown.bind(this));
+        this.onClickOutside = this.handleClickOutside.bind(this);
+        this.onKeydown = this.handleKeydown.bind(this);
+        document.addEventListener('click', this.onClickOutside);
+        document.addEventListener('keydown', this.onKeydown);
     }
 
     disconnect() {
-        document.removeEventListener('click', this.handleClickOutside.bind(this));
-        document.removeEventListener('keydown', this.handleKeydown.bind(this));
+        document.removeEventListener('click', this.onClickOutside);
+        document.removeEventListener('keydown', this.onKeydown);
     }
 
     toggle(event) {

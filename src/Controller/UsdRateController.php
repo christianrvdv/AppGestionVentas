@@ -104,8 +104,11 @@ final class UsdRateController extends AbstractController
             }
         }
 
+        // FormInterface en vez de createView(): render() fija 422 solo
+        // cuando el form es inválido, que es lo que Turbo Drive exige
+        // para re-renderizar en vez de exigir una redirección.
         return $this->render('usd_rate/new.html.twig', [
-            'form' => $form->createView(),
+            'form' => $form,
         ]);
     }
 

@@ -74,7 +74,7 @@ final class AdminPasswordChangeTest extends FunctionalTestCase
         $form['password_change_form[newPassword]'] = 'nueva-clave-1';
         $form['password_change_form[confirmPassword]'] = 'nueva-clave-1';
         $client->submit($form);
-        $this->assertResponseIsSuccessful();
+        $this->assertResponseStatusCodeSame(422);
         $this->assertStringContainsString(
             'La contraseña actual no es válida.',
             $client->getResponse()->getContent(),
@@ -93,7 +93,7 @@ final class AdminPasswordChangeTest extends FunctionalTestCase
         $form['password_change_form[newPassword]'] = 'nueva-clave-1';
         $form['password_change_form[confirmPassword]'] = 'distinta';
         $client->submit($form);
-        $this->assertResponseIsSuccessful();
+        $this->assertResponseStatusCodeSame(422);
         $this->assertStringContainsString(
             'no coinciden',
             $client->getResponse()->getContent(),

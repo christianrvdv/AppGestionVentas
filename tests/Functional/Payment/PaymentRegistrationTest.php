@@ -208,8 +208,8 @@ final class PaymentRegistrationTest extends FunctionalTestCase
             ],
         ]);
 
-        // Form inválido: se re-renderiza con el error de campo en su sitio.
-        $this->assertResponseIsSuccessful();
+        // Form inválido: se re-renderiza con 422 y el error de campo en su sitio.
+        $this->assertResponseStatusCodeSame(422);
         $this->assertSelectorTextContains('[role="alert"]', 'El monto del pago debe ser mayor que cero.');
 
         $this->em->clear();
@@ -343,7 +343,7 @@ final class PaymentRegistrationTest extends FunctionalTestCase
             ],
         ]);
 
-        $this->assertResponseIsSuccessful();
+        $this->assertResponseStatusCodeSame(422);
         $this->assertSelectorTextContains(
             '[role="alert"]',
             'Un pago a cuenta necesita un cliente a quien acreditarlo.'
@@ -376,8 +376,8 @@ final class PaymentRegistrationTest extends FunctionalTestCase
         ]);
 
         // El form limita las inversiones a las del tenant: una desconocida
-        // no llega al servicio, se invalida en el campo.
-        $this->assertResponseIsSuccessful();
+        // no llega al servicio, se invalida en el campo (422).
+        $this->assertResponseStatusCodeSame(422);
         $this->em->clear();
         $this->assertSame(0, $this->countPaymentsByTenant($tenant->getId()));
     }

@@ -67,8 +67,12 @@ final class PasswordChangeController extends AbstractController
             }
         }
 
+        // FormInterface en vez de createView(): render() fija 422 solo
+        // cuando el form es inválido —incluidos los errores manuales de
+        // contraseña—, que es lo que Turbo Drive exige para re-renderizar
+        // en vez de exigir una redirección.
         return $this->render('password/change.html.twig', [
-            'form' => $form->createView(),
+            'form' => $form,
         ]);
     }
 }

@@ -227,7 +227,7 @@ final class TenantSelectionTest extends FunctionalTestCase
             ],
         ]);
 
-        $this->assertResponseIsSuccessful();
+        $this->assertResponseStatusCodeSame(422);
         $this->assertStringContainsString(
             'Ese slug ya está en uso',
             $client->getResponse()->getContent()

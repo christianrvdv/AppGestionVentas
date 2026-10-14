@@ -172,7 +172,7 @@ final class SettingsControllerTest extends FunctionalTestCase
         $form['settings_form[default_margin_pct]'] = '150'; // > 100
         $this->client->submit($form);
 
-        $this->assertResponseStatusCodeSame(Response::HTTP_OK); // Form re-rendered with errors
+        $this->assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
         $this->assertSelectorTextContains('.text-danger', 'no puede superar 100%');
     }
 
@@ -186,7 +186,7 @@ final class SettingsControllerTest extends FunctionalTestCase
         $form['settings_form[default_margin_pct]'] = '-10';
         $this->client->submit($form);
 
-        $this->assertResponseStatusCodeSame(Response::HTTP_OK);
+        $this->assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
         $this->assertSelectorTextContains('.text-danger', 'no puede ser negativo');
     }
 
@@ -200,7 +200,7 @@ final class SettingsControllerTest extends FunctionalTestCase
         $form['settings_form[currency_scale]'] = '5'; // > 4
         $this->client->submit($form);
 
-        $this->assertResponseStatusCodeSame(Response::HTTP_OK);
+        $this->assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
         $this->assertSelectorTextContains('.text-danger', 'Máximo 4 decimales permitidos');
     }
 
@@ -214,7 +214,7 @@ final class SettingsControllerTest extends FunctionalTestCase
         $form['settings_form[currency_scale]'] = '-1';
         $this->client->submit($form);
 
-        $this->assertResponseStatusCodeSame(Response::HTTP_OK);
+        $this->assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
         $this->assertSelectorTextContains('.text-danger', 'no pueden ser negativos');
     }
 
@@ -228,7 +228,7 @@ final class SettingsControllerTest extends FunctionalTestCase
         $form['settings_form[base_currency]'] = 'ars'; // lowercase
         $this->client->submit($form);
 
-        $this->assertResponseStatusCodeSame(Response::HTTP_OK);
+        $this->assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
         $this->assertSelectorTextContains('.text-danger', '3 letras mayúsculas');
     }
 
@@ -250,7 +250,7 @@ final class SettingsControllerTest extends FunctionalTestCase
         ]);
 
         // Form CSRF validation fails and re-renders form (does not redirect)
-        $this->assertResponseStatusCodeSame(Response::HTTP_OK);
+        $this->assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
         $this->assertSelectorExists('form');
     }
 
@@ -303,7 +303,7 @@ final class SettingsControllerTest extends FunctionalTestCase
         $form['settings_form[tenant_name]'] = '';
         $this->client->submit($form);
 
-        $this->assertResponseStatusCodeSame(Response::HTTP_OK);
+        $this->assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
         $this->assertSelectorTextContains('.text-danger', 'El nombre del tenant es obligatorio');
     }
 

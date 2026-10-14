@@ -427,6 +427,11 @@ final class InvestmentController extends AbstractController
         $closeForm = $this->createForm(FormType::class);
         $revalueForm = $this->createForm(FormType::class);
 
+        // expense_form como FormInterface (no createView()): render()
+        // fija 422 solo cuando el form de gastos vuelve inválido desde
+        // addExpense, que es lo que Turbo Drive exige para re-renderizar
+        // en vez de exigir una redirección. En el GET de show() el form
+        // no está submitted y el status queda 200.
         return $this->render('investment/show.html.twig', [
             'investment' => $investment,
             'item_form' => $itemForm->createView(),
@@ -434,7 +439,7 @@ final class InvestmentController extends AbstractController
             'confirm_form' => $confirmForm->createView(),
             'close_form' => $closeForm->createView(),
             'revalue_form' => $revalueForm->createView(),
-            'expense_form' => $expenseForm->createView(),
+            'expense_form' => $expenseForm,
             'status_labels' => self::statusLabels(),
             'expense_category_labels' => InvestmentExpense::CATEGORY_LABELS,
             'can_modify' => $this->canModify($investment),

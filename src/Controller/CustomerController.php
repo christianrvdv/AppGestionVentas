@@ -123,8 +123,11 @@ final class CustomerController extends AbstractController
             return $this->redirectToRoute('app_customer_index');
         }
 
+        // FormInterface en vez de createView(): render() fija 422 solo
+        // cuando el form es inválido, que es lo que Turbo Drive exige
+        // para re-renderizar en vez de exigir una redirección.
         return $this->render('customer/new.html.twig', [
-            'form' => $form->createView(),
+            'form' => $form,
         ]);
     }
 
@@ -144,9 +147,11 @@ final class CustomerController extends AbstractController
             return $this->redirectToRoute('app_customer_index');
         }
 
+        // FormInterface en vez de createView(): render() fija 422 solo
+        // cuando el form es inválido (ver new()).
         return $this->render('customer/edit.html.twig', [
             'customer' => $customer,
-            'form' => $form->createView(),
+            'form' => $form,
         ]);
     }
 

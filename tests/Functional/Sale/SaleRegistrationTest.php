@@ -295,7 +295,7 @@ final class SaleRegistrationTest extends FunctionalTestCase
             ]],
         ]);
 
-        $this->assertResponseIsSuccessful();
+        $this->assertResponseStatusCodeSame(422);
         $this->assertSelectorTextContains('[role="alert"]', 'mayor a cero');
         $this->assertCount(0, $this->em->getRepository(Sale::class)->findAll());
     }

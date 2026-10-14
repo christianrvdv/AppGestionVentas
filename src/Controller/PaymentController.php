@@ -339,8 +339,11 @@ final class PaymentController extends AbstractController
             $pending = bcsub((string) $sale->getTotalAmount(), $totalPaid, 2);
         }
 
+        // FormInterface en vez de createView(): render() fija 422 solo
+        // cuando el form es inválido, que es lo que Turbo Drive exige
+        // para re-renderizar en vez de exigir una redirección.
         return $this->render('payment/new.html.twig', [
-            'form' => $form->createView(),
+            'form' => $form,
             'sale' => $sale,
             'total_paid' => $totalPaid,
             'pending' => $pending,

@@ -60,7 +60,7 @@ final class CustomerCrudTest extends FunctionalTestCase
             ],
         ]);
 
-        $this->assertResponseIsSuccessful();
+        $this->assertResponseStatusCodeSame(422);
         $this->assertSelectorTextContains('[role="alert"]', 'El nombre es obligatorio.');
         $this->em->clear();
         $this->assertNull($this->em->getRepository(Customer::class)->findOneBy(['email' => 'sin-nombre@example.com']));
@@ -81,7 +81,7 @@ final class CustomerCrudTest extends FunctionalTestCase
             ],
         ]);
 
-        $this->assertResponseIsSuccessful();
+        $this->assertResponseStatusCodeSame(422);
         $this->assertSelectorTextContains('[role="alert"]', 'Introduce una dirección de email válida.');
         $this->em->clear();
         $this->assertCount(0, $this->em->getRepository(Customer::class)->findAll());
@@ -103,7 +103,7 @@ final class CustomerCrudTest extends FunctionalTestCase
             ],
         ]);
 
-        $this->assertResponseIsSuccessful();
+        $this->assertResponseStatusCodeSame(422);
         $this->assertSelectorTextContains('[role="alert"]', 'El teléfono "600111222" ya está en uso en este negocio.');
 
         $this->em->clear();
@@ -128,7 +128,7 @@ final class CustomerCrudTest extends FunctionalTestCase
             ],
         ]);
 
-        $this->assertResponseIsSuccessful();
+        $this->assertResponseStatusCodeSame(422);
         $this->assertSelectorTextContains('[role="alert"]', 'El email "maria@example.com" ya está en uso en este negocio.');
 
         $this->em->clear();

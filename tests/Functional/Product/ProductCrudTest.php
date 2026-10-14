@@ -58,7 +58,7 @@ final class ProductCrudTest extends FunctionalTestCase
             ],
         ]);
 
-        $this->assertResponseIsSuccessful();
+        $this->assertResponseStatusCodeSame(422);
         $this->assertSelectorTextContains('[role="alert"]', 'El nombre es obligatorio.');
         $this->em->clear();
         $this->assertNull($this->em->getRepository(Product::class)->findOneBy(['sku' => 'SIN-NOMBRE']));
@@ -80,7 +80,7 @@ final class ProductCrudTest extends FunctionalTestCase
             ],
         ]);
 
-        $this->assertResponseIsSuccessful();
+        $this->assertResponseStatusCodeSame(422);
         $this->assertSelectorTextContains('[role="alert"]', 'El margen debe estar entre 0 y 100%.');
         $this->em->clear();
         $this->assertNull($this->em->getRepository(Product::class)->findOneBy(['sku' => 'MARGEN-150']));
@@ -102,7 +102,7 @@ final class ProductCrudTest extends FunctionalTestCase
             ],
         ]);
 
-        $this->assertResponseIsSuccessful();
+        $this->assertResponseStatusCodeSame(422);
         $this->assertSelectorTextContains('[role="alert"]', 'El SKU "CAFE-1" ya está en uso en este negocio.');
 
         $this->em->clear();

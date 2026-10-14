@@ -106,8 +106,11 @@ final class SettingsController extends AbstractController
             return $this->redirectToRoute('app_settings_index');
         }
 
+        // FormInterface en vez de createView(): render() fija 422 solo
+        // cuando el form es inválido, que es lo que Turbo Drive exige
+        // para re-renderizar en vez de exigir una redirección.
         return $this->render('settings/index.html.twig', [
-            'form' => $form->createView(),
+            'form' => $form,
             'tenant' => $tenant,
         ]);
     }
