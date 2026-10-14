@@ -113,8 +113,12 @@ final class InvestmentController extends AbstractController
             return $this->redirectToRoute('app_investment_show', ['id' => $investment->getId()]);
         }
 
+        // Se pasa $form (no createView()) para que AbstractController
+        // fije 422 automáticamente y Turbo re-renderice en vez de exigir
+        // redirect. Con createView() el parámetro ya no es FormInterface
+        // y la respuesta quedaba en 200.
         return $this->render('investment/new.html.twig', [
-            'form' => $form->createView(),
+            'form' => $form,
         ]);
     }
 
@@ -271,9 +275,13 @@ final class InvestmentController extends AbstractController
             return $this->redirectToRoute('app_investment_show', ['id' => $id]);
         }
 
+        // Se pasa $form (no createView()) para que AbstractController
+        // fije 422 automáticamente y Turbo re-renderice en vez de exigir
+        // redirect. Con createView() el parámetro ya no es FormInterface
+        // y la respuesta quedaba en 200.
         return $this->render('investment/edit.html.twig', [
             'investment' => $investment,
-            'form' => $form->createView(),
+            'form' => $form,
         ]);
     }
 

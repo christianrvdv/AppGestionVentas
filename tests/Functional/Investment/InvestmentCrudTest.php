@@ -39,7 +39,13 @@ final class InvestmentCrudTest extends FunctionalTestCase
         $this->assertSelectorTextContains('h1', $investment->getCode());
     }
 
-    public function testCreateRejectsFutureDate(): void
+    /**
+     * Turbo Drive exige 422 (y no 303) en el camino inválido: con
+     * createView() el form ya no es FormInterface al llegar a render(),
+     * AbstractController no puede fijar el status y respondía 200,
+     * lo que rompía el re-render en cliente.
+     */
+    public function testCreateRejectsFutureDateWith422(): void
     {
         $client = $this->createSharedKernelClient();
         $this->seedDemoTenantAndAdmin();
@@ -54,8 +60,32 @@ final class InvestmentCrudTest extends FunctionalTestCase
             ],
         ]);
 
-        $this->assertResponseIsSuccessful();
+        $this->assertResponseStatusCodeSame(422);
         $this->assertSelectorTextContains('[role="alert"]', 'La fecha no puede ser futura.');
+    }
+
+    public function testEditRejectsFutureDateWith422(): void
+    {
+        $client = $this->createSharedKernelClient();
+        ['user' => $user] = $this->seedDemoTenantAndAdmin();
+        $investment = $this->seedInvestment($user, null, 'Original');
+
+        $this->loginAsDemoAdmin($client);
+        $crawler = $client->request('GET', '/inversiones/'.$investment->getId().'/editar');
+        $form = $crawler->selectButton('Guardar cambios')->form();
+        $client->submit($form, [
+            'investment_form' => [
+                'investmentDate' => (new \DateTimeImmutable('tomorrow'))->format('Y-m-d'),
+                'description' => 'Editada',
+            ],
+        ]);
+
+        $this->assertResponseStatusCodeSame(422);
+        $this->assertSelectorTextContains('[role="alert"]', 'La fecha no puede ser futura.');
+
+        $this->em->clear();
+        $reloaded = $this->em->getRepository(Investment::class)->find($investment->getId());
+        $this->assertSame('Original', $reloaded->getDescription());
     }
 
     public function testShowRendersItems(): void
