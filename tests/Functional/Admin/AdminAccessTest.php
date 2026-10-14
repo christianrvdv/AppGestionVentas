@@ -21,13 +21,13 @@ final class AdminAccessTest extends FunctionalTestCase
     public function testEveryAdminRouteRejectsRegularMember(): void
     {
         $client = $this->createSharedKernelClient();
-        ['tenant' => $tenant, 'user' => $user] = $this->seedDemoTenantAndAdmin();
+        ['tenant' => $tenant, 'user' => $user, 'membership' => $membership] = $this->seedDemoTenantAndAdmin();
 
         $this->loginAsDemoAdmin($client);
         $client->followRedirect();
         $this->assertResponseIsSuccessful();
 
-        foreach ($this->adminRoutes($tenant->getId(), $user->getId()) as [$method, $path]) {
+        foreach ($this->adminRoutes($tenant->getId(), $user->getId(), $membership->getId()) as [$method, $path]) {
             $client->request($method, $path);
 
             $this->assertResponseStatusCodeSame(
@@ -40,9 +40,9 @@ final class AdminAccessTest extends FunctionalTestCase
     public function testEveryAdminRouteRequiresAuthentication(): void
     {
         $client = $this->createSharedKernelClient();
-        ['tenant' => $tenant, 'user' => $user] = $this->seedDemoTenantAndAdmin();
+        ['tenant' => $tenant, 'user' => $user, 'membership' => $membership] = $this->seedDemoTenantAndAdmin();
 
-        foreach ($this->adminRoutes($tenant->getId(), $user->getId()) as [$method, $path]) {
+        foreach ($this->adminRoutes($tenant->getId(), $user->getId(), $membership->getId()) as [$method, $path]) {
             $client->request($method, $path);
 
             $location = (string) $client->getResponse()->headers->get('Location');
@@ -61,7 +61,7 @@ final class AdminAccessTest extends FunctionalTestCase
     /**
      * @return list<array{string, string}>
      */
-    private function adminRoutes(int $tenantId, int $userId): array
+    private function adminRoutes(int $tenantId, int $userId, int $membershipId): array
     {
         return [
             ['GET', '/admin'],
@@ -72,6 +72,12 @@ final class AdminAccessTest extends FunctionalTestCase
             ['POST', sprintf('/admin/tenants/%d/toggle-active', $tenantId)],
             ['POST', sprintf('/admin/users/%d/toggle-active', $userId)],
             ['POST', sprintf('/admin/users/%d/reset-password', $userId)],
+            // Fase 6.2: impersonation de tenant y gestión de membresías.
+            ['POST', sprintf('/admin/tenants/%d/impersonate', $tenantId)],
+            ['POST', '/admin/impersonate/stop'],
+            ['POST', sprintf('/admin/users/%d/memberships', $userId)],
+            ['POST', sprintf('/admin/memberships/%d/change-role', $membershipId)],
+            ['POST', sprintf('/admin/memberships/%d/remove', $membershipId)],
         ];
     }
 }

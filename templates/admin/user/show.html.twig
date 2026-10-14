@@ -69,6 +69,51 @@
     <section aria-labelledby="titulo-membresias" class="mb-10">
         <h2 id="titulo-membresias" class="mb-4 text-lg font-medium text-foreground">Negocios</h2>
 
+        {# Alta de membresía (Fase 6.2, ADR-0019): siempre visible, aunque
+           el usuario ya tenga negocios — el caso más común es agregar un
+           segundo. El rol es un rol de MEMBRESÍA; no toca app_user.roles. #}
+        {% if tenants is not empty %}
+            <form
+                id="form-agregar-membresia"
+                method="post"
+                action="{{ path('app_admin_user_add_membership', {id: user.id}) }}"
+                class="mb-6 flex flex-wrap items-end gap-3 rounded border border-border bg-surface p-4"
+            >
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('admin_user_add_membership') }}">
+
+                <div>
+                    <label for="membresia-tenant" class="block text-sm text-muted">Negocio</label>
+                    <select
+                        id="membresia-tenant"
+                        name="tenant"
+                        class="mt-1 rounded border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                    >
+                        {% for tenant in tenants %}
+                            <option value="{{ tenant.id }}">{{ tenant.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label for="membresia-rol" class="block text-sm text-muted">Rol en el negocio</label>
+                    <select
+                        id="membresia-rol"
+                        name="role"
+                        class="mt-1 rounded border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                    >
+                        <option value="ROLE_USER">Usuario</option>
+                        <option value="ROLE_ADMIN">Administrador</option>
+                    </select>
+                </div>
+
+                <button
+                    id="btn-agregar-membresia"
+                    type="submit"
+                    class="rounded border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                >Agregar a un negocio</button>
+            </form>
+        {% endif %}
+
         {% if memberships is empty %}
             <p id="sin-membresias" class="rounded border border-border bg-surface px-4 py-3 text-sm text-muted">
                 Este usuario todavía no pertenece a ningún negocio.
@@ -82,6 +127,7 @@
                             <th scope="col" class="px-4 py-2 text-start font-medium">Negocio</th>
                             <th scope="col" class="px-4 py-2 text-start font-medium">Rol del negocio</th>
                             <th scope="col" class="px-4 py-2 text-start font-medium">Estado</th>
+                            <th scope="col" class="px-4 py-2 text-start font-medium">Acciones</th>
                             <th scope="col" class="px-4 py-2 text-end font-medium"><span class="sr-only">Ficha</span></th>
                         </tr>
                     </thead>
@@ -94,6 +140,44 @@
                                 </td>
                                 <td class="px-4 py-2">{{ membership.role }}</td>
                                 <td class="px-4 py-2">{{ membership.tenant.isActive ? 'Activo' : 'Inactivo' }}</td>
+                                <td class="px-4 py-2">
+                                    <div class="flex flex-wrap items-center gap-3">
+                                        {# Cambio de rol de la MEMBRESÍA (no del rol global). #}
+                                        <form
+                                            method="post"
+                                            action="{{ path('app_admin_membership_change_role', {id: membership.id}) }}"
+                                            class="flex items-center gap-2"
+                                        >
+                                            <input type="hidden" name="_csrf_token" value="{{ csrf_token('admin_membership_change_role') }}">
+                                            <label for="rol-membresia-{{ membership.id }}" class="sr-only">Rol en {{ membership.tenant.name }}</label>
+                                            <select
+                                                id="rol-membresia-{{ membership.id }}"
+                                                name="role"
+                                                class="rounded border border-border bg-background px-2 py-1 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                                            >
+                                                <option value="ROLE_USER" {% if membership.role == 'ROLE_USER' %}selected{% endif %}>Usuario</option>
+                                                <option value="ROLE_ADMIN" {% if membership.role == 'ROLE_ADMIN' %}selected{% endif %}>Administrador</option>
+                                            </select>
+                                            <button
+                                                type="submit"
+                                                class="rounded border border-border px-2 py-1 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                                            >Guardar rol</button>
+                                        </form>
+
+                                        {# Baja: el usuario NO se borra, solo pierde este acceso. #}
+                                        <form
+                                            method="post"
+                                            action="{{ path('app_admin_membership_remove', {id: membership.id}) }}"
+                                            onsubmit="return confirm('¿Quitar a {{ user.email }} de {{ membership.tenant.name}}? Su cuenta se conserva.')"
+                                        >
+                                            <input type="hidden" name="_csrf_token" value="{{ csrf_token('admin_membership_remove') }}">
+                                            <button
+                                                type="submit"
+                                                class="rounded border border-danger/40 px-2 py-1 text-sm font-medium text-danger hover:bg-danger/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                                            >Quitar</button>
+                                        </form>
+                                    </div>
+                                </td>
                                 <td class="px-4 py-2 text-end">
                                     <a
                                         href="{{ path('app_admin_tenant_show', {id: membership.tenant.id}) }}"

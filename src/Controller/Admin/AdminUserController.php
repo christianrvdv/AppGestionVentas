@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace App\Controller\Admin;
 
 use App\Entity\AppUser;
+use App\Entity\TenantMembership;
+use App\Exception\Domain\MembershipViolationException;
 use App\Repository\AppUserRepository;
 use App\Repository\Contract\TenantMembershipRepositoryInterface;
 use App\Repository\Contract\TenantRepositoryInterface;
+use App\Service\Admin\MembershipManagementService;
 use Doctrine\ORM\EntityManagerInterface;
 use Knp\Component\Pager\PaginatorInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -44,6 +47,7 @@ final class AdminUserController extends AbstractController
         private readonly AppUserRepository $users,
         private readonly TenantRepositoryInterface $tenants,
         private readonly TenantMembershipRepositoryInterface $memberships,
+        private readonly MembershipManagementService $membershipManagement,
         private readonly EntityManagerInterface $em,
         private readonly UserPasswordHasherInterface $passwordHasher,
         private readonly PaginatorInterface $paginator,
@@ -90,6 +94,7 @@ final class AdminUserController extends AbstractController
         return $this->render('admin/user/show.html.twig', [
             'user' => $user,
             'memberships' => $this->memberships->findByUser($user),
+            'tenants' => $this->tenants->findAll(),
         ]);
     }
 
@@ -155,6 +160,51 @@ final class AdminUserController extends AbstractController
                 $user->getEmail(),
                 $temporaryPassword
             )
+        );
+
+        return $this->redirectToRoute('app_admin_user_show', ['id' => $id]);
+    }
+
+    /**
+     * Agrega el usuario a un negocio existente con un rol de membresía
+     * (Fase 6.2, ADR-0019). El duplicado y el rol se validan en el
+     * servidor (MembershipManagementService): el formulario solo acota las
+     * opciones.
+     */
+    #[Route('/{id}/memberships', name: 'add_membership', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function addMembership(Request $request, int $id): Response
+    {
+        $user = $this->requireUser($id);
+
+        if (!$this->isCsrfTokenValid('admin_user_add_membership', $this->csrfToken($request))) {
+            $this->addFlash('error', 'Solicitud inválida.');
+
+            return $this->redirectToRoute('app_admin_user_show', ['id' => $id]);
+        }
+
+        $tenantId = $request->request->getInt('tenant', 0);
+        $tenant = $tenantId > 0 ? $this->tenants->findById($tenantId) : null;
+
+        if (null === $tenant) {
+            $this->addFlash('error', 'El negocio elegido no existe.');
+
+            return $this->redirectToRoute('app_admin_user_show', ['id' => $id]);
+        }
+
+        $role = $request->request->get('role');
+        $role = \is_string($role) ? $role : TenantMembership::ROLE_USER;
+
+        try {
+            $this->membershipManagement->add($user, $tenant, $role);
+        } catch (MembershipViolationException $e) {
+            $this->addFlash('error', $e->getMessage());
+
+            return $this->redirectToRoute('app_admin_user_show', ['id' => $id]);
+        }
+
+        $this->addFlash(
+            'success',
+            sprintf('%s ahora también pertenece a "%s".', $user->getEmail(), $tenant->getName())
         );
 
         return $this->redirectToRoute('app_admin_user_show', ['id' => $id]);

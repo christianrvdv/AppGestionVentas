@@ -16,18 +16,36 @@
             <span class="ms-2 align-middle text-sm font-normal {{ tenant.isActive ? 'text-muted' : 'text-danger' }}">{{ tenant.isActive ? 'activo' : 'inactivo' }}</span>
         </h1>
 
-        <form
-            method="post"
-            action="{{ path('app_admin_tenant_toggle_active', {id: tenant.id}) }}"
-            onsubmit="return confirm('¿{{ tenant.isActive ? 'Desactivar' : 'Activar' }} este negocio? {{ tenant.isActive ? 'Sus usuarios dejarán de poder elegirlo.' : 'Volverá a estar disponible para sus usuarios.' }}')"
-        >
-            <input type="hidden" name="_csrf_token" value="{{ csrf_token('admin_tenant_toggle') }}">
-            <button
-                id="btn-toggle-tenant"
-                type="submit"
-                class="rounded border border-danger/40 px-4 py-2 text-sm font-medium text-danger hover:bg-danger/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-            >{{ tenant.isActive ? 'Desactivar negocio' : 'Activar negocio' }}</button>
-        </form>
+        <div class="flex flex-wrap items-center gap-3">
+            {# Impersonation (Fase 6.2, ADR-0019): solo cuando NO hay otro
+               activo — entrar a un segundo negocio es un error de estado. #}
+            {% if not impersonation.isActive %}
+                <form
+                    method="post"
+                    action="{{ path('app_admin_tenant_impersonate', {id: tenant.id}) }}"
+                >
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('admin_impersonate') }}">
+                    <button
+                        id="btn-impersonate"
+                        type="submit"
+                        class="rounded border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                    >Ver como este negocio</button>
+                </form>
+            {% endif %}
+
+            <form
+                method="post"
+                action="{{ path('app_admin_tenant_toggle_active', {id: tenant.id}) }}"
+                onsubmit="return confirm('¿{{ tenant.isActive ? 'Desactivar' : 'Activar' }} este negocio? {{ tenant.isActive ? 'Sus usuarios dejarán de poder elegirlo.' : 'Volverá a estar disponible para sus usuarios.' }}')"
+            >
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('admin_tenant_toggle') }}">
+                <button
+                    id="btn-toggle-tenant"
+                    type="submit"
+                    class="rounded border border-danger/40 px-4 py-2 text-sm font-medium text-danger hover:bg-danger/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                >{{ tenant.isActive ? 'Desactivar negocio' : 'Activar negocio' }}</button>
+            </form>
+        </div>
     </div>
 
     <p class="mb-8 rounded border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-foreground">

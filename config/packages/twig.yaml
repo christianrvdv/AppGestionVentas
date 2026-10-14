@@ -5,6 +5,11 @@ twig:
         # servicio (no un valor ya resuelto): su nombre se pide en el
         # render, y devuelve null cuando no hay negocio activo.
         active_tenant: '@App\Service\ActiveTenantProvider'
+        # Marca de impersonation de tenant (Fase 6.2, ADR-0019): el banner
+        # de base.html.twig pregunta isActive para mostrarse en TODAS las
+        # páginas, y las fichas de /admin consultan isActive para no
+        # ofrecer entrar a otro negocio mientras hay uno activo.
+        impersonation: '@App\Security\ImpersonationSession'
 
 when@test:
     twig:

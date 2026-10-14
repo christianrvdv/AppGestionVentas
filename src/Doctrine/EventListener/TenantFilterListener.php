@@ -7,6 +7,7 @@ namespace App\Doctrine\EventListener;
 use App\Doctrine\Filter\TenantFilter;
 use App\Entity\AppUser;
 use App\Security\ActiveTenantSession;
+use App\Security\ImpersonationSession;
 use App\Service\TenantContext;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
@@ -46,6 +47,13 @@ use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInt
  * ver nada. Al deshabilitarlo, sus consultas (vistas /admin, fase
  * posterior) no llevan la cláusula del filtro.
  *
+ * EXCEPCIÓN del impersonation (Fase 6.2, ADR-0019): con la marca de
+ * impersonation activa, el super_admin SÍ corre el filtro normal, con el
+ * tenant impersonado. Ese es TODO el mecanismo del impersonation: no se
+ * cambia el usuario ni su token, se cambia el tenant que el filtro aplica
+ * — así que ve exactamente los datos de ese negocio, y nada más. El
+ * bypass de arriba solo aplica cuando NO se está impersonando.
+ *
  * Para comandos CLI:
  *   - Si no quieren filtrado, no pasa nada: el filtro queda deshabilitado
  *     porque este listener solo corre en kernel.request.
@@ -58,6 +66,7 @@ final class TenantFilterListener
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly ActiveTenantSession $activeTenantSession,
+        private readonly ImpersonationSession $impersonationSession,
         private readonly TenantContext $tenantContext,
         private readonly TokenStorageInterface $tokenStorage,
     ) {
@@ -72,7 +81,10 @@ final class TenantFilterListener
         // super_admin (ADR-0016): sin filtro de tenant y sin contexto.
         // El firewall (prioridad 8) ya autenticó, así que el token está
         // disponible aquí (prioridad 5).
-        if ($this->isSuperAdmin()) {
+        //
+        // Con impersonation activo (ADR-0019) NO se toma este camino: el
+        // filtro se habilita más abajo con el tenant impersonado.
+        if ($this->isSuperAdmin() && !$this->impersonationSession->isActive()) {
             $this->tenantContext->clear();
 
             $filters = $this->em->getFilters();
@@ -84,7 +96,11 @@ final class TenantFilterListener
             return;
         }
 
-        $tenantId = $this->activeTenantSession->getTenantId();
+        // Durante un impersonation el tenant a filtrar ES el impersonado,
+        // no el de la sesión del usuario (que el super_admin ni siquiera
+        // suele tener).
+        $tenantId = $this->impersonationSession->getTenantId()
+            ?? $this->activeTenantSession->getTenantId();
 
         if ($tenantId === null) {
             $this->tenantContext->clear();

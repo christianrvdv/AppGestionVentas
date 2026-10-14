@@ -7,6 +7,7 @@ namespace App\EventListener;
 use App\Entity\AppUser;
 use App\Repository\Contract\TenantMembershipRepositoryInterface;
 use App\Security\ActiveTenantSession;
+use App\Security\ImpersonationSession;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -34,13 +35,20 @@ use Symfony\Component\Security\Http\Event\LogoutEvent;
  * sesión, así que sin limpiar, un segundo usuario del mismo navegador
  * heredaría el negocio del primero.
  *
- * El LogoutEvent solo limpia la clave: la sesión se invalida justo
+ * El LogoutEvent solo limpia las claves: la sesión se invalida justo
  * después (SessionAuthenticationStrategy::onLogout).
+ *
+ * Fase 6.2 (ADR-0019): la marca de impersonation se limpia en los MISMOS
+ * dos eventos. migrate() del logout y el cambio de cuenta en el mismo
+ * navegador conservan los atributos de la sesión, así que sin limpiar,
+ * una cuenta nueva heredaría el impersonation de la anterior — y con él,
+ * el filtro de un negocio que ya no le corresponde ver.
  */
 final class TenantSessionListener
 {
     public function __construct(
         private readonly ActiveTenantSession $activeTenantSession,
+        private readonly ImpersonationSession $impersonationSession,
         private readonly TenantMembershipRepositoryInterface $membershipRepository,
         private readonly UrlGeneratorInterface $urlGenerator,
     ) {
@@ -56,8 +64,10 @@ final class TenantSessionListener
         }
 
         // Limpia siempre: la sesión puede venir de un login previo de
-        // otro usuario (o del remember_me de otro browser).
+        // otro usuario (o del remember_me de otro browser). Lo mismo vale
+        // para el impersonation (ADR-0019).
         $this->activeTenantSession->clear();
+        $this->impersonationSession->stop();
 
         // super_admin (ADR-0016): no requiere tenant activo ni
         // membresías. Se sigue al destino normal del form_login (/),
@@ -89,5 +99,6 @@ final class TenantSessionListener
     public function onLogout(LogoutEvent $event): void
     {
         $this->activeTenantSession->clear();
+        $this->impersonationSession->stop();
     }
 }
