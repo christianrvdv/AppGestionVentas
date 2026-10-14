@@ -81,13 +81,16 @@ final class UsdRateController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            /** @var array{rateDate: \DateTimeImmutable, rate: string, note: ?string} $data */
+            /** @var array{rateDate: \DateTimeImmutable, rate: int|float, note: ?string} $data */
             $data = $form->getData();
 
             try {
                 $rate = $this->usdRateService->setRate(
                     $data['rateDate'],
-                    $data['rate'],
+                    // NumberType devuelve int|float y el servicio exige string
+                    // (UsdRate.rate es DECIMAL(12,4)); sin normalizar, el
+                    // camino feliz reventaba con un TypeError.
+                    number_format((float) $data['rate'], 4, '.', ''),
                     $user,
                     $data['note'] ?? null
                 );
