@@ -45,134 +45,35 @@
             </div>
         {% endif %}
 
-        {% if app.user %}
-            <header class="border-b border-border bg-surface">
-                <nav
-                    aria-label="Navegación principal"
-                    class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3"
-                >
-                    <a
-                        href="{{ path('app_dashboard') }}"
-                        class="text-base font-semibold text-foreground"
-                    >Gestión de Negocio</a>
+        {# Orquestador de layout (SPEC-sidebar-navegacion): sidebar + topbar
+           solo existen autenticado; main es único para ambos caminos. El
+           controlador sidebar orquesta colapso (desktop) y cajón móvil. #}
+        <div class="flex min-h-screen"{% if app.user %} data-controller="sidebar"{% endif %}>
+            {% if app.user %}
+                {% include '_partials/_sidebar.html.twig' %}
+            {% endif %}
 
-                    <ul class="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
-                        <li>
-                            <a
-                                href="{{ path('app_dashboard') }}"
-                                class="{{ app.request.attributes.get('_route') == 'app_dashboard' ? 'font-semibold text-brand' : 'text-foreground hover:text-brand' }}"
-                            >Dashboard</a>
-                        </li>
-                        <li>
-                            <a
-                                href="{{ path('app_investment_index') }}"
-                                class="{{ app.request.attributes.get('_route') starts with 'app_investment_' ? 'font-semibold text-brand' : 'text-foreground hover:text-brand' }}"
-                            >Inversiones</a>
-                        </li>
-                        <li>
-                            <a
-                                href="{{ path('app_sale_index') }}"
-                                class="{{ app.request.attributes.get('_route') starts with 'app_sale_' ? 'font-semibold text-brand' : 'text-foreground hover:text-brand' }}"
-                            >Ventas</a>
-                        </li>
-                        <li>
-                            <a
-                                href="{{ path('app_payment_index') }}"
-                                class="{{ app.request.attributes.get('_route') starts with 'app_payment_' ? 'font-semibold text-brand' : 'text-foreground hover:text-brand' }}"
-                            >Pagos</a>
-                        </li>
-                        <li>
-                            <a
-                                href="{{ path('app_product_index') }}"
-                                class="{{ app.request.attributes.get('_route') starts with 'app_product_' ? 'font-semibold text-brand' : 'text-foreground hover:text-brand' }}"
-                            >Productos</a>
-                        </li>
-                        <li>
-                            <a
-                                href="{{ path('app_customer_index') }}"
-                                class="{{ app.request.attributes.get('_route') starts with 'app_customer_' ? 'font-semibold text-brand' : 'text-foreground hover:text-brand' }}"
-                            >Clientes</a>
-                        </li>
-                        <li class="relative" aria-label="Reportes" data-controller="dropdown">
-                            <button
-                                type="button"
-                                class="flex items-center gap-1 text-foreground hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-                                aria-expanded="false"
-                                aria-haspopup="true"
-                                data-action="click->dropdown#toggle"
-                                data-dropdown-target="button"
-                            >
-                                Reportes
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                            </button>
-                            <div class="absolute right-0 mt-2 w-48 rounded border bg-surface py-1 shadow-lg hidden" role="menu" data-dropdown-target="menu">
-                                <a href="{{ path('app_report_profit') }}" class="block px-4 py-2 text-sm text-foreground hover:bg-muted {% if app.request.attributes.get('_route') == 'app_report_profit' %}font-semibold text-brand{% endif %}" role="menuitem">Ganancias</a>
-                                <a href="{{ path('app_report_investment') }}" class="block px-4 py-2 text-sm text-foreground hover:bg-muted {% if app.request.attributes.get('_route') == 'app_report_investment' %}font-semibold text-brand{% endif %}" role="menuitem">Inversiones</a>
-                                <a href="{{ path('app_report_product') }}" class="block px-4 py-2 text-sm text-foreground hover:bg-muted {% if app.request.attributes.get('_route') == 'app_report_product' %}font-semibold text-brand{% endif %}" role="menuitem">Productos</a>
-                                <a href="{{ path('app_report_revaluation') }}" class="block px-4 py-2 text-sm text-foreground hover:bg-muted {% if app.request.attributes.get('_route') == 'app_report_revaluation' %}font-semibold text-brand{% endif %}" role="menuitem">Revaluación USD</a>
-                            </div>
-                        </li>
-                        <li>
-                            <a
-                                href="{{ path('app_usd_rate_index') }}"
-                                class="{{ app.request.attributes.get('_route') starts with 'app_usd_rate_' ? 'font-semibold text-brand' : 'text-foreground hover:text-brand' }}"
-                            >Tasas USD</a>
-                        </li>
-                        <li>
-                            <a
-                                href="{{ path('app_settings_index') }}"
-                                class="{{ app.request.attributes.get('_route') starts with 'app_settings_' ? 'font-semibold text-brand' : 'text-foreground hover:text-brand' }}"
-                            >Configuración</a>
-                        </li>
-                        {% if app.user and app.user.superAdmin %}
-                            <li>
-                                <a
-                                    href="{{ path('app_admin_index') }}"
-                                    class="{{ app.request.attributes.get('_route') starts with 'app_admin_' ? 'font-semibold text-brand' : 'text-foreground hover:text-brand' }}"
-                                >Admin</a>
-                            </li>
-                        {% endif %}
-                    </ul>
+            <div class="flex min-w-0 flex-1 flex-col">
+                {% if app.user %}
+                    {% include '_partials/_topbar.html.twig' %}
+                {% endif %}
 
-                    <div class="ms-auto flex flex-wrap items-center gap-x-4 gap-y-1">
-                        <a
-                            href="{{ path('app_select_tenant') }}"
-                            class="text-sm text-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-                            title="Cambiar de negocio"
+                <main id="contenido" class="mx-auto w-full max-w-6xl px-4 py-8">
+                    {% for type, messages in app.flashes %}
+                        <div
+                            role="{{ type == 'error' ? 'alert' : 'status' }}"
+                            class="mb-6 rounded border px-4 py-3 text-sm {{ type == 'error' ? 'border-danger/30 bg-danger/10 text-danger' : 'border-success/30 bg-success/10 text-success' }}"
                         >
-                            <span class="text-xs uppercase tracking-wide">Negocio</span>
-                            <span class="font-medium text-foreground">{{ active_tenant.name ?? 'Sin negocio' }}</span>
-                        </a>
-
-                        <form
-                            action="{{ path('_logout_main') }}"
-                            method="post"
-                        >
-                            <input type="hidden" name="_csrf_token" value="{{ csrf_token('logout') }}">
-                            <button
-                                type="submit"
-                                class="text-sm text-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-                            >Cerrar sesión</button>
-                        </form>
-                    </div>
-                </nav>
-            </header>
-        {% endif %}
-
-        <main id="contenido" class="mx-auto max-w-6xl px-4 py-8">
-            {% for type, messages in app.flashes %}
-                <div
-                    role="{{ type == 'error' ? 'alert' : 'status' }}"
-                    class="mb-6 rounded border px-4 py-3 text-sm {{ type == 'error' ? 'border-danger/30 bg-danger/10 text-danger' : 'border-success/30 bg-success/10 text-success' }}"
-                >
-                    {% for message in messages %}
-                        <p>{{ message }}</p>
+                            {% for message in messages %}
+                                <p>{{ message }}</p>
+                            {% endfor %}
+                        </div>
                     {% endfor %}
-                </div>
-            {% endfor %}
 
-            {% block body %}{% endblock %}
-        </main>
+                    {% block body %}{% endblock %}
+                </main>
+            </div>
+        </div>
 
         {% block scripts %}{% endblock %}
     </body>

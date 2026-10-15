@@ -235,6 +235,6 @@ final class PaymentIndexTest extends FunctionalTestCase
         $nav = $crawler->filter('nav[aria-label="Navegación principal"] a[href="/pagos"]');
 
         $this->assertCount(1, $nav);
-        $this->assertStringContainsString('font-semibold text-brand', $nav->attr('class'));
+        $this->assertSame('page', $nav->attr('aria-current'), 'Pagos debe ser la sección activa (aria-current="page").');
     }
 }

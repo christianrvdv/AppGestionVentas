@@ -1,0 +1,59 @@
+<header class="shrink-0 border-b border-border bg-surface">
+    <nav aria-label="Acciones de la cuenta" class="flex h-14 items-center gap-3 px-4">
+        <button
+            type="button"
+            class="btn-ghost md:hidden"
+            aria-label="Navegación"
+            aria-expanded="false"
+            aria-controls="sidebar-panel"
+            data-sidebar-target="toggle"
+            data-sidebar-toggle="open"
+            data-action="sidebar#open"
+        >
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+
+        <a href="{{ path('app_dashboard') }}" class="text-base font-semibold text-foreground">Gestión de Negocio</a>
+
+        <div class="ms-auto flex items-center gap-1">
+            <a
+                href="{{ path('app_select_tenant') }}"
+                class="btn-ghost"
+                title="Cambiar de negocio"
+            >
+                <span class="text-xs uppercase tracking-wide">Negocio</span>
+                <span class="font-medium text-foreground">{{ active_tenant.name ?? 'Sin negocio' }}</span>
+            </a>
+
+            {% if app.user.superAdmin %}
+                <a href="{{ path('app_admin_index') }}" class="btn-ghost">Admin</a>
+            {% endif %}
+
+            <div class="relative" data-controller="dropdown">
+                <button
+                    type="button"
+                    class="btn-ghost"
+                    aria-expanded="false"
+                    data-action="click->dropdown#toggle"
+                    data-dropdown-target="button"
+                >{{ app.user.email }}</button>
+                <div
+                    class="absolute end-0 z-20 mt-2 hidden w-56 rounded border border-border bg-surface py-1 shadow-lg"
+                    data-dropdown-target="menu"
+                >
+                    <a
+                        href="{{ path('app_password_change') }}"
+                        class="block px-4 py-2 text-sm text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                    >Cambiar contraseña</a>
+                    <form method="post" action="{{ path('_logout_main') }}">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token('logout') }}">
+                        <button
+                            type="submit"
+                            class="block w-full px-4 py-2 text-start text-sm text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                        >Cerrar sesión</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </nav>
+</header>

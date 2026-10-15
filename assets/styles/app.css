@@ -37,7 +37,7 @@
     }
 
     .btn-ghost {
-        @apply rounded px-3 py-2 text-sm text-muted hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand;
+        @apply inline-flex items-center justify-center gap-2 rounded px-3 py-2 text-sm text-muted hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand;
     }
 
     .card {
@@ -110,6 +110,14 @@
 
     #sidebar-panel[data-collapsed="true"] .sidebar-group-label {
         display: none;
+    }
+
+    #sidebar-panel[data-collapsed="true"] .nav-link {
+        justify-content: center;
+    }
+
+    #sidebar-panel[data-collapsed="true"]>div:first-child button {
+        margin-inline: auto;
     }
 }
 

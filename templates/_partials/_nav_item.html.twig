@@ -1,0 +1,24 @@
+{% macro nav_item(href, label, icon, active, badge) %}
+    <li>
+        <a
+            href="{{ href }}"
+            class="nav-link{{ active ? ' nav-link-active' }}"
+            {% if active %}aria-current="page"{% endif %}
+        >
+            <svg
+                class="h-5 w-5 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+            >
+                <path stroke-linecap="round" stroke-linejoin="round" d="{{ icon }}"/>
+            </svg>
+            <span class="sidebar-label">{{ label }}</span>
+            {% if badge %}
+                <span class="sidebar-label ms-auto">{{ badge }}</span>
+            {% endif %}
+        </a>
+    </li>
+{% endmacro %}
