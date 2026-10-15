@@ -152,8 +152,8 @@ final class InvestmentCloseTest extends FunctionalTestCase
 
         $this->assertResponseRedirects('/inversiones/'.$investment->getId());
         $crawler = $client->followRedirect();
-        // Verificar flash de éxito (role="status" con clases success) y no el banner (brand)
-        $this->assertSelectorTextContains('div[role="status"].text-success', 'Inversión cerrada.');
+        // Verificar flash de éxito (role="status" con alert-success) y no el banner (brand)
+        $this->assertSelectorTextContains('div[role="status"].alert-success', 'Inversión cerrada.');
 
         $this->em->clear();
         $reloaded = $this->em->getRepository(Investment::class)->find($investment->getId());

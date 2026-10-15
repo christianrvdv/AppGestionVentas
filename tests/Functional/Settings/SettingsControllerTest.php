@@ -108,7 +108,7 @@ final class SettingsControllerTest extends FunctionalTestCase
         $this->assertResponseRedirects('/configuracion');
         $this->client->followRedirect();
         $this->assertResponseIsSuccessful();
-        $this->assertSelectorTextContains('.border-success\\/30', 'Configuración guardada correctamente.');
+        $this->assertSelectorTextContains('.alert-success', 'Configuración guardada correctamente.');
 
         // Verify setting was saved
         $settingsService = static::getContainer()->get(SettingsService::class);
@@ -276,9 +276,9 @@ final class SettingsControllerTest extends FunctionalTestCase
         $this->client->followRedirect();
         $this->assertResponseIsSuccessful();
 
-        // Should show warning flash (warning is rendered as success in base template)
-        $this->assertSelectorTextContains('.border-success\\/30', 'La moneda base cambió de ARS a USD');
-        $this->assertSelectorTextContains('.border-success\\/30', 'inversiones existentes conservan su moneda original');
+        // Should show a warning flash painted as alert-warning (not success)
+        $this->assertSelectorTextContains('.alert-warning', 'La moneda base cambió de ARS a USD');
+        $this->assertSelectorTextContains('.alert-warning', 'inversiones existentes conservan su moneda original');
     }
 
     public function test_change_base_currency_without_investments_shows_success(): void
@@ -297,7 +297,7 @@ final class SettingsControllerTest extends FunctionalTestCase
         $this->assertResponseIsSuccessful();
 
         // Should show success flash (no warning about existing investments)
-        $this->assertSelectorTextContains('.border-success\\/30', 'Configuración guardada correctamente.');
+        $this->assertSelectorTextContains('.alert-success', 'Configuración guardada correctamente.');
     }
 
     public function test_tenant_name_required(): void

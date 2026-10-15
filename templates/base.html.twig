@@ -32,10 +32,19 @@
                 {% endif %}
 
                 <main id="contenido" class="mx-auto w-full max-w-6xl px-4 py-8">
+                    {# Cada tipo de flash pinta su propia alerta (DESIGN.md §7).
+                       Antes un warning caía en la rama success y se veía verde. #}
+                    {% set flash_alert = {
+                        'success': 'alert alert-success',
+                        'warning': 'alert alert-warning',
+                        'danger': 'alert alert-danger',
+                        'error': 'alert alert-danger',
+                        'info': 'alert',
+                    } %}
                     {% for type, messages in app.flashes %}
                         <div
-                            role="{{ type == 'error' ? 'alert' : 'status' }}"
-                            class="mb-6 rounded border px-4 py-3 text-sm {{ type == 'error' ? 'border-danger/30 bg-danger/10 text-danger' : 'border-success/30 bg-success/10 text-success' }}"
+                            role="{{ type in ['danger', 'error'] ? 'alert' : 'status' }}"
+                            class="mb-6 {{ flash_alert[type] ?? 'alert' }}"
                         >
                             {% for message in messages %}
                                 <p>{{ message }}</p>
