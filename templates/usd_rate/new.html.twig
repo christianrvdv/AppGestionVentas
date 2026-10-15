@@ -1,57 +1,56 @@
 {% extends 'base.html.twig' %}
 
-{% set input_class = 'w-full rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand' %}
-{% set label_class = 'mb-1 block text-sm font-medium text-foreground' %}
-{% set error_class = 'mt-1 text-sm text-danger' %}
-
 {% block title %}Registrar tasa USD · Gestión de Negocio{% endblock %}
 
 {% block body %}
     <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <h1 class="text-2xl font-semibold text-foreground">Registrar tasa USD</h1>
-        <a href="{{ path('app_usd_rate_index') }}" class="text-sm text-brand hover:underline">Volver al listado</a>
+        <h1 class="heading-1">Registrar tasa USD</h1>
+        <a href="{{ path('app_usd_rate_index') }}" class="link">Volver al listado</a>
     </div>
 
-    {{ form_start(form, {attr: {class: 'space-y-6 rounded border border-border bg-surface p-6 max-w-md'}}) }}
+    {{ form_start(form, {attr: {class: 'card p-6 mx-auto max-w-md space-y-6'}}) }}
         {# Errores de dominio (p. ej. fallo de tenant) que el controller
            añade a la raíz del form; los de campo se pintan más abajo. #}
         {% for error in form.vars.errors %}
-            <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+            <p class="form-error" role="alert">{{ error.message }}</p>
         {% endfor %}
 
         <div>
-            <label for="{{ form.rateDate.vars.id }}" class="{{ label_class }}">{{ form.rateDate.vars.label }}</label>
-            {{ form_widget(form.rateDate, {attr: {class: input_class}}) }}
+            <label for="{{ form.rateDate.vars.id }}" class="form-label">{{ form.rateDate.vars.label }}</label>
+            {{ form_widget(form.rateDate, {attr: {class: 'input'}}) }}
             {% for error in form.rateDate.vars.errors %}
-                <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+                <p class="form-error" role="alert">{{ error.message }}</p>
             {% endfor %}
         </div>
 
         <div>
-            <label for="{{ form.rate.vars.id }}" class="{{ label_class }}">{{ form.rate.vars.label }}</label>
-            {{ form_widget(form.rate, {attr: {class: input_class}}) }}
+            <label for="{{ form.rate.vars.id }}" class="form-label">{{ form.rate.vars.label }}</label>
+            {{ form_widget(form.rate, {attr: {class: 'input'}}) }}
             {% for error in form.rate.vars.errors %}
-                <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+                <p class="form-error" role="alert">{{ error.message }}</p>
             {% endfor %}
-            <p class="mt-1 text-xs text-muted">Formato: 9999.9999 (4 decimales). Ej: 350.5000</p>
+            <p class="form-help">Formato esperado: 9999.9999 (4 decimales). Ej: 350.5000</p>
         </div>
 
         <div>
-            <label for="{{ form.note.vars.id }}" class="{{ label_class }}">{{ form.note.vars.label }}</label>
-            {{ form_widget(form.note, {attr: {class: input_class}}) }}
+            <label for="{{ form.note.vars.id }}" class="form-label">{{ form.note.vars.label }}</label>
+            {{ form_widget(form.note, {attr: {class: 'input'}}) }}
             {% for error in form.note.vars.errors %}
-                <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+                <p class="form-error" role="alert">{{ error.message }}</p>
             {% endfor %}
         </div>
 
-        <div class="flex gap-3 pt-4 border-t border-border">
-            <button type="submit" class="rounded bg-brand px-4 py-2 font-medium text-white hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2">Guardar tasa</button>
-            <a href="{{ path('app_usd_rate_index') }}" class="flex items-center rounded border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">Cancelar</a>
+        <hr class="divider">
+        <div class="flex gap-3">
+            <button type="submit" class="btn-primary">Guardar tasa</button>
+            <a href="{{ path('app_usd_rate_index') }}" class="btn-secondary">Cancelar</a>
         </div>
     {{ form_end(form) }}
 
-    <div class="mt-6 rounded border border-brand/30 bg-brand/10 p-4 text-sm text-brand">
-        <p class="font-medium mb-1">Comportamiento de correcciones</p>
-        <p>Si ya existe una tasa para la fecha seleccionada, el sistema <strong>no la sobrescribe</strong>. En su lugar, crea una <strong>corrección encadenada</strong> que referencia a la tasa anterior. La tasa vigente siempre será la última insertada (la corrección más reciente). El historial completo se preserva para auditoría.</p>
+    <div class="card mt-6">
+        <h2 class="heading-3">Correcciones encadenadas</h2>
+        <p class="muted-text mt-1">
+            Si ya existe una tasa para la fecha seleccionada, el sistema no la sobrescribe: crea una corrección encadenada que referencia a la tasa anterior. La tasa vigente siempre es la última insertada, y el historial completo se preserva para auditoría.
+        </p>
     </div>
 {% endblock %}
