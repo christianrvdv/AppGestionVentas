@@ -15,6 +15,13 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
+/**
+ * Fase 2 (rediseño hub): los errores de campo se pintan con la clase
+ * semántica del sistema `form-error` en vez de la utility cruda
+ * `text-danger`; los asserts apuntan al selector del sistema.
+ * El flash warning sigue renderizándose como success en base.html.twig
+ * (fuera de alcance de la Fase 2) y sus asserts no cambian.
+ */
 final class SettingsControllerTest extends FunctionalTestCase
 {
     private KernelBrowser $client;
@@ -173,7 +180,7 @@ final class SettingsControllerTest extends FunctionalTestCase
         $this->client->submit($form);
 
         $this->assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
-        $this->assertSelectorTextContains('.text-danger', 'no puede superar 100%');
+        $this->assertSelectorTextContains('.form-error', 'no puede superar 100%');
     }
 
     public function test_validation_default_margin_pct_negative(): void
@@ -187,7 +194,7 @@ final class SettingsControllerTest extends FunctionalTestCase
         $this->client->submit($form);
 
         $this->assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
-        $this->assertSelectorTextContains('.text-danger', 'no puede ser negativo');
+        $this->assertSelectorTextContains('.form-error', 'no puede ser negativo');
     }
 
     public function test_validation_currency_scale_range(): void
@@ -201,7 +208,7 @@ final class SettingsControllerTest extends FunctionalTestCase
         $this->client->submit($form);
 
         $this->assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
-        $this->assertSelectorTextContains('.text-danger', 'Máximo 4 decimales permitidos');
+        $this->assertSelectorTextContains('.form-error', 'Máximo 4 decimales permitidos');
     }
 
     public function test_validation_currency_scale_negative(): void
@@ -215,7 +222,7 @@ final class SettingsControllerTest extends FunctionalTestCase
         $this->client->submit($form);
 
         $this->assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
-        $this->assertSelectorTextContains('.text-danger', 'no pueden ser negativos');
+        $this->assertSelectorTextContains('.form-error', 'no pueden ser negativos');
     }
 
     public function test_validation_base_currency_format(): void
@@ -229,7 +236,7 @@ final class SettingsControllerTest extends FunctionalTestCase
         $this->client->submit($form);
 
         $this->assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
-        $this->assertSelectorTextContains('.text-danger', '3 letras mayúsculas');
+        $this->assertSelectorTextContains('.form-error', '3 letras mayúsculas');
     }
 
     public function test_csrf_invalid_returns_403(): void
@@ -304,7 +311,7 @@ final class SettingsControllerTest extends FunctionalTestCase
         $this->client->submit($form);
 
         $this->assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
-        $this->assertSelectorTextContains('.text-danger', 'El nombre del tenant es obligatorio');
+        $this->assertSelectorTextContains('.form-error', 'El nombre del tenant es obligatorio');
     }
 
     public function test_slug_is_readonly(): void
