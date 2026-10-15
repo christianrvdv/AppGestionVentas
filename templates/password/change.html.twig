@@ -1,46 +1,51 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Cambiar contraseña{% endblock %}
+{% block title %}Cambiar contraseña · Gestión de Negocio{% endblock %}
 
 {% block body %}
-    {% set input_class = 'w-full rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand' %}
-    {% set label_class = 'mb-1 block text-sm font-medium text-foreground' %}
-    {% set error_class = 'mt-1 text-sm text-danger' %}
-    {% set submit_class = 'rounded bg-brand px-4 py-2 font-medium text-white hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2' %}
+    <div class="mx-auto w-full max-w-md py-12">
+        <div class="card p-6">
+            <h1 class="heading-1 mb-2">Cambia tu contraseña</h1>
 
-    <h1 class="mb-2 text-2xl font-semibold text-foreground">Cambia tu contraseña</h1>
-    <p class="mb-6 max-w-md text-sm text-muted">
-        Estás usando una contraseña temporal. Elige una propia para poder
-        seguir usando el sistema.
-    </p>
+            {% if app.user and app.user.mustChangePassword %}
+                <div role="alert" class="alert alert-warning mb-6">
+                    Estás usando una contraseña temporal que te dio un administrador.
+                    Creá una propia para terminar la configuración y seguir usando el sistema.
+                </div>
+            {% else %}
+                <p class="muted-text mb-6">Elegí una contraseña nueva para proteger tu cuenta.</p>
+            {% endif %}
 
-    <form method="post" action="{{ path('app_password_change') }}" class="max-w-md space-y-5">
-        <div>
-            <label for="{{ form.currentPassword.vars.id }}" class="{{ label_class }}">{{ form.currentPassword.vars.label }}</label>
-            {{ form_widget(form.currentPassword, {attr: {class: input_class, autocomplete: 'current-password'}}) }}
-            {% for error in form.currentPassword.vars.errors %}
-                <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
-            {% endfor %}
+            <form method="post" action="{{ path('app_password_change') }}" class="space-y-5">
+                <div>
+                    <label for="{{ form.currentPassword.vars.id }}" class="form-label">{{ form.currentPassword.vars.label }}</label>
+                    {{ form_widget(form.currentPassword, {attr: {class: 'input w-full', autocomplete: 'current-password'}}) }}
+                    {% for error in form.currentPassword.vars.errors %}
+                        <p class="form-error" role="alert">{{ error.message }}</p>
+                    {% endfor %}
+                </div>
+
+                <div>
+                    <label for="{{ form.newPassword.vars.id }}" class="form-label">{{ form.newPassword.vars.label }}</label>
+                    {{ form_widget(form.newPassword, {attr: {class: 'input w-full', autocomplete: 'new-password'}}) }}
+                    <p class="form-help">Mínimo 8 caracteres.</p>
+                    {% for error in form.newPassword.vars.errors %}
+                        <p class="form-error" role="alert">{{ error.message }}</p>
+                    {% endfor %}
+                </div>
+
+                <div>
+                    <label for="{{ form.confirmPassword.vars.id }}" class="form-label">{{ form.confirmPassword.vars.label }}</label>
+                    {{ form_widget(form.confirmPassword, {attr: {class: 'input w-full', autocomplete: 'new-password'}}) }}
+                    {% for error in form.confirmPassword.vars.errors %}
+                        <p class="form-error" role="alert">{{ error.message }}</p>
+                    {% endfor %}
+                </div>
+
+                {{ form_rest(form) }}
+
+                <button type="submit" class="btn-primary">Guardar contraseña</button>
+            </form>
         </div>
-
-        <div>
-            <label for="{{ form.newPassword.vars.id }}" class="{{ label_class }}">{{ form.newPassword.vars.label }}</label>
-            {{ form_widget(form.newPassword, {attr: {class: input_class, autocomplete: 'new-password'}}) }}
-            {% for error in form.newPassword.vars.errors %}
-                <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
-            {% endfor %}
-        </div>
-
-        <div>
-            <label for="{{ form.confirmPassword.vars.id }}" class="{{ label_class }}">{{ form.confirmPassword.vars.label }}</label>
-            {{ form_widget(form.confirmPassword, {attr: {class: input_class, autocomplete: 'new-password'}}) }}
-            {% for error in form.confirmPassword.vars.errors %}
-                <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
-            {% endfor %}
-        </div>
-
-        {{ form_rest(form) }}
-
-        <button type="submit" class="{{ submit_class }}">Guardar contraseña</button>
-    </form>
+    </div>
 {% endblock %}
