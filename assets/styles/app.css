@@ -66,6 +66,15 @@
     --color-danger-surface: #fef2f2;
 }
 
+/* Base: Tailwind v4 removió cursor:pointer de los <button>. Se restaura en
+   la capa base, que gana sobre el reset de Tailwind. No aplica a :disabled. */
+@layer base {
+    button:not(:disabled),
+    [role="button"]:not(:disabled) {
+        cursor: pointer;
+    }
+}
+
 /* Clases semánticas (capa components, @apply). Las utilities de Tailwind v4
    las sobreescriben a nivel de llamada. Focus ring incluido donde aplica. */
 @layer components {
