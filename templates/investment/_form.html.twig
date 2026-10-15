@@ -1,25 +1,33 @@
-{% set input_class = 'w-full rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand' %}
-{% set label_class = 'mb-1 block text-sm font-medium text-foreground' %}
-{% set error_class = 'mt-1 text-sm text-danger' %}
-{% set submit_class = 'rounded bg-brand px-4 py-2 font-medium text-white hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2' %}
+{# Cabecera de inversión (fecha + descripción). Mismo patrón que
+   product/_form.html.twig: label + input + help + error, y fila de
+   acciones tras un divider (convención de Fase 3).
 
-{{ form_start(form, {attr: {class: 'space-y-5'}}) }}
+   investmentDate es DateType con widget single_text, así que renderiza un
+   <input type="date">: input + w-full es todo lo que necesita.
+   description es TextType (no TextareaType), así que también va con
+   input + w-full; rows no aplicaría sin cambiar el HTML semántico. #}
+{{ form_start(form, {attr: {class: 'space-y-6'}}) }}
     <div>
-        <label for="{{ form.investmentDate.vars.id }}" class="{{ label_class }}">{{ form.investmentDate.vars.label }}</label>
-        {{ form_widget(form.investmentDate, {attr: {class: input_class}}) }}
+        <label for="{{ form.investmentDate.vars.id }}" class="form-label">{{ form.investmentDate.vars.label }}</label>
+        {{ form_widget(form.investmentDate, {attr: {class: 'input w-full'}}) }}
         {% for error in form.investmentDate.vars.errors %}
-            <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+            <p class="form-error" role="alert">{{ error.message }}</p>
         {% endfor %}
     </div>
 
     <div>
-        <label for="{{ form.description.vars.id }}" class="{{ label_class }}">{{ form.description.vars.label }}</label>
-        {{ form_widget(form.description, {attr: {class: input_class}}) }}
+        <label for="{{ form.description.vars.id }}" class="form-label">{{ form.description.vars.label }}</label>
+        {{ form_widget(form.description, {attr: {class: 'input w-full'}}) }}
         {% for error in form.description.vars.errors %}
-            <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+            <p class="form-error" role="alert">{{ error.message }}</p>
         {% endfor %}
+        <p class="form-help">La inversión nace en borrador (abierta y sin confirmar): podés agregar ítems y gastos y editarla todo ese tiempo. Al confirmarla se fijan los totales y deja de aceptar cambios.</p>
     </div>
 
     {{ form_rest(form) }}
-    <button type="submit" class="{{ submit_class }}">{{ submit_label|default('Guardar') }}</button>
+    <hr class="divider">
+    <div class="flex gap-3">
+        <button type="submit" class="btn-primary">{{ submit_label|default('Guardar') }}</button>
+        <a href="{{ cancel_url|default(path('app_investment_index')) }}" class="btn-secondary">Cancelar</a>
+    </div>
 {{ form_end(form) }}
