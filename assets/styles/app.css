@@ -1,70 +1,219 @@
 @import "tailwindcss";
 
-/* Design tokens (Tailwind v4, CSS-first): única fuente de verdad de
-   color/tipografía de la app. `background`, `foreground`, `surface`,
-   `border`, `muted`, `brand`, `success`, `danger` y `warning` quedan
-   registrados como utilidades (bg-background, text-brand, ...). */
+/* Design tokens (Tailwind v4, CSS-first). Escalas primitivas + aliases
+   semánticos. --color-brand NO se cambia: sidebar y tests dependen de él.
+   Convención: @apply en @layer components (ver DESIGN.md §8). */
 @theme {
     --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 
+    /* Brand (indigo) — escala completa */
+    --color-brand-50: #eef2ff;
+    --color-brand-100: #e0e7ff;
+    --color-brand-200: #c7d2fe;
+    --color-brand-300: #a5b4fc;
+    --color-brand-400: #818cf8;
+    --color-brand-500: #6366f1;
+    --color-brand-600: #4f46e5;
+    --color-brand-700: #4338ca;
+    --color-brand-800: #3730a3;
+    --color-brand-900: #312e81;
+
+    /* Neutral (slate) — escala completa */
+    --color-neutral-50: #f8fafc;
+    --color-neutral-100: #f1f5f9;
+    --color-neutral-200: #e2e8f0;
+    --color-neutral-300: #cbd5e1;
+    --color-neutral-400: #94a3b8;
+    --color-neutral-500: #64748b;
+    --color-neutral-600: #475569;
+    --color-neutral-700: #334155;
+    --color-neutral-800: #1e293b;
+    --color-neutral-900: #0f172a;
+
+    /* Success (green) */
+    --color-success-50: #f0fdf4;
+    --color-success-100: #dcfce7;
+    --color-success-500: #22c55e;
+    --color-success-600: #16a34a;
+    --color-success-700: #15803d;
+
+    /* Danger (red) */
+    --color-danger-50: #fef2f2;
+    --color-danger-100: #fee2e2;
+    --color-danger-500: #ef4444;
+    --color-danger-600: #dc2626;
+    --color-danger-700: #b91c1c;
+
+    /* Warning (amber) */
+    --color-warning-50: #fffbeb;
+    --color-warning-100: #fef3c7;
+    --color-warning-500: #f59e0b;
+    --color-warning-600: #d97706;
+    --color-warning-700: #b45309;
+
+    /* Aliases semánticos — los que usan los templates */
     --color-background: #f8fafc;
     --color-foreground: #0f172a;
     --color-surface: #ffffff;
     --color-border: #e2e8f0;
     --color-muted: #64748b;
-
     --color-brand: #4338ca;
     --color-success: #15803d;
     --color-danger: #b91c1c;
-    /* amber-700: registro 700 de la misma familia que brand (indigo-700),
-       success (green-700) y danger (red-700). Antes de definirlo, las 6
-       usadas en templates (text-warning, bg-warning/10, border-warning/40...)
-       generaban 0 bytes de CSS. */
     --color-warning: #b45309;
+    --color-success-surface: #f0fdf4;
+    --color-warning-surface: #fffbeb;
+    --color-danger-surface: #fef2f2;
 }
 
-/* Clases semánticas (capa components: las utilities de Tailwind v4 las
-   sobreescriben a nivel de llamada, ej. `btn-primary px-6`). Son el DRY de
-   patrones que hoy están duplicados inline en decenas de templates; migrar
-   los restantes queda como deuda (SPEC-sidebar-navegacion). */
+/* Clases semánticas (capa components, @apply). Las utilities de Tailwind v4
+   las sobreescriben a nivel de llamada. Focus ring incluido donde aplica. */
 @layer components {
+    /* ── Tipografía ── */
+    .heading-1 {
+        @apply text-2xl font-semibold tracking-tight text-foreground;
+    }
+
+    .heading-2 {
+        @apply text-lg font-medium text-foreground;
+    }
+
+    .heading-3 {
+        @apply text-base font-medium text-foreground;
+    }
+
+    .muted-text {
+        @apply text-sm text-muted;
+    }
+
+    .small-text {
+        @apply text-xs text-muted;
+    }
+
+    /* ── Enlaces ── */
+    .link {
+        @apply text-brand underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2;
+    }
+
+    /* ── Botones ── */
     .btn-primary {
-        @apply inline-flex items-center justify-center rounded bg-brand px-4 py-2 font-medium text-white hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2;
+        @apply inline-flex items-center justify-center rounded bg-brand px-4 py-2 font-medium text-white transition-colors duration-200 ease-out hover:bg-brand/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 motion-reduce:transition-none;
     }
 
     .btn-secondary {
-        @apply inline-flex items-center justify-center rounded border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-muted/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand;
+        @apply inline-flex items-center justify-center rounded border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground transition-colors duration-200 ease-out hover:bg-muted/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand motion-reduce:transition-none;
     }
 
     .btn-ghost {
-        @apply inline-flex items-center justify-center gap-2 rounded px-3 py-2 text-sm text-muted hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand;
+        @apply inline-flex items-center justify-center gap-2 rounded px-3 py-2 text-sm text-muted transition-colors duration-200 ease-out hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand motion-reduce:transition-none;
     }
 
+    .btn-danger {
+        @apply inline-flex items-center justify-center rounded border border-danger/40 bg-surface px-4 py-2 text-sm font-medium text-danger transition-colors duration-200 ease-out hover:bg-danger/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger motion-reduce:transition-none;
+    }
+
+    /* ── Superficies ── */
     .card {
         @apply rounded border border-border bg-surface p-4;
     }
 
+    .divider {
+        @apply border-t border-border;
+    }
+
+    /* ── Formularios ── */
     .input {
-        @apply rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand;
+        @apply rounded border border-border bg-surface px-3 py-2 text-foreground transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand motion-reduce:transition-none;
     }
 
-    .empty-state {
-        @apply rounded border border-border bg-surface px-4 py-3 text-sm text-muted;
+    .form-label {
+        @apply mb-1 block text-sm font-medium text-foreground;
     }
 
+    .form-help {
+        @apply mt-1 text-xs text-muted;
+    }
+
+    .form-error {
+        @apply mt-1 text-sm text-danger;
+    }
+
+    /* ── Estados ── */
+    .badge {
+        @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium;
+    }
+
+    .badge-success {
+        @apply bg-success-surface text-success;
+    }
+
+    .badge-warning {
+        @apply bg-warning-surface text-warning;
+    }
+
+    .badge-danger {
+        @apply bg-danger-surface text-danger;
+    }
+
+    .alert {
+        @apply rounded border px-4 py-3 text-sm;
+    }
+
+    .alert-success {
+        @apply border-success/30 bg-success-surface text-success;
+    }
+
+    .alert-warning {
+        @apply border-warning/30 bg-warning-surface text-foreground;
+    }
+
+    .alert-danger {
+        @apply border-danger/30 bg-danger-surface text-danger;
+    }
+
+    /* ── Tablas ── */
+    .table {
+        @apply w-full text-sm;
+    }
+
+    .table-header {
+        @apply border-b border-border text-start text-muted;
+    }
+
+    .table-row {
+        @apply border-b border-border last:border-b-0;
+    }
+
+    /* ── Navegación ── */
     .nav-link {
-        @apply flex items-center gap-2 rounded px-3 py-2.5 text-sm text-foreground hover:bg-muted/50 hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand;
+        @apply flex items-center gap-2 rounded px-3 py-2.5 text-sm text-foreground transition-colors duration-200 ease-out hover:bg-muted/50 hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand motion-reduce:transition-none;
     }
 
-    /* Definido DESPUÉS de .nav-link (misma capa, mismo specificity):
-       el orden de fuente decide y el estado activo gana. Usar siempre
-       junto a aria-current="page". */
     .nav-link-active {
         @apply bg-brand/10 font-semibold text-brand;
     }
 
     .nav-link-active:hover {
         @apply bg-brand/15;
+    }
+
+    /* ── Estados vacíos ── */
+    .empty-state {
+        @apply rounded border border-border bg-surface px-4 py-3 text-sm text-muted;
+    }
+
+    /* ── Modal ── */
+    .modal-overlay {
+        @apply fixed inset-0 z-50 bg-foreground/50;
+    }
+
+    .modal-panel {
+        @apply rounded-lg border border-border bg-surface p-6 shadow-lg;
+    }
+
+    /* ── Carga ── */
+    .skeleton {
+        @apply animate-pulse rounded bg-muted/20 motion-reduce:animate-none;
     }
 }
 
@@ -94,8 +243,6 @@
         width: 4rem;
     }
 
-    /* Labels ocultos solo visualmente: el link conserva su nombre
-       accesible cuando el sidebar está en modo iconos. */
     #sidebar-panel[data-collapsed="true"] .sidebar-label {
         position: absolute;
         width: 1px;
