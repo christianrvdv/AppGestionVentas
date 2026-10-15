@@ -4,78 +4,96 @@
 
 {% block body %}
     <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <h1 class="text-2xl font-semibold text-foreground">
-            {{ customer.name }}
-            <span class="ml-2 align-middle text-sm font-normal {{ customer.isActive ? 'text-muted' : 'text-danger' }}">
-                {{ customer.isActive ? 'Activo' : 'Inactivo' }}
-            </span>
-        </h1>
-        <div class="flex flex-wrap items-center gap-4">
-            <a href="{{ path('app_customer_edit', {id: customer.id}) }}" class="text-sm text-brand hover:underline">Editar</a>
-            <a href="{{ path('app_payment_new') }}" class="text-sm text-brand hover:underline">Registrar pago a cuenta</a>
-            <a href="{{ path('app_customer_index') }}" class="text-sm text-brand hover:underline">Volver al listado</a>
+        <div class="min-w-0">
+            <h1 class="heading-1">
+                {{ customer.name }}
+                <span class="badge {{ customer.isActive ? 'badge-success' : 'badge-danger' }} ms-2">
+                    {{ customer.isActive ? 'Activo' : 'Inactivo' }}
+                </span>
+            </h1>
+            <p class="muted-text mt-1">
+                {{ ([customer.email, customer.phone]|filter(v => v)|join(' · ')) ?: 'Sin email ni teléfono' }}
+            </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+            {# Única primaria de la vista (DESIGN.md §8.7). #}
+            <a href="{{ path('app_payment_new') }}" class="btn-primary">Registrar pago</a>
+            <a href="{{ path('app_customer_edit', {id: customer.id}) }}" class="btn-secondary">Editar</a>
+            <a href="{{ path('app_customer_index') }}" class="btn-ghost">Volver al listado</a>
         </div>
     </div>
 
-    <section aria-labelledby="titulos-saldo" class="mb-10">
-        <h2 id="titulos-saldo" class="mb-4 text-lg font-medium text-foreground">Saldo</h2>
-        <dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div class="rounded border border-border bg-surface p-4">
-                <dt class="text-sm text-muted">Total vendido</dt>
-                <dd id="cliente-total-vendido" class="mt-1 text-foreground">{{ total_sales|number_format(2, ',', '.') }}</dd>
+    <section aria-labelledby="titulos-datos">
+        <h2 id="titulos-datos" class="heading-2 mb-4">Datos</h2>
+        <dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div class="card">
+                <dt class="muted-text">Teléfono</dt>
+                <dd class="mt-1 text-foreground">{{ customer.phone ?? '—' }}</dd>
             </div>
-            <div class="rounded border border-border bg-surface p-4">
-                <dt class="text-sm text-muted">Total pagado</dt>
-                <dd id="cliente-total-pagado" class="mt-1 text-foreground">{{ total_paid|number_format(2, ',', '.') }}</dd>
+            <div class="card">
+                <dt class="muted-text">Email</dt>
+                <dd class="mt-1 text-foreground">{{ customer.email ?? '—' }}</dd>
             </div>
-            <div class="rounded border border-border bg-surface p-4">
-                <dt class="text-sm text-muted">Saldo pendiente</dt>
-                <dd id="cliente-saldo" class="mt-1 text-xl font-semibold text-foreground">{{ balance|number_format(2, ',', '.') }}</dd>
+            <div class="card">
+                <dt class="muted-text">Dirección</dt>
+                <dd class="mt-1 text-foreground">{{ customer.address ?? '—' }}</dd>
             </div>
-            <div class="rounded border border-border bg-surface p-4">
-                <dt class="text-sm text-muted">Anticipos (a cuenta)</dt>
-                <dd id="cliente-anticipos" class="mt-1 text-foreground">{{ advances|number_format(2, ',', '.') }}</dd>
+            <div class="card sm:col-span-2 lg:col-span-3">
+                <dt class="muted-text">Notas</dt>
+                <dd class="mt-1 text-foreground">{{ customer.notes ?? '—' }}</dd>
             </div>
         </dl>
-        <p class="mt-3 text-sm text-muted">
+    </section>
+
+    <hr class="divider my-8">
+
+    <section aria-labelledby="titulos-saldo">
+        <h2 id="titulos-saldo" class="heading-2 mb-4">Saldo</h2>
+        <dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div class="card">
+                <dt class="muted-text">Total vendido</dt>
+                <dd id="cliente-total-vendido" class="heading-1 mt-1 tabular-nums">
+                    {{ total_sales|number_format(2, ',', '.') }}
+                </dd>
+            </div>
+            <div class="card">
+                <dt class="muted-text">Total pagado</dt>
+                <dd id="cliente-total-pagado" class="heading-1 mt-1 tabular-nums">
+                    {{ total_paid|number_format(2, ',', '.') }}
+                </dd>
+            </div>
+            <div class="card">
+                <dt class="muted-text">Saldo pendiente</dt>
+                <dd id="cliente-saldo" class="heading-1 mt-1 tabular-nums">
+                    {{ balance|number_format(2, ',', '.') }}
+                </dd>
+            </div>
+            <div class="card">
+                <dt class="muted-text">Anticipos (a cuenta)</dt>
+                <dd id="cliente-anticipos" class="heading-1 mt-1 tabular-nums">
+                    {{ advances|number_format(2, ',', '.') }}
+                </dd>
+            </div>
+        </dl>
+        <p class="muted-text mt-3">
             El saldo pendiente es lo vendido (sin ventas anuladas) menos lo pagado: puede ser negativo si el cliente
             adelantó más de lo que compró. Los anticipos son la parte de lo pagado que todavía no cubre ninguna venta,
             y se aplican desde el detalle de cada venta.
         </p>
     </section>
 
-    <section aria-labelledby="titulos-datos" class="mb-10">
-        <h2 id="titulos-datos" class="mb-4 text-lg font-medium text-foreground">Datos</h2>
-        <dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <div class="rounded border border-border bg-surface p-4">
-                <dt class="text-sm text-muted">Teléfono</dt>
-                <dd class="mt-1 text-foreground">{{ customer.phone ?? '—' }}</dd>
-            </div>
-            <div class="rounded border border-border bg-surface p-4">
-                <dt class="text-sm text-muted">Email</dt>
-                <dd class="mt-1 text-foreground">{{ customer.email ?? '—' }}</dd>
-            </div>
-            <div class="rounded border border-border bg-surface p-4">
-                <dt class="text-sm text-muted">Dirección</dt>
-                <dd class="mt-1 text-foreground">{{ customer.address ?? '—' }}</dd>
-            </div>
-            <div class="rounded border border-border bg-surface p-4 sm:col-span-2 lg:col-span-3">
-                <dt class="text-sm text-muted">Notas</dt>
-                <dd class="mt-1 text-foreground">{{ customer.notes ?? '—' }}</dd>
-            </div>
-        </dl>
-    </section>
+    <hr class="divider my-8">
 
-    <section aria-labelledby="titulos-ventas" class="mb-10">
-        <h2 id="titulos-ventas" class="mb-4 text-lg font-medium text-foreground">Ventas</h2>
+    <section aria-labelledby="titulos-ventas">
+        <h2 id="titulos-ventas" class="heading-2 mb-4">Ventas</h2>
         {% if sales is empty %}
-            <p class="rounded border border-border bg-surface px-4 py-3 text-sm text-muted">Este cliente no tiene ventas registradas.</p>
+            <div class="empty-state">Este cliente no tiene ventas registradas.</div>
         {% else %}
             <div class="overflow-x-auto rounded border border-border bg-surface">
-                <table class="w-full text-sm">
+                <table class="table">
                     <caption class="sr-only">Ventas de {{ customer.name }}</caption>
                     <thead>
-                        <tr class="border-b border-border text-start text-muted">
+                        <tr class="table-header">
                             <th scope="col" class="px-4 py-2 text-start font-medium">Fecha</th>
                             <th scope="col" class="px-4 py-2 text-start font-medium">Venta</th>
                             <th scope="col" class="px-4 py-2 text-start font-medium">Inversión</th>
@@ -85,21 +103,18 @@
                     </thead>
                     <tbody>
                         {% for sale in sales %}
-                            <tr class="border-b border-border last:border-b-0">
+                            <tr class="table-row">
                                 <td class="px-4 py-2 text-foreground">{{ sale.saleDate|date('d/m/Y') }}</td>
                                 <td class="px-4 py-2">Venta {{ sale.id }}</td>
                                 <td class="px-4 py-2">
                                     <a
                                         href="{{ path('app_investment_show', {id: sale.investment.id}) }}"
-                                        class="text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                                        class="link"
                                     >{{ sale.investment.code }}</a>
                                 </td>
-                                <td class="px-4 py-2 text-end">{{ sale.totalAmount|number_format(2, ',', '.') }}</td>
+                                <td class="px-4 py-2 text-end tabular-nums">{{ sale.totalAmount|number_format(2, ',', '.') }}</td>
                                 <td class="px-4 py-2 text-end">
-                                    <a
-                                        href="{{ path('app_sale_show', {id: sale.id}) }}"
-                                        class="text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-                                    >Ver detalle</a>
+                                    <a href="{{ path('app_sale_show', {id: sale.id}) }}" class="link">Ver detalle</a>
                                 </td>
                             </tr>
                         {% endfor %}
@@ -109,16 +124,18 @@
         {% endif %}
     </section>
 
-    <section aria-labelledby="titulos-pagos" class="mb-10">
-        <h2 id="titulos-pagos" class="mb-4 text-lg font-medium text-foreground">Pagos</h2>
+    <hr class="divider my-8">
+
+    <section aria-labelledby="titulos-pagos">
+        <h2 id="titulos-pagos" class="heading-2 mb-4">Pagos</h2>
         {% if payments.items is empty %}
-            <p class="rounded border border-border bg-surface px-4 py-3 text-sm text-muted">Este cliente no tiene pagos registrados.</p>
+            <div class="empty-state">Este cliente no tiene pagos registrados.</div>
         {% else %}
             <div class="overflow-x-auto rounded border border-border bg-surface">
-                <table class="w-full text-sm">
+                <table class="table">
                     <caption class="sr-only">Pagos de {{ customer.name }}</caption>
                     <thead>
-                        <tr class="border-b border-border text-start text-muted">
+                        <tr class="table-header">
                             <th scope="col" class="px-4 py-2 text-start font-medium">Fecha</th>
                             <th scope="col" class="px-4 py-2 text-start font-medium">Venta</th>
                             <th scope="col" class="px-4 py-2 text-start font-medium">Método</th>
@@ -129,25 +146,25 @@
                     </thead>
                     <tbody>
                         {% for payment in payments %}
-                            <tr class="border-b border-border last:border-b-0">
+                            <tr class="table-row">
                                 <td class="px-4 py-2 text-foreground">{{ payment.paymentDate|date('d/m/Y') }}</td>
                                 <td class="px-4 py-2">
                                     {# sale_ids lo arma el controller en una sola
                                        consulta (el vínculo es M:N desde ADR-0018). #}
                                     {% set saleIds = sale_ids[payment.id] ?? [] %}
                                     {% if saleIds is empty %}
-                                        <span class="text-muted">A cuenta</span>
+                                        <span class="muted-text">A cuenta</span>
                                     {% else %}
                                         {% for saleId in saleIds %}
                                             <a
                                                 href="{{ path('app_sale_show', {id: saleId}) }}"
-                                                class="text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                                                class="link"
                                             >Venta {{ saleId }}</a>{{ not loop.last ? ', ' }}
                                         {% endfor %}
                                     {% endif %}
                                 </td>
                                 <td class="px-4 py-2">{{ methods[payment.method] ?? payment.method }}</td>
-                                <td class="px-4 py-2 text-end">{{ payment.amount|number_format(2, ',', '.') }}</td>
+                                <td class="px-4 py-2 text-end tabular-nums">{{ payment.amount|number_format(2, ',', '.') }}</td>
                                 <td class="px-4 py-2">{{ payment.reference ?? '—' }}</td>
                                 <td class="px-4 py-2">{{ payment.notes ?? '—' }}</td>
                             </tr>
