@@ -15,35 +15,8 @@
             class="sr-only rounded focus:not-sr-only focus:absolute focus:start-4 focus:top-4 focus:z-50 focus:bg-surface focus:px-4 focus:py-2 focus:text-brand focus:ring-2 focus:ring-brand"
         >Saltar al contenido principal</a>
 
-        {# Impersonation de tenant (Fase 6.2, ADR-0019): la marca vive en la
-           sesión, así que el banner se ve en TODAS las páginas. El nombre
-           sale de active_tenant, que durante el impersonation es el negocio
-           impersonado (TenantFilterListener lo deja en TenantContext). #}
-        {% if impersonation.isActive %}
-            <div
-                id="banner-impersonation"
-                role="status"
-                class="border-b border-warning/40 bg-warning/10 px-4 py-2 text-sm text-foreground"
-            >
-                <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2">
-                    <p>
-                        Viendo como <strong>{{ active_tenant.name ?? 'negocio desconocido' }}</strong>
-                        en modo soporte. Los cambios que hagas son reales para ese negocio.
-                    </p>
-                    <form
-                        id="form-impersonate-stop"
-                        method="post"
-                        action="{{ path('app_admin_impersonate_stop') }}"
-                    >
-                        <input type="hidden" name="_csrf_token" value="{{ csrf_token('admin_impersonate_stop') }}">
-                        <button
-                            type="submit"
-                            class="rounded border border-warning/50 px-3 py-1 font-medium text-foreground hover:bg-warning/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-                        >Salir del modo soporte</button>
-                    </form>
-                </div>
-            </div>
-        {% endif %}
+        {# Impersonation de tenant (Fase 6.2, ADR-0019): ver parcial. #}
+        {% include '_partials/_impersonation_banner.html.twig' %}
 
         {# Orquestador de layout (SPEC-sidebar-navegacion): sidebar + topbar
            solo existen autenticado; main es único para ambos caminos. El
