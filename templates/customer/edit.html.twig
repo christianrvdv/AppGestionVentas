@@ -3,13 +3,14 @@
 {% block title %}Editar {{ customer.name }} · Gestión de Negocio{% endblock %}
 
 {% block body %}
-    <div class="mx-auto w-full max-w-lg">
-        <h1 class="mb-6 text-2xl font-semibold text-foreground">Editar cliente {{ customer.name }}</h1>
-
-        {% include 'customer/_form.html.twig' with {form: form, submit_label: 'Guardar cambios'} %}
-
-        <p class="mt-4">
-            <a href="{{ path('app_customer_index') }}" class="text-sm text-brand hover:underline">Volver al listado</a>
+    <div class="mx-auto w-full max-w-2xl">
+        <h1 class="heading-1">Editar cliente</h1>
+        <p class="muted-text mb-6 mt-1">
+            Modifica los datos de {{ customer.name }}.
         </p>
+
+        <div class="card p-6">
+            {% include 'customer/_form.html.twig' with {form: form, submit_label: 'Guardar cambios'} %}
+        </div>
     </div>
 {% endblock %}
