@@ -3,13 +3,14 @@
 {% block title %}Nueva inversión · Gestión de Negocio{% endblock %}
 
 {% block body %}
-    <div class="mx-auto w-full max-w-lg">
-        <h1 class="mb-6 text-2xl font-semibold text-foreground">Nueva inversión</h1>
-        <p class="mb-6 text-sm text-muted">
-            Se creará en estado <strong>Abierta</strong>. Los ítems se agregan desde el detalle
-            y los totales se calculan al confirmar.
+    <div class="mx-auto w-full max-w-2xl">
+        <h1 class="heading-1">Nueva inversión</h1>
+        <p class="muted-text mb-6 mt-1">
+            Registra los datos básicos. Después podrás agregar ítems y gastos.
         </p>
 
-        {% include 'investment/_form.html.twig' with {form: form, submit_label: 'Crear inversión'} %}
+        <div class="card p-6">
+            {% include 'investment/_form.html.twig' with {form: form, submit_label: 'Crear inversión'} %}
+        </div>
     </div>
 {% endblock %}
