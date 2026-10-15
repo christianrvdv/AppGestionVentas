@@ -2,8 +2,8 @@
 
 /* Design tokens (Tailwind v4, CSS-first): única fuente de verdad de
    color/tipografía de la app. `background`, `foreground`, `surface`,
-   `border`, `muted`, `brand`, `success` y `danger` quedan registrados
-   como utilidades (bg-background, text-brand, ...). */
+   `border`, `muted`, `brand`, `success`, `danger` y `warning` quedan
+   registrados como utilidades (bg-background, text-brand, ...). */
 @theme {
     --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 
@@ -16,4 +16,105 @@
     --color-brand: #4338ca;
     --color-success: #15803d;
     --color-danger: #b91c1c;
+    /* amber-700: registro 700 de la misma familia que brand (indigo-700),
+       success (green-700) y danger (red-700). Antes de definirlo, las 6
+       usadas en templates (text-warning, bg-warning/10, border-warning/40...)
+       generaban 0 bytes de CSS. */
+    --color-warning: #b45309;
+}
+
+/* Clases semánticas (capa components: las utilities de Tailwind v4 las
+   sobreescriben a nivel de llamada, ej. `btn-primary px-6`). Son el DRY de
+   patrones que hoy están duplicados inline en decenas de templates; migrar
+   los restantes queda como deuda (SPEC-sidebar-navegacion). */
+@layer components {
+    .btn-primary {
+        @apply inline-flex items-center justify-center rounded bg-brand px-4 py-2 font-medium text-white hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2;
+    }
+
+    .btn-secondary {
+        @apply inline-flex items-center justify-center rounded border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-muted/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand;
+    }
+
+    .btn-ghost {
+        @apply rounded px-3 py-2 text-sm text-muted hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand;
+    }
+
+    .card {
+        @apply rounded border border-border bg-surface p-4;
+    }
+
+    .input {
+        @apply rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand;
+    }
+
+    .empty-state {
+        @apply rounded border border-border bg-surface px-4 py-3 text-sm text-muted;
+    }
+
+    .nav-link {
+        @apply flex items-center gap-2 rounded px-3 py-2.5 text-sm text-foreground hover:bg-muted/50 hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand;
+    }
+
+    /* Definido DESPUÉS de .nav-link (misma capa, mismo specificity):
+       el orden de fuente decide y el estado activo gana. Usar siempre
+       junto a aria-current="page". */
+    .nav-link-active {
+        @apply bg-brand/10 font-semibold text-brand;
+    }
+
+    .nav-link-active:hover {
+        @apply bg-brand/15;
+    }
+}
+
+/* Sidebar: estructura y estados por viewport/atributo. CSS sin capa a
+   propósito: gana a las utilities para las reglas dirigidas por
+   data-attributes, y el estado inicial de móvil (oculto) lo da el CSS,
+   sin flash de JavaScript. */
+@media (width < 48rem) {
+    #sidebar-panel {
+        position: fixed;
+        inset: 0 auto 0 0;
+        z-index: 40;
+        width: 16rem;
+        transform: translateX(-100%);
+        visibility: hidden;
+        transition: transform 200ms ease-out, visibility 200ms;
+    }
+
+    #sidebar-panel[data-open="true"] {
+        transform: translateX(0);
+        visibility: visible;
+    }
+}
+
+@media (width >= 48rem) {
+    #sidebar-panel[data-collapsed="true"] {
+        width: 4rem;
+    }
+
+    /* Labels ocultos solo visualmente: el link conserva su nombre
+       accesible cuando el sidebar está en modo iconos. */
+    #sidebar-panel[data-collapsed="true"] .sidebar-label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border-width: 0;
+    }
+
+    #sidebar-panel[data-collapsed="true"] .sidebar-group-label {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #sidebar-panel {
+        transition: none;
+    }
 }
