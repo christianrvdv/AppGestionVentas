@@ -1,49 +1,56 @@
-{% set input_class = 'w-full rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand' %}
-{% set label_class = 'mb-1 block text-sm font-medium text-foreground' %}
-{% set error_class = 'mt-1 text-sm text-danger' %}
-{% set submit_class = 'rounded bg-brand px-4 py-2 font-medium text-white hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2' %}
-
-{{ form_start(form, {attr: {class: 'space-y-5'}}) }}
+{# Formulario de producto. Mismo patrón que customer/_form.html.twig:
+   label + input + help + error, y fila de acciones tras un divider
+   (convención de Fase 2: settings/index y usd_rate/new). #}
+{{ form_start(form, {attr: {class: 'space-y-6'}}) }}
     <div>
-        <label for="{{ form.name.vars.id }}" class="{{ label_class }}">{{ form.name.vars.label }}</label>
-        {{ form_widget(form.name, {attr: {class: input_class}}) }}
+        <label for="{{ form.name.vars.id }}" class="form-label">{{ form.name.vars.label }}</label>
+        {{ form_widget(form.name, {attr: {class: 'input w-full'}}) }}
         {% for error in form.name.vars.errors %}
-            <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+            <p class="form-error" role="alert">{{ error.message }}</p>
         {% endfor %}
     </div>
 
     <div>
-        <label for="{{ form.sku.vars.id }}" class="{{ label_class }}">{{ form.sku.vars.label }}</label>
-        {{ form_widget(form.sku, {attr: {class: input_class}}) }}
+        <label for="{{ form.sku.vars.id }}" class="form-label">{{ form.sku.vars.label }}</label>
+        {{ form_widget(form.sku, {attr: {class: 'input w-full'}}) }}
         {% for error in form.sku.vars.errors %}
-            <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+            <p class="form-error" role="alert">{{ error.message }}</p>
         {% endfor %}
+        <p class="form-help">Opcional. No puede repetirse con otro producto del mismo negocio.</p>
     </div>
 
     <div>
-        <label for="{{ form.category.vars.id }}" class="{{ label_class }}">{{ form.category.vars.label }}</label>
-        {{ form_widget(form.category, {attr: {class: input_class}}) }}
+        <label for="{{ form.category.vars.id }}" class="form-label">{{ form.category.vars.label }}</label>
+        {{ form_widget(form.category, {attr: {class: 'input w-full'}}) }}
         {% for error in form.category.vars.errors %}
-            <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+            <p class="form-error" role="alert">{{ error.message }}</p>
         {% endfor %}
     </div>
 
     <div>
-        <label for="{{ form.defaultMarginPct.vars.id }}" class="{{ label_class }}">{{ form.defaultMarginPct.vars.label }}</label>
-        {{ form_widget(form.defaultMarginPct, {attr: {class: input_class, min: 0, max: 100, step: 0.01}}) }}
+        <label for="{{ form.defaultMarginPct.vars.id }}" class="form-label">{{ form.defaultMarginPct.vars.label }}</label>
+        {{ form_widget(form.defaultMarginPct, {attr: {class: 'input w-full', min: 0, max: 100, step: 0.01}}) }}
         {% for error in form.defaultMarginPct.vars.errors %}
-            <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
+            <p class="form-error" role="alert">{{ error.message }}</p>
         {% endfor %}
+        <p class="form-help">Margen sugerido al cargar una inversión. Si lo dejas vacío, se usa el de la configuración.</p>
     </div>
 
-    <div class="flex items-center gap-2">
+    <div class="flex items-start gap-3">
         {{ form_widget(form.isActive) }}
-        <label for="{{ form.isActive.vars.id }}" class="text-sm font-medium text-foreground">{{ form.isActive.vars.label }}</label>
-        {% for error in form.isActive.vars.errors %}
-            <p class="{{ error_class }}" role="alert">{{ error.message }}</p>
-        {% endfor %}
+        <div class="mt-1">
+            <label for="{{ form.isActive.vars.id }}" class="form-label">{{ form.isActive.vars.label }}</label>
+            {% for error in form.isActive.vars.errors %}
+                <p class="form-error" role="alert">{{ error.message }}</p>
+            {% endfor %}
+            <p class="form-help">Los productos inactivos no aparecen al cargar una inversión; su historial se conserva.</p>
+        </div>
     </div>
 
     {{ form_rest(form) }}
-    <button type="submit" class="{{ submit_class }}">{{ submit_label|default('Guardar') }}</button>
+    <hr class="divider">
+    <div class="flex gap-3">
+        <button type="submit" class="btn-primary">{{ submit_label|default('Guardar') }}</button>
+        <a href="{{ path('app_product_index') }}" class="btn-secondary">Cancelar</a>
+    </div>
 {{ form_end(form) }}
