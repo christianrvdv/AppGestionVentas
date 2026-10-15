@@ -4,52 +4,46 @@
 
 {% block body %}
     <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <h1 class="text-2xl font-semibold text-foreground">Clientes</h1>
-        <a
-            href="{{ path('app_customer_new') }}"
-            class="rounded bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
-        >Nuevo cliente</a>
+        <h1 class="heading-1">Clientes</h1>
+        <a href="{{ path('app_customer_new') }}" class="btn-primary">Nuevo cliente</a>
     </div>
 
     <form method="get" action="{{ path('app_customer_index') }}" class="mb-6 flex flex-wrap items-end gap-3">
-        <div class="min-w-64 flex-1">
-            <label for="q" class="mb-1 block text-sm font-medium text-foreground">Buscar por nombre, teléfono o email</label>
+        <div>
+            <label for="q" class="form-label">Buscar clientes</label>
             <input
                 type="search"
                 id="q"
                 name="q"
                 value="{{ q ?? '' }}"
                 maxlength="100"
-                class="w-full rounded border border-border bg-surface px-3 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                placeholder="Nombre, teléfono o email"
+                class="input"
             >
         </div>
-        <button
-            type="submit"
-            class="rounded border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-        >Buscar</button>
+        {# "Nuevo cliente" (cabecera) es la única primaria de la vista
+           (DESIGN.md §8.7); Buscar/Limpiar son acciones de la vista. #}
+        <button type="submit" class="btn-secondary">Buscar</button>
         {% if q %}
-            <a
-                href="{{ path('app_customer_index') }}"
-                class="px-2 py-2 text-sm text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-            >Limpiar filtro</a>
+            <a href="{{ path('app_customer_index') }}" class="btn-ghost">Limpiar filtro</a>
         {% endif %}
     </form>
 
     {% if pagination.items is empty %}
-        <p class="rounded border border-border bg-surface px-4 py-3 text-sm text-muted">
+        <div class="empty-state">
             {% if q %}
                 No hay clientes que coincidan con "{{ q }}".
             {% else %}
-                No hay clientes registrados.
-                <a href="{{ path('app_customer_new') }}" class="text-brand hover:underline">Crea el primero</a>.
+                Todavía no hay clientes.
+                <a href="{{ path('app_customer_new') }}" class="link">Crear el primero</a>.
             {% endif %}
-        </p>
+        </div>
     {% else %}
         <div class="overflow-x-auto rounded border border-border bg-surface">
-            <table class="w-full text-sm">
+            <table class="table">
                 <caption class="sr-only">Listado de clientes del negocio</caption>
                 <thead>
-                    <tr class="border-b border-border text-start text-muted">
+                    <tr class="table-header">
                         <th scope="col" class="px-4 py-2 text-start font-medium">Nombre</th>
                         <th scope="col" class="px-4 py-2 text-start font-medium">Teléfono</th>
                         <th scope="col" class="px-4 py-2 text-start font-medium">Email</th>
@@ -59,33 +53,35 @@
                 </thead>
                 <tbody>
                     {% for customer in pagination %}
-                        <tr class="border-b border-border last:border-b-0 {{ customer.isActive ? '' : 'text-muted' }}">
+                        <tr class="table-row {{ customer.isActive ? '' : 'text-muted' }}">
                             <td class="px-4 py-2 font-medium text-foreground">{{ customer.name }}</td>
-                            <td class="px-4 py-2">{{ customer.phone ?? '—' }}</td>
+                            <td class="px-4 py-2 tabular-nums">{{ customer.phone ?? '—' }}</td>
                             <td class="px-4 py-2">{{ customer.email ?? '—' }}</td>
-                            <td class="px-4 py-2">{{ customer.isActive ? 'Activo' : 'Inactivo' }}</td>
-                            <td class="px-4 py-2 text-end">
-                                <a
-                                    href="{{ path('app_customer_show', {id: customer.id}) }}"
-                                    class="text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-                                >Ver detalle</a>
-                                <a
-                                    href="{{ path('app_customer_edit', {id: customer.id}) }}"
-                                    class="ms-3 text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-                                >Editar</a>
-                                {% if customer.isActive %}
-                                    <form
-                                        method="post"
-                                        action="{{ path('app_customer_deactivate', {id: customer.id}) }}"
-                                        class="ms-3 inline"
-                                    >
-                                        <input type="hidden" name="_csrf_token" value="{{ csrf_token('submit') }}">
-                                        <button
-                                            type="submit"
-                                            class="text-danger hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-                                        >Desactivar</button>
-                                    </form>
-                                {% endif %}
+                            <td class="px-4 py-2">
+                                <span class="badge {{ customer.isActive ? 'badge-success' : 'badge-danger' }}">
+                                    {{ customer.isActive ? 'Activo' : 'Inactivo' }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-2">
+                                <div class="flex items-center justify-end gap-3">
+                                    <a
+                                        href="{{ path('app_customer_show', {id: customer.id}) }}"
+                                        class="link"
+                                    >Ver detalle</a>
+                                    <a
+                                        href="{{ path('app_customer_edit', {id: customer.id}) }}"
+                                        class="link"
+                                    >Editar</a>
+                                    {% if customer.isActive %}
+                                        <form
+                                            method="post"
+                                            action="{{ path('app_customer_deactivate', {id: customer.id}) }}"
+                                        >
+                                            <input type="hidden" name="_csrf_token" value="{{ csrf_token('submit') }}">
+                                            <button type="submit" class="link text-danger">Desactivar</button>
+                                        </form>
+                                    {% endif %}
+                                </div>
                             </td>
                         </tr>
                     {% endfor %}
