@@ -13,8 +13,9 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
  * Sin membresías ni tenant activo, el rol global debe poder:
  *   - loguearse y caer directo en el dashboard (ni /onboarding ni
  *     /select-tenant, que son caminos "de elegir negocio");
- *   - ver el dashboard con totales en cero (no hay negocio del cual
- *     consolidar);
+ *   - ver el dashboard que explica el estado vacío con un alert
+ *     (Fase 2: sin negocio no hay totales que consolidar, se evita
+ *     pintar cifras en cero que sugieran un negocio real);
  *   - abrir /admin, la única ruta blanqueada sin tenant.
  *
  * El espejo del contrato: una cuenta normal (ROLE_ADMIN de membresía,
@@ -49,12 +50,24 @@ final class SuperAdminFlowTest extends FunctionalTestCase
         $client->followRedirect();
         $this->assertResponseIsSuccessful();
 
-        // Totales en cero con el mismo shape que con negocio (la vista
-        // no rompe sin tenant) y sin tasa USD registrada.
-        $this->assertSelectorTextContains('section:has(#titulos-totales)', 'Total invertido');
-        $this->assertSelectorTextContains('section:has(#titulos-totales)', '0,00');
-        $this->assertSelectorTextContains('section:has(#titulos-totales)', 'Sin registrar');
-        $this->assertSelectorTextContains('#titulos-inversiones + *', 'No hay inversiones activas.');
+        // Fase 2: sin negocio activo la vista explica el estado vacío
+        // (ADR-0016) en vez de pintar totales en cero; el header con la
+        // tasa sin registrar se conserva y la vista no rompe sin tenant.
+        $crawler = $client->getCrawler();
+        $this->assertSelectorTextContains('h1', 'Dashboard');
+        $this->assertSelectorTextContains('[role="alert"]', 'Sin negocio activo');
+        $this->assertSelectorTextContains('[role="alert"]', 'no hay datos que consolidar');
+        $this->assertSelectorTextContains('.badge-warning', 'Tasa USD sin registrar');
+        $this->assertSame(
+            0,
+            $crawler->filter('#titulos-totales')->count(),
+            'Sin negocio activo no se pinta la sección de totales en cero.'
+        );
+        $this->assertSame(
+            0,
+            $crawler->filter('#titulos-inversiones')->count(),
+            'Sin negocio activo no se pinta la sección de inversiones.'
+        );
     }
 
     public function testSuperAdminCanOpenAdminPanelWithoutActiveBusiness(): void
